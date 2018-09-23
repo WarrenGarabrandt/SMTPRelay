@@ -249,7 +249,7 @@ namespace SMTPRelay
             {
                 try
                 {
-                    StaticConfiguration.LoadSettings();
+                    StaticConfiguration.LoadSettings(Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), "settings.inf"));
                 }
                 catch (Exception ex)
                 {

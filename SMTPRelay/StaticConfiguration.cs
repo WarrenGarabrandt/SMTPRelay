@@ -16,9 +16,13 @@ namespace SMTPRelay
             SmartHost = new SmartHost();
         }
 
-        public static void LoadSettings()
+        public static void LoadSettings(string path = null)
         {
-            using (TextReader r = File.OpenText("settings.inf"))
+            if (path == null)
+            {
+                path = "settings.inf";
+            }
+            using (TextReader r = File.OpenText(path))
             {
                 string str = r.ReadLine();
                 if (str.StartsWith("HOSTNAME="))
