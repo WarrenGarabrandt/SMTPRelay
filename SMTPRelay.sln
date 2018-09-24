@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.27703.2035
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMTPRelay", "SMTPRelay\SMTPRelay.csproj", "{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigTool", "ConfigTool\ConfigTool.csproj", "{B58AB8DA-B448-4852-B4E6-3840364D347A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B58AB8DA-B448-4852-B4E6-3840364D347A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B58AB8DA-B448-4852-B4E6-3840364D347A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B58AB8DA-B448-4852-B4E6-3840364D347A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B58AB8DA-B448-4852-B4E6-3840364D347A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
