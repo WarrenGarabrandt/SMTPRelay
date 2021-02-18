@@ -76,6 +76,19 @@ namespace SMTPRelay
                     throw new Exception("PASSWORD= line expected on line 5");
                 }
                 str = r.ReadLine();
+                if (str.StartsWith("SENDER="))
+                {
+                    str = str.Substring(7);
+                    if (string.IsNullOrWhiteSpace(str))
+                    {
+                        SenderOverride = null;
+                    }
+                    else
+                    {
+                        SenderOverride = str;
+                    }
+                    str = r.ReadLine();
+                }
                 int epCount = 0;
                 if (str.StartsWith("ENDPOINTS="))
                 {
@@ -88,6 +101,10 @@ namespace SMTPRelay
                 }
 
                 int linenum = 6;
+                if (!string.IsNullOrWhiteSpace(SenderOverride))
+                {
+                    linenum++;
+                }
 
                 for (int i = 0; i < epCount; ++i)
                 {
@@ -124,6 +141,10 @@ namespace SMTPRelay
         public static SmartHost SmartHost { get; private set; }
         // server name to report to clients/servers
         public static string ThisHostName { get; private set; }
+        /// <summary>
+        /// The SMTP email address to send FROM. If this is blank, the original sender will be used as specified by the SMTP conversation
+        /// </summary>
+        public static string SenderOverride { get; private set; }
         /// <summary>
         /// How long max in milliseconds to wait for client to send a message. If client stops transmitting for this long in any state, the connection is reset.
         /// </summary>

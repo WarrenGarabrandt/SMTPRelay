@@ -205,6 +205,10 @@ namespace SMTPRelay
                                 {
                                     MessageMailFrom = str.Substring(10).Trim();
                                     state = State.ConnectToSmartHost;
+                                    if (!string.IsNullOrWhiteSpace(StaticConfiguration.SenderOverride))
+                                    {
+                                        MessageMailFrom = StaticConfiguration.SenderOverride;
+                                    }
                                 }
                                 else if (str.StartsWith("QUIT"))
                                 {
