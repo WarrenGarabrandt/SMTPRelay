@@ -133,6 +133,13 @@ namespace SMTPRelay
                     }
                     EndPoints.Add(ep);
                 }
+
+                str = r.ReadLine();
+                if (!string.IsNullOrWhiteSpace(str) && str.StartsWith("Database="))
+                {
+                    str = str.Substring(9);
+                    DatabasePath = str;
+                }
             }
         }
         // local IP end points (address and port) to listen for client connection on.
@@ -157,6 +164,10 @@ namespace SMTPRelay
         /// How long max to wait in milliseconds while attempting to connect to smart host. This has to be shorter than MaxClientTimeoutms or the converstaion will abort while waiting for smart host connection
         /// </summary>
         public const int MaxHostTimeoutms = 30000;
+        /// <summary>
+        /// Location on the file system where the SQLite database is stored.
+        /// </summary>
+        public static string DatabasePath { get; private set; }
 
     }
 }

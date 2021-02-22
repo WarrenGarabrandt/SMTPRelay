@@ -245,6 +245,7 @@ namespace SMTPRelay
         {
             List<TcpListener> Listeners = new List<TcpListener>();
             List<SmtpClient> Clients = new List<SmtpClient>();
+            SMTPSender Sender;
             try
             {
                 try
@@ -254,6 +255,18 @@ namespace SMTPRelay
                 catch (Exception ex)
                 {
                     throw new Exception(string.Format("Could not load settings. Inner Exception: {0}", ex.Message));
+                }
+                try
+                {
+                    Sender = new SMTPSender();
+                }
+                catch (Exception ex)
+                {
+                    worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Failed to start. {0}", ex.Message)
+                    });
+                    return;
                 }
                 foreach (var ep in StaticConfiguration.EndPoints)
                 {
