@@ -15,11 +15,11 @@ namespace SMTPRelay
             // Basic email header info.
             @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER);",
             // Stores email body in chunks.
-            @"CREATE TABLE MailChunk (EnvelopeID NOT NULL INTEGER, ChunkID NOT NULL INTEGER, Chunk TEXT);",
+            @"CREATE TABLE MailChunk (EnvelopeID INTEGER NOT NULL, ChunkID INTEGER NOT NULL, Chunk TEXT);",
             // Queue of items to be transmitted.
-            @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID NOT NULL INTEGER, Recipient TEXT, State INTEGER, AttemptCount INTEGER, RetryAfter TEXT);",
+            @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, Recipient TEXT, State INTEGER, AttemptCount INTEGER, RetryAfter TEXT);",
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
-            @"CREATE TABLE SendLog (EnvelopeID NOT NULL INTEGER, Recipient TEXT, WhenSent TEXT, Results TEXT, AttemptCount INTEGER);"
+            @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, Recipient TEXT, WhenSent TEXT, Results TEXT, AttemptCount INTEGER);"
         };
         
         public static string System_Get_Version = @"SELECT Value FROM System WHERE Category = $Category AND Setting = $Setting;";

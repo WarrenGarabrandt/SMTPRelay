@@ -245,7 +245,10 @@ namespace SMTPRelay
         {
             List<TcpListener> Listeners = new List<TcpListener>();
             List<SmtpServer> Servers = new List<SmtpServer>();
+            List<SmtpServer> DoneServers = new List<SmtpServer>();
             List<SmtpClient> Clients = new List<SmtpClient>();
+            List<SmtpClient> DoneClients = new List<SmtpClient>();
+            Stopwatch CheckQueue = new Stopwatch();
             try
             {
                 try
@@ -262,7 +265,7 @@ namespace SMTPRelay
                     {
                         worker.ReportProgress(0, new WorkerReport()
                         {
-                            LogError = string.Format("Failed to start. No database specified. Add a 'Database=' line to the config file.")
+                            LogError = string.Format("Failed to start. No database specified. Add a 'DATABASE=' line to the config file.")
                         });
                     }
                     if (!File.Exists(StaticConfiguration.DatabasePath))
@@ -318,6 +321,7 @@ namespace SMTPRelay
                     ServiceState = ServiceState.SERVICE_RUNNING,
                     SetServiceState = true
                 });
+                CheckQueue.Start();
                 while (!worker.CancellationPending)
                 {
                     Thread.Sleep(10);
@@ -345,7 +349,73 @@ namespace SMTPRelay
                             }
                         }
                     }
-                    foreach (var c in Servers)
+                    foreach (var s in Servers)
+                    {
+                        if (s.Messages.Count != 0)
+                        {
+                            var m = s.Messages.Dequeue();
+                            switch (m.Priority)
+                            {
+                                case MessagePriority.Information:
+                                    worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogMessage = m.Message
+                                    });
+                                    break;
+                                case MessagePriority.Warning:
+                                    worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogWarning = m.Message
+                                    });
+                                    break;
+                                case MessagePriority.Error:
+                                    worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogError = m.Message
+                                    });
+                                    break;
+                            }
+                        }
+                        if (s.Done)
+                        {
+                            while (s.Messages.Count > 0)
+                            {
+                                var m = s.Messages.Dequeue();
+                                switch (m.Priority)
+                                {
+                                    case MessagePriority.Information:
+                                        worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogMessage = m.Message
+                                        });
+                                        break;
+                                    case MessagePriority.Warning:
+                                        worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogWarning = m.Message
+                                        });
+                                        break;
+                                    case MessagePriority.Error:
+                                        worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = m.Message
+                                        });
+                                        break;
+                                }
+                            }
+                            DoneServers.Add(s);
+                        }
+                    }
+                    if (DoneServers.Count > 0)
+                    {
+                        foreach (var s in DoneServers)
+                        {
+                            Servers.Remove(s);
+                            s.Dispose();
+                        }
+                        DoneServers.Clear();
+                    }
+                    foreach (var c in Clients)
                     {
                         if (c.Messages.Count != 0)
                         {
@@ -399,10 +469,22 @@ namespace SMTPRelay
                                         break;
                                 }
                             }
-                            Servers.Remove(c);
-                            c.Dispose();
-                            break;
+                            DoneClients.Add(c);
                         }
+                    }
+                    if (DoneClients.Count > 0)
+                    {
+                        foreach (var c in DoneClients)
+                        {
+                            Clients.Remove(c);
+                            c.Dispose();
+                        }
+                        DoneClients.Clear();
+                    }
+                    if (CheckQueue.ElapsedMilliseconds > StaticConfiguration.CheckOutboundQueueIntervalms)
+                    {
+                        throw new NotImplementedException();
+                        CheckQueue.Restart();
                     }
                 }
             }
@@ -441,7 +523,7 @@ namespace SMTPRelay
                 {
                     try
                     {
-
+                        c.Dispose();
                     }
                     catch { }
                 }

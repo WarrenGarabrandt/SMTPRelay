@@ -135,7 +135,7 @@ namespace SMTPRelay
                 }
 
                 str = r.ReadLine();
-                if (!string.IsNullOrWhiteSpace(str) && str.StartsWith("Database="))
+                if (!string.IsNullOrWhiteSpace(str) && str.StartsWith("DATABASE="))
                 {
                     str = str.Substring(9);
                     DatabasePath = str;
@@ -164,6 +164,8 @@ namespace SMTPRelay
         /// How long max to wait in milliseconds while attempting to connect to smart host. This has to be shorter than MaxClientTimeoutms or the converstaion will abort while waiting for smart host connection
         /// </summary>
         public const int MaxHostTimeoutms = 30000;
+
+        public const int CheckOutboundQueueIntervalms = 15000;
         /// <summary>
         /// Location on the file system where the SQLite database is stored.
         /// </summary>

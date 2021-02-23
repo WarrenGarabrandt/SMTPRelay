@@ -81,6 +81,51 @@ namespace SMTPRelay
             }
         }
 
+        /// <summary>
+        /// Resets any SendQueue items that are checked out for processing.
+        /// </summary>
+        public static void ResetSendQueueItems()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Gets SendQueue items that are ready to check out
+        /// </summary>
+        /// <returns></returns>
+        public static SendQueue[] GetReadySendQueueItems(int max)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Checks out a SendQueue item so it can be processed
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        public static SendQueue CheckoutSendQueueItem(SendQueue item)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Checks in a SendQueue item
+        /// </summary>
+        /// <param name="item"></param>
+        public static void CheckInSendQueueItem(SendQueue item)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Removes a SendQueue item that has been completed (or has permanently failed)
+        /// </summary>
+        /// <param name="item"></param>
+        public static void RemoveSendQueueItem(SendQueue item)
+        {
+            throw new NotImplementedException();
+        }
+
         private static string RunValueQuery(SQLiteConnection conn, string query, List<KeyValuePair<string, string>> parms)
         {
             string result = null;
@@ -110,5 +155,6 @@ namespace SMTPRelay
             }
             command.ExecuteNonQuery();
         }
+
     }
 }
