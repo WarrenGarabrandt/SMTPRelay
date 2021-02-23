@@ -68,16 +68,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Models\EndPoint.cs" />
+    <Compile Include="Models\Envelope.cs" />
+    <Compile Include="Models\MailChunk.cs" />
+    <Compile Include="Models\MessagePriority.cs" />
+    <Compile Include="Models\SendLog.cs" />
+    <Compile Include="Models\SendQueue.cs" />
     <Compile Include="Models\ServiceControl.cs" />
     <Compile Include="Models\SmartHost.cs" />
     <Compile Include="Models\SmtpCredentials.cs" />
+    <Compile Include="Models\StatusMessage.cs" />
     <Compile Include="Models\WorkerStatus.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SmtpClient.cs" />
+    <Compile Include="SmtpServer.cs" />
     <Compile Include="SmtpRelayService.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="SMTPSender.cs" />
+    <Compile Include="SQLiteDB.cs" />
     <Compile Include="SQLiteStrings.cs" />
     <Compile Include="StaticConfiguration.cs" />
     <Compile Include="WindowsServiceInstaller.cs">

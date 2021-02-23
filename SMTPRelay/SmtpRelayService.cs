@@ -95,7 +95,7 @@ namespace SMTPRelay
                 ServiceBase.Run(new SmtpRelayService());
             }
         }
-        
+
         /// <summary>
         /// Dispose of objects that need it here.
         /// </summary>
@@ -244,8 +244,8 @@ namespace SMTPRelay
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
             List<TcpListener> Listeners = new List<TcpListener>();
+            List<SmtpServer> Servers = new List<SmtpServer>();
             List<SmtpClient> Clients = new List<SmtpClient>();
-            SMTPSender Sender;
             try
             {
                 try
@@ -258,7 +258,28 @@ namespace SMTPRelay
                 }
                 try
                 {
-                    Sender = new SMTPSender();
+                    if (string.IsNullOrWhiteSpace(StaticConfiguration.DatabasePath))
+                    {
+                        worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogError = string.Format("Failed to start. No database specified. Add a 'Database=' line to the config file.")
+                        });
+                    }
+                    if (!File.Exists(StaticConfiguration.DatabasePath))
+                    {
+                        WorkerReport FormatReport = SQLiteDB.FormatNewDatabase();
+                        if (FormatReport != null)
+                        {
+                            worker.ReportProgress(0, FormatReport);
+                            return;
+                        }
+                    }
+                    WorkerReport InitReport = SQLiteDB.InitDatabase();
+                    if (InitReport != null)
+                    {
+                        worker.ReportProgress(0, InitReport);
+                        return;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -306,8 +327,8 @@ namespace SMTPRelay
                         {
                             try
                             {
-                                SmtpClient client = new SmtpClient(l.AcceptTcpClient());
-                                Clients.Add(client);
+                                SmtpServer client = new SmtpServer(l.AcceptTcpClient());
+                                Servers.Add(client);
                                 worker.ReportProgress(0, new WorkerReport()
                                 {
                                     LogMessage = "Accepted SMTP Connection.",
@@ -324,26 +345,26 @@ namespace SMTPRelay
                             }
                         }
                     }
-                    foreach (var c in Clients)
+                    foreach (var c in Servers)
                     {
                         if (c.Messages.Count != 0)
                         {
                             var m = c.Messages.Dequeue();
                             switch (m.Priority)
                             {
-                                case SmtpClient.MessagePriority.Information:
+                                case MessagePriority.Information:
                                     worker.ReportProgress(0, new WorkerReport()
                                     {
                                         LogMessage = m.Message
                                     });
                                     break;
-                                case SmtpClient.MessagePriority.Warning:
+                                case MessagePriority.Warning:
                                     worker.ReportProgress(0, new WorkerReport()
                                     {
                                         LogWarning = m.Message
                                     });
                                     break;
-                                case SmtpClient.MessagePriority.Error:
+                                case MessagePriority.Error:
                                     worker.ReportProgress(0, new WorkerReport()
                                     {
                                         LogError = m.Message
@@ -358,19 +379,19 @@ namespace SMTPRelay
                                 var m = c.Messages.Dequeue();
                                 switch (m.Priority)
                                 {
-                                    case SmtpClient.MessagePriority.Information:
+                                    case MessagePriority.Information:
                                         worker.ReportProgress(0, new WorkerReport()
                                         {
                                             LogMessage = m.Message
                                         });
                                         break;
-                                    case SmtpClient.MessagePriority.Warning:
+                                    case MessagePriority.Warning:
                                         worker.ReportProgress(0, new WorkerReport()
                                         {
                                             LogWarning = m.Message
                                         });
                                         break;
-                                    case SmtpClient.MessagePriority.Error:
+                                    case MessagePriority.Error:
                                         worker.ReportProgress(0, new WorkerReport()
                                         {
                                             LogError = m.Message
@@ -378,7 +399,7 @@ namespace SMTPRelay
                                         break;
                                 }
                             }
-                            Clients.Remove(c);
+                            Servers.Remove(c);
                             c.Dispose();
                             break;
                         }
@@ -407,15 +428,23 @@ namespace SMTPRelay
                     catch { }
                 }
                 Listeners.Clear();
+                foreach (var s in Servers)
+                {
+                    try
+                    {
+                        s.Dispose();
+                    }
+                    catch { }
+                }
+                Servers.Clear();
                 foreach (var c in Clients)
                 {
                     try
                     {
-                        c.Dispose();
+
                     }
                     catch { }
                 }
-                Clients.Clear();
             }
         }
         
@@ -486,5 +515,6 @@ namespace SMTPRelay
                 }
             }
         }
+        
     }
 }
