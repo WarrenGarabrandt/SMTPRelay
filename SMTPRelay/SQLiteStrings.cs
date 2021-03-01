@@ -27,12 +27,15 @@ namespace SMTPRelay
         public static string System_Set_Version = @"INSERT INTO System(Category, Setting, Value) VALUES ($Category, $Setting, $Value);";
 
         public static string SendQueue_Get_Ready_Items = @"SELECT SendQueueID, EnvelopeID, Recipient, State, AttemptCount, RetryAfter FROM SendQueue WHERE State = 1 AND datetime('now') >= datetime(RetryAfter) ORDER BY RetryAfter;";
+        public static string SendQueue_Reset_Busy_Items = @"UPDATE SendQueue SET State = 1 WHERE State = 2;";
+        public static string SendQueue_Update_By_ID = @"UPDATE SendQueue SET State = $State, AttemptCount = $AttemptCount, RetryAfter = $RetryAfter WHERE SendQueueID = $SendQueueID;";
+        public static string SendQueue_Update_By_ID_With_Delay = @"UPDATE SendQueue SET State = $State, AttemptCount = $AttemptCount, RetryAfter = datetime('now', $delay) WHERE SendQueueID = $SendQueueID;";
         public static string SendQueue_Delete_By_ID = @"DELETE FROM SendQueue WHERE SendQueueID = $SendQueueID;";
 
         public static string Envelope_Get_By_ID = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
 
-        public static string SendLog_Insert = @"INSERT INTO SendLog(EnvelopeID, Recipient, WhenSent, Results, AttemptCount) VALUES $EnvelopeID, $Recipient, $WhenSent, $Results, $AttemptCount;";
+        public static string SendLog_Insert = @"INSERT INTO SendLog(EnvelopeID, Recipient, WhenSent, Results, AttemptCount) VALUES $EnvelopeID, $Recipient, datetime('now'), $Results, $AttemptCount;";
 
-        public static string MailChunk_Get_ChunkCount_For_Envelope = @"SELECT COUNT(*) FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND Chunk IS NOT NULL;";
+        public static string MailChunk_Get_ChunkCount_For_Envelope = @"SELECT ChunkID FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND Chunk IS NOT NULL ORDER BY ChunkID;";
     }
 }

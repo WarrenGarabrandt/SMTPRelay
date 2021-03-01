@@ -284,6 +284,8 @@ namespace SMTPRelay
                         worker.ReportProgress(0, InitReport);
                         return;
                     }
+                    // in case there was a failure or forced stop, reset any SendQueue items that were in progress.
+                    SQLiteDB.SendQueueResetBusyItems();
                 }
                 catch (Exception ex)
                 {
@@ -499,9 +501,12 @@ namespace SMTPRelay
                         }
                         try
                         {
-                            List<SendQueue> ReadyQueue = SQLiteDB.GetSendQueueReadyItems(clientsAvail);
+                            List<SendQueue> ReadyQueue = SQLiteDB.SendQueueGetReadyItems(clientsAvail);
                             foreach (var q in ReadyQueue)
                             {
+                                q.State = SendQueue.SendQueueStates.Busy;
+                                q.AttemptCount++;
+                                SQLiteDB.SendQueueUpdate(q);
                                 SmtpClient newClient = new SmtpClient(q);
                                 Clients.Add(newClient);
                             }
