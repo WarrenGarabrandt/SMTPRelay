@@ -93,9 +93,39 @@ namespace SMTPRelay
         /// Gets SendQueue items that are ready to check out
         /// </summary>
         /// <returns></returns>
-        public static SendQueue[] GetReadySendQueueItems(int max)
+        public static List<SendQueue> GetReadySendQueueItems(int max = -1)
         {
-            throw new NotImplementedException();
+            List<SendQueue> results = new List<SendQueue>();
+            if (max == 0)
+            {
+                return results;
+            }
+            using (var conn = new SQLiteConnection(DatabaseConnectionString))
+            {
+                conn.Open();
+                var cmd = conn.CreateCommand();
+                cmd.CommandText = SQLiteStrings.SendQueue_Get_Ready_Items;
+                using (var reader = cmd.ExecuteReader())
+                {
+                    int count = 0;
+                    while (reader.Read())
+                    { 
+                        count++;
+                        if (max < 0 || count <= max)
+                        {
+                            SendQueue item = new SendQueue();
+                            item.SendQueueID = reader.GetInt64(0);
+                            item.EnvelopeID = reader.GetInt64(1);
+                            item.Recipient = reader.GetString(2);
+                            item.State = reader.GetInt64(3);
+                            item.AttemptCount = reader.GetInt64(4);
+                            item.RetryAfter = reader.GetDateTime(5);
+                            results.Add(item);
+                        }
+                    }
+                }
+            }
+            return results;
         }
 
         /// <summary>

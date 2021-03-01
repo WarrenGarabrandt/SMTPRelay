@@ -164,7 +164,13 @@ namespace SMTPRelay
         /// How long max to wait in milliseconds while attempting to connect to smart host. This has to be shorter than MaxClientTimeoutms or the converstaion will abort while waiting for smart host connection
         /// </summary>
         public const int MaxHostTimeoutms = 30000;
-
+        /// <summary>
+        /// Maximum number of clients sending simultaneously.
+        /// </summary>
+        public const int MaxSimultaneousSendClients = 10;
+        /// <summary>
+        /// How often in milliseconds to check for new items ready to be sent (state = 1 and RetryAfter is now or in the past)
+        /// </summary>
         public const int CheckOutboundQueueIntervalms = 15000;
         /// <summary>
         /// Location on the file system where the SQLite database is stored.

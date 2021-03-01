@@ -261,6 +261,7 @@ namespace SMTPRelay
                 }
                 try
                 {
+                    // Verify that we have a valid database specified. If it doesn't exist, create and initialize it.
                     if (string.IsNullOrWhiteSpace(StaticConfiguration.DatabasePath))
                     {
                         worker.ReportProgress(0, new WorkerReport()
@@ -292,6 +293,7 @@ namespace SMTPRelay
                     });
                     return;
                 }
+                // start listeners for incoming emails
                 foreach (var ep in StaticConfiguration.EndPoints)
                 {
                     try
@@ -324,13 +326,15 @@ namespace SMTPRelay
                 CheckQueue.Start();
                 while (!worker.CancellationPending)
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(50);
+                    // Check each listener to see if a new connection is pending
                     foreach (var l in Listeners)
                     {
                         if (l.Pending())
                         {
                             try
                             {
+                                // spawn an smtp server to handle this incoming connection and receive email
                                 SmtpServer client = new SmtpServer(l.AcceptTcpClient());
                                 Servers.Add(client);
                                 worker.ReportProgress(0, new WorkerReport()
@@ -349,6 +353,7 @@ namespace SMTPRelay
                             }
                         }
                     }
+                    // check each server for messages. If the server is done, mark it for cleanup
                     foreach (var s in Servers)
                     {
                         if (s.Messages.Count != 0)
@@ -406,6 +411,7 @@ namespace SMTPRelay
                             DoneServers.Add(s);
                         }
                     }
+                    // Cleanup each server that was marked as done
                     if (DoneServers.Count > 0)
                     {
                         foreach (var s in DoneServers)
@@ -415,6 +421,7 @@ namespace SMTPRelay
                         }
                         DoneServers.Clear();
                     }
+                    // Check outgoing smtp clients for messages. If the client is done, mark it for cleanup
                     foreach (var c in Clients)
                     {
                         if (c.Messages.Count != 0)
@@ -472,6 +479,7 @@ namespace SMTPRelay
                             DoneClients.Add(c);
                         }
                     }
+                    // cleanup clients that were marked as done.
                     if (DoneClients.Count > 0)
                     {
                         foreach (var c in DoneClients)
@@ -483,8 +491,32 @@ namespace SMTPRelay
                     }
                     if (CheckQueue.ElapsedMilliseconds > StaticConfiguration.CheckOutboundQueueIntervalms)
                     {
-                        throw new NotImplementedException();
-                        CheckQueue.Restart();
+                        // query the database for any outbound emails that are ready to send.
+                        int clientsAvail = StaticConfiguration.MaxSimultaneousSendClients - Clients.Count;
+                        if (clientsAvail < 0)
+                        {
+                            clientsAvail = 0;
+                        }
+                        try
+                        {
+                            List<SendQueue> ReadyQueue = SQLiteDB.GetReadySendQueueItems(clientsAvail);
+                            foreach (var q in ReadyQueue)
+                            {
+                                SmtpClient newClient = new SmtpClient(q);
+                                Clients.Add(newClient);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            worker.ReportProgress(0, new WorkerReport()
+                            {
+                                LogError = string.Format("Unable to query SendQueue. Exception: {0}", ex.Message)
+                            });
+                        }
+                        if (clientsAvail != 0)
+                        {
+                            CheckQueue.Restart();
+                        }
                     }
                 }
             }
