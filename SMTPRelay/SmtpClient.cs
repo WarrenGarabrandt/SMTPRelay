@@ -40,7 +40,9 @@ namespace SMTPRelay
             HostConnected,          // we're connected. Send Mail From whenver you are ready
             HostConnectionFailure,  // connection to smart host has failed.
             HostServiceUnavailable, // got a 521/421. Tell client unavailable, and hang up.
-            HostAuthenticationFail,  // Authentication has failed.
+            //HostAuthenticationFail,  // Authentication has failed.
+            SendMailFrom,
+
             Quitting                // Send QUIT. Wiating for reply
         }
 
@@ -86,8 +88,6 @@ namespace SMTPRelay
 
             // establish a connection to the smart host and log in
             Stopwatch hostTimeout = new Stopwatch();
-            Stopwatch EndOfCallTimer = new Stopwatch();
-            EndOfCallTimer.Reset();
             // Connection to smart host for when we need that.
             TcpClient SmartHost = null;
             // net stream for the smart host, when we need that.
@@ -100,12 +100,13 @@ namespace SMTPRelay
             byte[] shRead = new byte[4096];
             int shReadPos = 0;
 
-            bool ConnectionEstablished = false;
+            bool SendFinished = false;
 
             try
             {
+                string str = null;  // we're going to do a lot of buffer to string converstion, so reuse this string
 
-                while (!worker.CancellationPending && !ConnectionEstablished)
+                while (!worker.CancellationPending && !SendFinished)
                 {
                     System.Threading.Thread.Sleep(10);
                     // read from buffers if data is available. We don't handle the data here, just receive it until buffer for now.
@@ -115,7 +116,6 @@ namespace SMTPRelay
                         shReadPos += len;   // add in the number of bytes we just read to our position of the next character to read at.
                     }
                     // state machin that handles the converstaion, and sending of previously read buffers of data.
-                    string str = null;  // we're going to do a lot of buffer to string converstion, so reuse this string
                     
                     // we keep coming here until host is ready to rock.
                     // or we fail and send a fatal error to client.
@@ -319,7 +319,12 @@ namespace SMTPRelay
                             }
                             return;
                         case HostState.HostConnected:
-                            ConnectionEstablished = true;
+                            hState = HostState.SendMailFrom;
+                            break;
+                        case HostState.SendMailTo:
+                            str = "MAIL TO: \r\n";
+                            WriteStringToStream(str, shStream);
+                            hState = HostState.WaitAuthUserPrompt;
                             break;
                     }
                 }
@@ -335,7 +340,6 @@ namespace SMTPRelay
                     return;
                 }
 
-                // start a new mail item
 
                 // specify the recipient
 
@@ -346,17 +350,6 @@ namespace SMTPRelay
                 // If error at any point, abort the connection and log the error. Mark the SendQueue item for retry
 
                 // If successfully sent, get the receipt and log success. Delete the SendQueue item.
-
-
-
-
-
-
-
-
-
-
-
 
             }
             catch (Exception ex)
