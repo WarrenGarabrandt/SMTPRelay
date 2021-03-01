@@ -27,6 +27,12 @@ namespace SMTPRelay
         public static string System_Set_Version = @"INSERT INTO System(Category, Setting, Value) VALUES ($Category, $Setting, $Value);";
 
         public static string SendQueue_Get_Ready_Items = @"SELECT SendQueueID, EnvelopeID, Recipient, State, AttemptCount, RetryAfter FROM SendQueue WHERE State = 1 AND datetime('now') >= datetime(RetryAfter) ORDER BY RetryAfter;";
+        public static string SendQueue_Delete_By_ID = @"DELETE FROM SendQueue WHERE SendQueueID = $SendQueueID;";
 
+        public static string Envelope_Get_By_ID = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
+
+        public static string SendLog_Insert = @"INSERT INTO SendLog(EnvelopeID, Recipient, WhenSent, Results, AttemptCount) VALUES $EnvelopeID, $Recipient, $WhenSent, $Results, $AttemptCount;";
+
+        public static string MailChunk_Get_ChunkCount_For_Envelope = @"SELECT COUNT(*) FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND Chunk IS NOT NULL;";
     }
 }

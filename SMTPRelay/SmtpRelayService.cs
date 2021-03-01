@@ -499,7 +499,7 @@ namespace SMTPRelay
                         }
                         try
                         {
-                            List<SendQueue> ReadyQueue = SQLiteDB.GetReadySendQueueItems(clientsAvail);
+                            List<SendQueue> ReadyQueue = SQLiteDB.GetSendQueueReadyItems(clientsAvail);
                             foreach (var q in ReadyQueue)
                             {
                                 SmtpClient newClient = new SmtpClient(q);

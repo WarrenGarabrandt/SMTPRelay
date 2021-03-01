@@ -93,7 +93,7 @@ namespace SMTPRelay
         /// Gets SendQueue items that are ready to check out
         /// </summary>
         /// <returns></returns>
-        public static List<SendQueue> GetReadySendQueueItems(int max = -1)
+        public static List<SendQueue> GetSendQueueReadyItems(int max = -1)
         {
             List<SendQueue> results = new List<SendQueue>();
             if (max == 0)
@@ -126,6 +126,32 @@ namespace SMTPRelay
                 }
             }
             return results;
+        }
+
+        public static Envelope GetEnvelopeByID(long id)
+        {
+            Envelope result = null;
+            using (var conn = new SQLiteConnection(DatabaseConnectionString))
+            {
+                conn.Open();
+                var cmd = conn.CreateCommand();
+                cmd.CommandText = SQLiteStrings.Envelope_Get_By_ID;
+                cmd.Parameters.AddWithValue("$EnvelopeID", id);
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        result = new Envelope();
+                        result.EnvelopeID = reader.GetInt64(0);
+                        result.WhenReceived = reader.GetDateTime(1);
+                        result.Sender = reader.GetString(2);
+                        result.Recipients = ParseRecipients(reader.GetString(3));
+                        result.ChunkCount = reader.GetInt64(4);
+                    }
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -186,5 +212,9 @@ namespace SMTPRelay
             command.ExecuteNonQuery();
         }
 
+        private static string[] ParseRecipients(string value)
+        {
+            return value.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+        }
     }
 }
