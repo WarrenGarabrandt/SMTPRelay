@@ -41,8 +41,10 @@ namespace SMTPRelay
             HostConnectionFailure,  // connection to smart host has failed.
             HostServiceUnavailable, // got a 521/421. Tell client unavailable, and hang up.
             //HostAuthenticationFail,  // Authentication has failed.
-            SendMailFrom,
-
+            SendMailFrom,           // send a MAIL FROM to the smart host.
+            WaitHostMailFromResp,   // wait for response to MAIL FROM command from host
+            SendRcptTo,             // Send the RCPT message
+            WaitHostRcptResponse,   // Wait for the host to respond to the recipient
             Quitting                // Send QUIT. Wiating for reply
         }
 
@@ -321,11 +323,13 @@ namespace SMTPRelay
                         case HostState.HostConnected:
                             hState = HostState.SendMailFrom;
                             break;
-                        case HostState.SendMailTo:
-                            str = "MAIL TO: \r\n";
+                        case HostState.SendMailFrom:
+                            // we are connected to the smart host. Go ahead and send that MAIL FROM now.
+                            str = string.Format("MAIL FROM: {0}\r\n", item.Recipient);
                             WriteStringToStream(str, shStream);
-                            hState = HostState.WaitAuthUserPrompt;
+                            hState = HostState.WaitHostMailFromResp;
                             break;
+
                     }
                 }
 
