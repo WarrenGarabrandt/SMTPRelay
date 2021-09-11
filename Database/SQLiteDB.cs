@@ -211,7 +211,7 @@ namespace SMTPRelay.Database
                 s.Open();
                 using (var command = s.CreateCommand())
                 {
-                    command.CommandText = SQLiteStrings.User_Get_All;
+                    command.CommandText = SQLiteStrings.User_GetAll;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -232,7 +232,7 @@ namespace SMTPRelay.Database
                 s.Open();
                 using (var command = s.CreateCommand())
                 {
-                    command.CommandText = SQLiteStrings.User_Get_ByEmail;
+                    command.CommandText = SQLiteStrings.User_GetByEmail;
                     command.Parameters.AddWithValue("$Email", email);
                     using (var reader = command.ExecuteReader())
                     {
@@ -276,7 +276,7 @@ namespace SMTPRelay.Database
                     s.Open();
                     using (var command = s.CreateCommand())
                     {
-                        command.CommandText = SQLiteStrings.User_Get_ByID;
+                        command.CommandText = SQLiteStrings.User_GetByID;
                         command.Parameters.AddWithValue("$UserID", user.UserID);
                         using (var reader = command.ExecuteReader())
                         {
@@ -368,7 +368,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static string GenerateNonce(int len)
+        public static string GenerateNonce(int len)
         {
             Random rnd = new Random();
             string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -380,6 +380,204 @@ namespace SMTPRelay.Database
             return sb.ToString();
         }
 
+        public static List<tblEnvelope> Envelope_GetAll()
+        {
+            List<tblEnvelope> results = new List<tblEnvelope>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Envelope_GetAll;
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static tblEnvelope Envelope_GetByID(long envelopeID)
+        {
+            tblEnvelope result = null;
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Envelope_GetByID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            result = new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4));
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        public static void Envelope_Add(tblEnvelope envelope)
+        {
+            // insert new record and read back the ID
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Envelope_Insert;
+                    command.Parameters.AddWithValue("$WhenReceived", envelope.WhenReceivedString);
+                    command.Parameters.AddWithValue("$Sender", envelope.Sender);
+                    command.Parameters.AddWithValue("$Recipients", envelope.Recipients);
+                    command.Parameters.AddWithValue("$ChunkCount", envelope.ChunkCount);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Table_LastRowID;
+                    envelope.EnvelopeID = (long)command.ExecuteScalar();
+                }
+            }
+        }
+
+        public static void Envelope_UpdateChunkCount(long envelopeID, int chunkCount)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Envelope_UpdateChunkCount;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    command.Parameters.AddWithValue("$ChunkCount", chunkCount);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static List<tblMailGateway> MailGateway_GetAll()
+        {
+            List<tblMailGateway> results = new List<tblMailGateway>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailGateway_GetAll;
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static tblMailGateway MailGateway_GetByID(long mailGatewayID)
+        {
+            tblMailGateway results = null;
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailGateway_GetByID;
+                    command.Parameters.AddWithValue("$MailRouteID", mailGatewayID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            results = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static void MailGateway_AddUpdate(tblMailGateway mailGateway)
+        {
+            // if the MailGatewayID is populated, then we are going to try to update first. 
+            // the update might fail, in which case we insert below
+            if (mailGateway.MailRouteID.HasValue)
+            {
+                // update. First, read the existing record by ID to make sure it exists. 
+                tblMailGateway dbMailGateway = null;
+                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                {
+                    s.Open();
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.MailGateway_GetByID;
+                        command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailRouteID);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                dbMailGateway = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
+                            }
+                        }
+                    }
+                    if (dbMailGateway == null)
+                    {
+                        // MailGateway doesn't exit, so below we will insert it.
+                        mailGateway.MailRouteID = null;
+                    }
+                    else
+                    {
+                        using (var command = s.CreateCommand())
+                        {
+                            command.CommandText = SQLiteStrings.MailGateway_Update;
+                            command.Parameters.AddWithValue("$SMTPServer", mailGateway.SMTPServer);
+                            command.Parameters.AddWithValue("$Port", mailGateway.Port);
+                            command.Parameters.AddWithValue("$EnableSSL", mailGateway.EnableSSLInt);
+                            command.Parameters.AddWithValue("$Authenticate", mailGateway.AuthenticateInt);
+                            command.Parameters.AddWithValue("$Username", mailGateway.Username);
+                            command.Parameters.AddWithValue("$Password", mailGateway.Password);
+                            command.Parameters.AddWithValue("$SenderOverride", mailGateway.SenderOverride);
+                            command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailRouteID);
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+            }
+            
+            // if there is no MailRouteID, then we insert a new record and select the ID back.
+            if (!mailGateway.MailRouteID.HasValue)
+            {
+                // insert new record and read back the ID
+                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                {
+                    s.Open();
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.MailGateway_Insert;
+                        command.Parameters.AddWithValue("$SMTPServer", mailGateway.SMTPServer);
+                        command.Parameters.AddWithValue("$Port", mailGateway.Port);
+                        command.Parameters.AddWithValue("$EnableSSL", mailGateway.EnableSSLInt);
+                        command.Parameters.AddWithValue("$Authenticate", mailGateway.AuthenticateInt);
+                        command.Parameters.AddWithValue("$Username", mailGateway.Username);
+                        command.Parameters.AddWithValue("$Password", mailGateway.Password);
+                        command.Parameters.AddWithValue("$SenderOverride", mailGateway.SenderOverride);
+                        command.ExecuteNonQuery();
+                    }
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Table_LastRowID;
+                        mailGateway.MailRouteID = (long)command.ExecuteScalar();
+                    }
+                }
+            }
+        }
 
     }
 }

@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DB\tblEnvelope.cs" />
+    <Compile Include="DB\tblMailGateway.cs" />
     <Compile Include="DB\tblSystem.cs" />
     <Compile Include="DB\tblUser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

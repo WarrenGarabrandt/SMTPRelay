@@ -20,8 +20,11 @@ namespace SMTPRelay.Database
             // User table
             @"CREATE TABLE User (UserID INTEGER PRIMARY KEY, DisplayName TEXT, Email TEXT, Salt TEXT, PassHash TEXT, Enabled INTEGER, Admin INTEGER);",
 
+            // Mail Gateway Table
+            @"CREATE TABLE MailGateway (MailRouteID INTEGER PRIMARY KEY, SMTPServer TEXT NOT NULL, Port INTEGER NOT NULL, EnableSSL INTEGER NOT NULL, Authenticate INTEGER NOT NULL, Username TEXT, Password TEXT, SenderOverride TEXT);",
+
             // Basic email header info.
-            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, WhenReceived TEXT, Sender TEXT, ChunkCount INTEGER);",
+            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER);",
 
             // Envelope Recipients
             @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, Recipient TEXT);",
@@ -34,6 +37,8 @@ namespace SMTPRelay.Database
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
             @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);"
+        
+            
         };
 
         /// <summary>
@@ -45,12 +50,21 @@ namespace SMTPRelay.Database
         public static string System_Select = @"SELECT Value FROM System WHERE Category = $Category AND Setting = $Setting;";
         public static string System_Insert = @"REPLACE INTO System(Category, Setting, Value) VALUES ($Category, $Setting, $Value);";
         
-        public static string User_Get_All = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User;";
-        public static string User_Get_ByEmail = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User WHERE Email = $Email COLLATE NOCASE;";
-        public static string User_Get_ByID = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User WHERE UserID = $UserID;";
+        public static string User_GetAll = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User;";
+        public static string User_GetByEmail = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User WHERE Email = $Email COLLATE NOCASE;";
+        public static string User_GetByID = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin FROM User WHERE UserID = $UserID;";
         public static string User_Insert = @"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin);";
         public static string User_Update = @"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin WHERE UserID = $UserID;";
-    
-        
+
+        public static string Envelope_GetAll = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope;";
+        public static string Envelope_GetByID = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
+        public static string Envelope_Insert = @"INSERT INTO Envelope(WhenReceived, Sender, Recipients, ChunkCount) VALUES ($WhenReceived, $Sender, $Recipients, $ChunkCount);";
+        public static string Envelope_UpdateChunkCount = @"UPDATE Envelope SET ChunkCount = $ChunkCount WHERE EnvelopeID = $EnvelopeID;";
+
+        public static string MailGateway_GetAll = @"SELECT MailRouteID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway;";
+        public static string MailGateway_GetByID = @"SELECT MailRouteID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway WHERE MailRouteID = $MailRouteID;";
+        public static string MailGateway_Insert = @"INSERT INTO MailGateway (SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride) VALUES ($SMTPServer, $Port, $EnableSSL, $Authenticate, $Username, $Password, $SenderOverride);";
+        public static string MailGateway_Update = @"UPDATE MailGateway SET SMTPServer = $SMTPServer, Port = $Port, EnableSSL = $EnableSSL, Authenticate = $Authenticate, Username = $Username, Password = $Password, SenderOverride = $SenderOverride WHERE MailRouteID = $MailRouteID;";
+
     }
 }

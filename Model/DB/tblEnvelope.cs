@@ -13,27 +13,29 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance that has not been saved into the database yet.
         /// </summary>
-        public tblEnvelope(DateTime whenReceived, string sender, int chunkCount)
+        public tblEnvelope(DateTime whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = null;
             WhenReceived = whenReceived;
             Sender = sender;
+            Recipients = recipients;
             ChunkCount = chunkCount;
         }
 
         /// <summary>
         /// Creates a new instance that existes in the database.
         /// </summary>
-        public tblEnvelope(int envelopeID, string whenReceived, string sender, int chunkCount)
+        public tblEnvelope(long envelopeID, string whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = envelopeID;
             DateTime.UtcNow.ToString();
             WhenReceived = DateTime.Parse(whenReceived);
             Sender = sender;
+            Recipients = recipients;
             ChunkCount = chunkCount;
         }
 
-        public int? EnvelopeID { get; set; }
+        public long? EnvelopeID { get; set; }
 
         public DateTime WhenReceived { get; set; }
 
@@ -50,6 +52,8 @@ namespace SMTPRelay.Model.DB
         }
 
         public string Sender { get; set; }
+
+        public string Recipients { get; set; }
 
         public int ChunkCount { get; set; }
     }

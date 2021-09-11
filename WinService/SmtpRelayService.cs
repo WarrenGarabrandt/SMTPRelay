@@ -243,6 +243,70 @@ namespace SMTPRelay.WinService
             base.OnSessionChange(changeDescription);
         }
 
+        private void TestAllSQLFunctions()
+        {
+            SQLiteDB.System_AddUpdateValue("Test", "Test", "value");
+
+            SQLiteDB.System_AddUpdateValue("Test", "Test", "another value");
+
+            string val = SQLiteDB.System_GetValue("Test", "Test");
+
+            List<tblSystem> keys = SQLiteDB.System_GetAll();
+
+            List<tblUser> userList = SQLiteDB.User_GetAll();
+
+            tblUser adminUser = SQLiteDB.User_GetByEmail("admin@local");
+
+            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "p[ass1");
+
+            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "password");
+
+            SQLiteDB.GeneratePasswordHash(adminUser, "pass123");
+
+            SQLiteDB.User_AddUpdate(adminUser);
+
+            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "pass123");
+
+            SQLiteDB.GeneratePasswordHash(adminUser, "password");
+
+            SQLiteDB.User_AddUpdate(adminUser);
+
+            tblEnvelope env = new tblEnvelope(DateTime.Now, "test@domain.com", "admin@local", 0);
+
+            SQLiteDB.Envelope_Add(env);
+
+            Random rnd = new Random();
+            int chunkcnt = rnd.Next(32);
+            for (int i = 0; i < chunkcnt; i++)
+            {
+                env.ChunkCount++;
+                SQLiteDB.Envelope_UpdateChunkCount(env.EnvelopeID.Value, env.ChunkCount);
+            }
+            long envID = env.EnvelopeID.Value;
+            env = null;
+
+            List<tblEnvelope> envs = SQLiteDB.Envelope_GetAll();
+            env = SQLiteDB.Envelope_GetByID(envID);
+
+            tblMailGateway mailgateway = new tblMailGateway("mail.outlook.com", 25, true, true, "admin@test.com", "Ps9idfIdisfd", "sender@example.com");
+
+            SQLiteDB.MailGateway_AddUpdate(mailgateway);
+            mailgateway.Password = "TESTPASS!";
+            SQLiteDB.MailGateway_AddUpdate(mailgateway);
+
+            long mgwID = mailgateway.MailRouteID.Value;
+
+            mailgateway = SQLiteDB.MailGateway_GetByID(mgwID);
+
+            mailgateway.Username = "testuser@test.com";
+            mailgateway.Password = SQLiteDB.GenerateNonce(16);
+
+            SQLiteDB.MailGateway_AddUpdate(mailgateway);
+
+            List<tblMailGateway> allMailGateways = SQLiteDB.MailGateway_GetAll();
+
+        }
+
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
             try
@@ -267,35 +331,7 @@ namespace SMTPRelay.WinService
                 }
 
                 // test all functions.
-                
-                SQLiteDB.System_AddUpdateValue("Test", "Test", "value");
-
-                SQLiteDB.System_AddUpdateValue("Test", "Test", "another value");
-
-                string val = SQLiteDB.System_GetValue("Test", "Test");
-
-                List<tblSystem> keys = SQLiteDB.System_GetAll();
-
-                List<tblUser> userList = SQLiteDB.User_GetAll();
-
-                tblUser adminUser = SQLiteDB.User_GetByEmail("admin@local");
-
-                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "p[ass1");
-                
-                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "password");
-
-                SQLiteDB.GeneratePasswordHash(adminUser, "pass123");
-
-                SQLiteDB.User_AddUpdate(adminUser);
-
-                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "pass123");
-
-                SQLiteDB.GeneratePasswordHash(adminUser, "password");
-
-                SQLiteDB.User_AddUpdate(adminUser);
-                
-
-
+                TestAllSQLFunctions();
 
 
 
