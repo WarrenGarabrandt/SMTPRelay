@@ -1,10 +1,10 @@
-﻿using SMTPRelay.Models;
+﻿/*
+ * using SMTPRelay.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -27,6 +27,8 @@ namespace SMTPRelay
             worker.RunWorkerAsync(item);
         }
 
+<<<<<<< HEAD
+=======
         private enum HostState
         {
             NotConnected,           // no connection to smart host, or a previous connection has closed/failed.
@@ -48,13 +50,16 @@ namespace SMTPRelay
             Quitting                // Send QUIT. Wiating for reply
         }
 
+>>>>>>> a49b241 (Start adding sending functions.)
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            SendQueue item = e.Argument as SendQueue;
-            if (item == null)
+            SendQueue QueueItem = e.Argument as SendQueue;
+            if (QueueItem == null)
             {
                 e.Result = new StatusMessage("Failed to process SendQueue Item. No argument provided.", MessagePriority.Error);
             }
+<<<<<<< HEAD
+=======
             Envelope env = SQLiteDB.GetEnvelopeByID(item.EnvelopeID);
             if (env == null)
             {
@@ -387,105 +392,13 @@ namespace SMTPRelay
                 }
 
             }
+>>>>>>> a49b241 (Start adding sending functions.)
+
+
+            
 
         }
-
-        private string CalculateRetryOffset(int attempts)
-        {
-            switch (attempts)
-            {
-                case 1:
-                    return "+5 minutes";
-                case 2:
-                    return "+15 minutes";
-                case 3:
-                    return "+30 minutes";
-                case 4:
-                    return "+1 hour";
-                case 5:
-                    return "+4 hours";
-                case 6:
-                    return "+6 hours";
-                case 7:
-                    return "+6 hours";
-                case 8:
-                    return "+12 hours";
-                case 9:
-                    return "+1 day";
-                case 10:
-                    return "+1 day";
-                case 11:
-                    return "+1 day";
-                case 12:
-                    return "+1 day";
-                default:
-                    return null;
-            }
-        }
-
-        // reads a string from the buffer, and prepares the buffer for the next read. 
-        // returns null if nothing to read.
-        private string BufferReadLine(ref byte[] buff, ref int pos)
-        {
-            int p = 0;
-            string result = null;
-            while (p + 1 < pos)
-            {
-                if (buff[p] == '\r' && buff[p + 1] == '\n')
-                {
-                    // pointing to the \r, and +1 is \n. Since zero based index, using the \r index as the count will read up to one char before the \r, omitting the newline
-                    result = Encoding.ASCII.GetString(buff, 0, p);
-                    p++;    // increment to point to the \n (the end of the line)
-                    if (pos - p <= 1)   // pos is the next character in the buffer to write (not actually a character to read). Subtract position of the \n, and it should be 1 if the index after the \n is where we will write to next
-                    {
-                        // So, we just read out the entire buffer. Clear all that out and reset buffer write position.
-                        Array.Clear(buff, 0, pos);
-                        pos = 0;
-                        break;
-                    }
-                    else
-                    {
-                        // since there is data beyond the newline char, we need to shift that to the start of the array.
-                        p++;    // increment to point to first char in next string line
-                        byte[] temp = new byte[buff.Length];
-                        Array.Copy(buff, p, temp, 0, pos - p);
-                        buff = temp;
-                        pos = pos - p; // move the index of next write position left by the index we just shifted to zero. So now we point to the same character, but at the new shifted offset.
-                        break;
-                    }
-                }
-                p++;
-            }
-            if (pos == buff.Length)
-            {
-                // we filled the buffer but couldn't find any new lines?  Wow. That sucks.  Flush it all as text and hope that we don't split up any character bytes. ASCII should be single byte per character
-                // this is really a buffer overflow that could cause problems, but if the SMTP conversation has not gone off the rails, it *should* never happen.
-                result = Encoding.ASCII.GetString(buff, 0, pos);
-                Array.Clear(buff, 0, pos);
-                pos = 0;
-            }
-            if (result != null)
-            {
-                Debug.WriteLine(result);
-            }
-            return result;
-        }
-
-        // writes a buffer of bytes to a stream, leaving the buffer and position pointer alone.
-        private void WriteBufferToStream(ref byte[] buff, int pos, NetworkStream stream)
-        {
-            stream.Write(buff, 0, pos);
-            return;
-        }
-
-        // writes a string as ASCII bytes to a stream.
-        private void WriteStringToStream(string str, NetworkStream stream)
-        {
-            Debug.WriteLine(str);
-            byte[] buff = Encoding.ASCII.GetBytes(str);
-            WriteBufferToStream(ref buff, buff.Length, stream);
-        }
-
+        
         private void Worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             StatusMessage msg = e.UserState as StatusMessage;
@@ -494,11 +407,7 @@ namespace SMTPRelay
                 Messages.Enqueue(msg);
             }
         }
-        private string Base64(string data)
-        {
-            var plainTextBytes = Encoding.ASCII.GetBytes(data);
-            return Convert.ToBase64String(plainTextBytes);
-        }
+
 
         private void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
@@ -533,3 +442,5 @@ namespace SMTPRelay
         }
     }
 }
+
+*/

@@ -1,5 +1,4 @@
-﻿/*
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -8,13 +7,15 @@ using System.Threading;
 using System.Runtime.InteropServices;
 using System.Net.Sockets;
 using System.Net;
-using static SMTPRelay.Models.ServiceControl;
-using SMTPRelay.Models;
 using System.IO;
 using Microsoft.Win32.SafeHandles;
 using System.Text;
+using static SMTPRelay.Model.ServiceControl;
+using SMTPRelay.Model;
+using SMTPRelay.Database;
+using SMTPRelay.Model.DB;
 
-namespace SMTPRelay
+namespace SMTPRelay.WinService
 {
     public class SmtpRelayService : ServiceBase
     {
@@ -247,25 +248,8 @@ namespace SMTPRelay
             try
             {
                 // initialize the database
-
                 try
                 {
-                    if (string.IsNullOrWhiteSpace(StaticConfiguration.DatabasePath))
-                    {
-                        worker.ReportProgress(0, new WorkerReport()
-                        {
-                            LogError = string.Format("Failed to start. No database specified. Add a 'DATABASE=' line to the config file.")
-                        });
-                    }
-                    if (!File.Exists(StaticConfiguration.DatabasePath))
-                    {
-                        WorkerReport FormatReport = SQLiteDB.FormatNewDatabase();
-                        if (FormatReport != null)
-                        {
-                            worker.ReportProgress(0, FormatReport);
-                            return;
-                        }
-                    }
                     WorkerReport InitReport = SQLiteDB.InitDatabase();
                     if (InitReport != null)
                     {
@@ -281,36 +265,41 @@ namespace SMTPRelay
                     });
                     return;
                 }
-                foreach (var ep in StaticConfiguration.EndPoints)
-                {
-                    try
-                    {
-                        TcpListener listener = new TcpListener(new IPAddress(ep.AddressBytes), ep.Port);
-                        Listeners.Add(listener);
-                    }
-                    catch (Exception ex)
-                    {
-                        worker.ReportProgress(0, new WorkerReport()
-                        {
-                            LogError = string.Format("IP Endpoint failed for {0}:{1}. Exception {2}", ep.Address, ep.Port, ex.Message)
-                        });
-                    }
-                }
-                if (Listeners.Count == 0)
-                {
-                    throw new Exception("No local IP End Points have been defined to listen on.");
-                }
-                foreach (var l in Listeners)
-                {
-                    l.Start();
-                }
-                worker.ReportProgress(0, new WorkerReport()
-                {
-                    LogMessage = "Started.",
-                    ServiceState = ServiceState.SERVICE_RUNNING,
-                    SetServiceState = true
-                });
-                CheckQueue.Start();
+
+                // test all functions.
+                
+                SQLiteDB.System_AddUpdateValue("Test", "Test", "value");
+
+                SQLiteDB.System_AddUpdateValue("Test", "Test", "another value");
+
+                string val = SQLiteDB.System_GetValue("Test", "Test");
+
+                List<tblSystem> keys = SQLiteDB.System_GetAll();
+
+                List<tblUser> userList = SQLiteDB.User_GetAll();
+
+                tblUser adminUser = SQLiteDB.User_GetByEmail("admin@local");
+
+                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "p[ass1");
+                
+                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "password");
+
+                SQLiteDB.GeneratePasswordHash(adminUser, "pass123");
+
+                SQLiteDB.User_AddUpdate(adminUser);
+
+                adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "pass123");
+
+                SQLiteDB.GeneratePasswordHash(adminUser, "password");
+
+                SQLiteDB.User_AddUpdate(adminUser);
+                
+
+
+
+
+
+                /*
                 while (!worker.CancellationPending)
                 {
                     Thread.Sleep(10);
@@ -476,6 +465,7 @@ namespace SMTPRelay
                         CheckQueue.Restart();
                     }
                 }
+                */
             }
             catch (Exception ex)
             {
@@ -490,32 +480,6 @@ namespace SMTPRelay
                 {
                     LogMessage = "Shutting Down."
                 });
-                foreach (var l in Listeners)
-                {
-                    try
-                    {
-                        l.Stop();
-                    }
-                    catch { }
-                }
-                Listeners.Clear();
-                foreach (var s in Servers)
-                {
-                    try
-                    {
-                        s.Dispose();
-                    }
-                    catch { }
-                }
-                Servers.Clear();
-                foreach (var c in Clients)
-                {
-                    try
-                    {
-                        c.Dispose();
-                    }
-                    catch { }
-                }
             }
         }
         
@@ -589,4 +553,3 @@ namespace SMTPRelay
         
     }
 }
-*/

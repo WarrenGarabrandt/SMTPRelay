@@ -1,10 +1,9 @@
-﻿/*
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Configuration.Install;
 using System.ServiceProcess;
 
-namespace SMTPRelay
+namespace SMTPRelay.WinService
 {
     [RunInstaller(true)]
     public class WindowsServiceInstaller : Installer
@@ -39,5 +38,3 @@ namespace SMTPRelay
         }
     }
 }
-
-*/

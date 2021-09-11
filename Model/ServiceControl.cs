@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SMTPRelay.Models
+namespace SMTPRelay.Model
 {
     public class ServiceControl
     {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static SMTPRelay.Models.ServiceControl;
+using static SMTPRelay.Model.ServiceControl;
 
-namespace SMTPRelay.Models
+namespace SMTPRelay.Model
 {
     public class WorkerReport
     {
