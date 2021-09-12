@@ -218,6 +218,13 @@ namespace SMTPRelay.WinService
                         {
                             lineStream.WriteLine("554 SMTP Server is shutting down");
                             CloseConnection = true;
+                            if (ActiveEnvelope != null)
+                            {
+                                CleanupFailedMessageData(ActiveEnvelope);
+                            }
+                            ActiveEnvelope = null;
+                            ActiveEnvelopeRcpts = null;
+                            mailObject = null;
                         }
                         else if (sw.ElapsedMilliseconds > CommandTimeoutMS && state != SMTPStates.ReceiveDATABlock)
                         {

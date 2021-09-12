@@ -67,8 +67,10 @@ namespace SMTPRelay.WinService
                 {
                     rcv.Cancel();
                 }
-                
-
+                while (!CleanupReceivers(Receivers))
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
             }
             catch (Exception ex)
             {
@@ -81,6 +83,10 @@ namespace SMTPRelay.WinService
                     catch { }
                     listener = null;
                 }
+            }
+            finally
+            {
+
             }
         }
        
