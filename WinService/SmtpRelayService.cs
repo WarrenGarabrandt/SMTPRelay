@@ -253,23 +253,29 @@ namespace SMTPRelay.WinService
 
             List<tblSystem> keys = SQLiteDB.System_GetAll();
 
+            string testUserEmail = string.Format("testuser{0}@{1}.test.local", SQLiteDB.GenerateNonce(24), SQLiteDB.GenerateNonce(16));
+            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, null);
+            string testuserPass = SQLiteDB.GenerateNonce(24);
+            SQLiteDB.GeneratePasswordHash(testUser, testuserPass);
+            SQLiteDB.User_AddUpdate(testUser);
+            Debug.Assert(testUser.UserID.HasValue, "Inserting the test user failed.");
+
+            long testuserID = testUser.UserID.Value;
+
+            testUser = null;
             List<tblUser> userList = SQLiteDB.User_GetAll();
+            Debug.Assert(userList.Count > 0, "Loading user list failed.");
 
-            tblUser adminUser = SQLiteDB.User_GetByEmail("admin@local");
+            testUser = SQLiteDB.User_GetByEmail(testUserEmail);
+            Debug.Assert(testUser != null && testUser.UserID == testuserID, "Unable to load test user by Email.");
 
-            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "p[ass1");
+            testUser = SQLiteDB.User_GetByEmailPassword(testUserEmail, testuserPass);
+            Debug.Assert(testUser != null && testUser.UserID == testuserID, "Unable to authenticate user by email & password.");
 
-            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "password");
-
-            SQLiteDB.GeneratePasswordHash(adminUser, "pass123");
-
-            SQLiteDB.User_AddUpdate(adminUser);
-
-            adminUser = SQLiteDB.User_GetByEmailPassword("admin@local", "pass123");
-
-            SQLiteDB.GeneratePasswordHash(adminUser, "password");
-
-            SQLiteDB.User_AddUpdate(adminUser);
+            testUser.Enabled = false;
+            SQLiteDB.User_AddUpdate(testUser);
+            testUser = SQLiteDB.User_GetByEmailPassword(testUserEmail, testuserPass);
+            Debug.Assert(testUser == null, "Disabled user passed authentication.");
 
             tblEnvelope env = new tblEnvelope(DateTime.Now, "test@domain.com", "admin@local", 0);
 
@@ -294,7 +300,7 @@ namespace SMTPRelay.WinService
             mailgateway.Password = "TESTPASS!";
             SQLiteDB.MailGateway_AddUpdate(mailgateway);
 
-            long mgwID = mailgateway.MailRouteID.Value;
+            long mgwID = mailgateway.MailGatewayID.Value;
 
             mailgateway = SQLiteDB.MailGateway_GetByID(mgwID);
 

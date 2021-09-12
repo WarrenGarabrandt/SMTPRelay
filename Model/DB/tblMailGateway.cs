@@ -14,7 +14,7 @@ namespace SMTPRelay.Model.DB
         /// </summary>
         public tblMailGateway(string smtpServer, int port, bool enableSSL, bool authenticate, string username, string password, string senderOverride)
         {
-            MailRouteID = null;
+            MailGatewayID = null;
             SMTPServer = smtpServer;
             Port = port;
             EnableSSL = enableSSL;
@@ -29,7 +29,7 @@ namespace SMTPRelay.Model.DB
         /// </summary>
         public tblMailGateway(long mailRouteID, string smtpServer, int port, int enableSSLint, int authenticateInt, string username, string password, string senderOverride)
         {
-            MailRouteID = mailRouteID;
+            MailGatewayID = mailRouteID;
             SMTPServer = smtpServer;
             Port = port;
             EnableSSLInt = enableSSLint;
@@ -39,7 +39,36 @@ namespace SMTPRelay.Model.DB
             SenderOverride = senderOverride;
         }
 
-        public long? MailRouteID { get; set; }
+        public override string ToString()
+        {
+            if (string.IsNullOrEmpty(SMTPServer) && Port == -1)
+            {
+                return string.Format("<unassigned>");
+            }
+            if (Authenticate)
+            {
+                if (string.IsNullOrEmpty(SenderOverride))
+                {
+                    return string.Format("({0}) {1} on {2}:{3}", MailGatewayID.HasValue ? MailGatewayID.Value : -1, Username, SMTPServer, Port);
+                }
+                else
+                {
+                    return string.Format("({0}) {1} on {2}:{3} as {4}", MailGatewayID.HasValue ? MailGatewayID.Value : -1, Username, SMTPServer, Port, SenderOverride);
+                }
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(SenderOverride))
+                {
+                    return string.Format("({0}) {1}:{2}", MailGatewayID.HasValue ? MailGatewayID.Value : -1, SMTPServer, Port);
+                }
+                else
+                {
+                    return string.Format("({0}) {1}:{2} as {3}", MailGatewayID.HasValue ? MailGatewayID.Value : -1, SMTPServer, Port, SenderOverride);
+                }
+            }
+        }
+        public long? MailGatewayID { get; set; }
         public string SMTPServer { get; set; }
         public bool EnableSSL { get; set; }
         public int EnableSSLInt

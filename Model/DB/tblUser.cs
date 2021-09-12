@@ -13,7 +13,7 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance that has not been saved in the database.
         /// </summary>
-        public tblUser(string displayName, string email, string salt, string passHash, bool enabled, bool admin)
+        public tblUser(string displayName, string email, string salt, string passHash, bool enabled, bool admin, long? mailGateway)
         {
             UserID = null;
             DisplayName = displayName;
@@ -22,12 +22,13 @@ namespace SMTPRelay.Model.DB
             PassHash = passHash;
             Enabled = enabled;
             Admin = admin;
+            MailGateway = mailGateway;
         }
 
         /// <summary>
         /// Creates a new instance that exists in the database.
         /// </summary>
-        public tblUser(long userID, string displayName, string email, string salt, string passHash, int enabled, int admin)
+        public tblUser(long userID, string displayName, string email, string salt, string passHash, int enabled, int admin, long? mailGateway)
         {
             UserID = userID;
             DisplayName = displayName;
@@ -36,6 +37,12 @@ namespace SMTPRelay.Model.DB
             PassHash = passHash;
             EnabledInt = enabled;
             AdminInt = admin;
+            MailGateway = mailGateway;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0} <{1}>", DisplayName, Email);
         }
 
         /// <summary>
@@ -77,6 +84,8 @@ namespace SMTPRelay.Model.DB
                 Admin = value > 0;
             }
         }
+
+        public long? MailGateway { get; set; }
 
     }
 }

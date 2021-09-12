@@ -68,7 +68,7 @@ namespace SMTPRelay.Database
                     parms.Clear();
 
                     // Create the admin user
-                    tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true);
+                    tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
                     GeneratePasswordHash(newAdminUser, "password");
                     User_AddUpdate(newAdminUser);
 
@@ -216,12 +216,34 @@ namespace SMTPRelay.Database
                     {
                         while (reader.Read())
                         {
-                            results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6)));
+                            results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7)));
                         }
                     }
                 }
             }
             return results;
+        }
+
+        public static tblUser User_GetByID(long? userID)
+        {
+            tblUser dbUser = null;
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.User_GetByID;
+                    command.Parameters.AddWithValue("$UserID", userID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                        }
+                    }
+                }
+            }
+            return dbUser;
         }
 
         public static tblUser User_GetByEmail(string email)
@@ -238,7 +260,7 @@ namespace SMTPRelay.Database
                     {
                         if (reader.Read())
                         {
-                            results = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6));
+                            results = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
                         }
                     }
                 }
@@ -253,7 +275,7 @@ namespace SMTPRelay.Database
             {
                 return null;
             }
-            if (ValidatePasswordHash(user, password))
+            if (user.Enabled && ValidatePasswordHash(user, password))
             {
                 return user;
             }
@@ -282,7 +304,7 @@ namespace SMTPRelay.Database
                         {
                             if (reader.Read())
                             {
-                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6));
+                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
                             }
                         }
                     }
@@ -303,6 +325,14 @@ namespace SMTPRelay.Database
                             command.Parameters.AddWithValue("$PassHash", user.PassHash);
                             command.Parameters.AddWithValue("$Enabled", user.EnabledInt);
                             command.Parameters.AddWithValue("$Admin", user.AdminInt);
+                            if (user.MailGateway.HasValue)
+                            {
+                                command.Parameters.AddWithValue("$MailGatewayID", user.MailGateway);
+                            }
+                            else
+                            {
+                                command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                            }
                             command.Parameters.AddWithValue("$UserID", user.UserID);
                             command.ExecuteNonQuery();
                         }
@@ -327,6 +357,14 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$PassHash", user.PassHash);
                         command.Parameters.AddWithValue("$Enabled", user.EnabledInt);
                         command.Parameters.AddWithValue("$Admin", user.AdminInt);
+                        if (user.MailGateway.HasValue)
+                        {
+                            command.Parameters.AddWithValue("$MailGatewayID", user.MailGateway);
+                        }
+                        else
+                        {
+                            command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                        }
                         command.ExecuteNonQuery();
                     }
                     using (var command = s.CreateCommand())
@@ -334,6 +372,34 @@ namespace SMTPRelay.Database
                         command.CommandText = SQLiteStrings.Table_LastRowID;
                         user.UserID = (long)command.ExecuteScalar();
                     }
+                }
+            }
+        }
+
+        public static void User_ClearGatewayByID(long gatewayID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.User_ClearGatewayByID;
+                    command.Parameters.AddWithValue("$MailGatewayID", gatewayID);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static void User_DeleteByID(long userID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.User_DeleteByID;
+                    command.Parameters.AddWithValue("$UserID", userID);
+                    command.ExecuteNonQuery();
                 }
             }
         }
@@ -508,7 +574,7 @@ namespace SMTPRelay.Database
         {
             // if the MailGatewayID is populated, then we are going to try to update first. 
             // the update might fail, in which case we insert below
-            if (mailGateway.MailRouteID.HasValue)
+            if (mailGateway.MailGatewayID.HasValue)
             {
                 // update. First, read the existing record by ID to make sure it exists. 
                 tblMailGateway dbMailGateway = null;
@@ -518,7 +584,7 @@ namespace SMTPRelay.Database
                     using (var command = s.CreateCommand())
                     {
                         command.CommandText = SQLiteStrings.MailGateway_GetByID;
-                        command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailRouteID);
+                        command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailGatewayID);
                         using (var reader = command.ExecuteReader())
                         {
                             if (reader.Read())
@@ -530,7 +596,7 @@ namespace SMTPRelay.Database
                     if (dbMailGateway == null)
                     {
                         // MailGateway doesn't exit, so below we will insert it.
-                        mailGateway.MailRouteID = null;
+                        mailGateway.MailGatewayID = null;
                     }
                     else
                     {
@@ -544,7 +610,7 @@ namespace SMTPRelay.Database
                             command.Parameters.AddWithValue("$Username", mailGateway.Username);
                             command.Parameters.AddWithValue("$Password", mailGateway.Password);
                             command.Parameters.AddWithValue("$SenderOverride", mailGateway.SenderOverride);
-                            command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailRouteID);
+                            command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailGatewayID);
                             command.ExecuteNonQuery();
                         }
                     }
@@ -552,7 +618,7 @@ namespace SMTPRelay.Database
             }
             
             // if there is no MailRouteID, then we insert a new record and select the ID back.
-            if (!mailGateway.MailRouteID.HasValue)
+            if (!mailGateway.MailGatewayID.HasValue)
             {
                 // insert new record and read back the ID
                 using (var s = new SQLiteConnection(DatabaseConnectionString))
@@ -573,8 +639,22 @@ namespace SMTPRelay.Database
                     using (var command = s.CreateCommand())
                     {
                         command.CommandText = SQLiteStrings.Table_LastRowID;
-                        mailGateway.MailRouteID = (long)command.ExecuteScalar();
+                        mailGateway.MailGatewayID = (long)command.ExecuteScalar();
                     }
+                }
+            }
+        }
+
+        public static void MailGateway_DeleteByID(long gatewayID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailGateway_DeleteByID;
+                    command.Parameters.AddWithValue("$MailGatewayID", gatewayID);
+                    command.ExecuteNonQuery();
                 }
             }
         }

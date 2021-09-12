@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.ServiceProcess;
+using SMTPRelay.Model;
+using SMTPRelay.Database;
 
 namespace Configuration
 {
@@ -76,6 +78,37 @@ namespace Configuration
             ConsoleProcess = null;
             RunningAsConsole = false;
 
+        }
+
+        private void tcMain_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tcMain.SelectedTab == tpUsers)
+            {
+                ucUserEditor.RefreshUI();
+            }
+            else if (tcMain.SelectedTab == tpMailGateway)
+            {
+                ucMailGatewayEditor.RefreshUI();
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            try
+            {
+                WorkerReport InitReport = SQLiteDB.InitDatabase();
+                if (InitReport != null && !string.IsNullOrEmpty(InitReport.LogError))
+                {
+                    MessageBox.Show(InitReport.LogError);
+                    Application.Exit();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                Application.Exit();
+            }
         }
     }
 }

@@ -47,6 +47,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\ucMailGatewayEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ucMailGatewayEditor.Designer.cs">
+      <DependentUpon>ucMailGatewayEditor.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ucUserEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -61,6 +67,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Controls\ucMailGatewayEditor.resx">
+      <DependentUpon>ucMailGatewayEditor.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\ucUserEditor.resx">
       <DependentUpon>ucUserEditor.cs</DependentUpon>
     </EmbeddedResource>
@@ -89,6 +98,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Database\Database.csproj">
+      <Project>{9cd4e473-cdf2-40bc-b926-920cfcac5a34}</Project>
+      <Name>Database</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Model\Model.csproj">
+      <Project>{9c2d7f6f-7758-4b0c-afce-c3f7f7448a03}</Project>
+      <Name>Model</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
