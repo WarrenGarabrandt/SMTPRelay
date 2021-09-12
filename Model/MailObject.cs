@@ -16,12 +16,13 @@ namespace SMTPRelay.Model
         {
             Sender = sender;
             Recipients = new List<string>();
-            ChunkCount = 0;
+            ChunkData = new StringBuilder();
+            MessageSize = 0;
         }
 
         public string Sender { get; set; }
         public List<string> Recipients { get; set; }
-        // Tracks the chunk index for next insert. Increment after each insert. update the count in the Envelope after successful chunk insert.
-        public int ChunkCount { get; set; }
+        public StringBuilder ChunkData { get; set; }
+        public long MessageSize { get; set; }
     }
 }

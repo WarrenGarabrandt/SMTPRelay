@@ -949,7 +949,7 @@ namespace SMTPRelay.Database
             return results;
         }
 
-        public static void EnvelopeRcpt_Insert(long envelopeID, string recipient)
+        public static void EnvelopeRcpt_Insert(tblEnvelopeRcpt envrcpt)
         {
             using (var s = new SQLiteConnection(DatabaseConnectionString))
             {
@@ -957,9 +957,14 @@ namespace SMTPRelay.Database
                 using (var command = s.CreateCommand())
                 {
                     command.CommandText = SQLiteStrings.EnvelopeRcpt_Insert;
-                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
-                    command.Parameters.AddWithValue("$Recipient", recipient);
+                    command.Parameters.AddWithValue("$EnvelopeID", envrcpt.EnvelopeID);
+                    command.Parameters.AddWithValue("$Recipient", envrcpt.Recipient);
                     command.ExecuteNonQuery();
+                }
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Table_LastRowID;
+                    envrcpt.EnvelopeRcptID = (long)command.ExecuteScalar();
                 }
             }
         }

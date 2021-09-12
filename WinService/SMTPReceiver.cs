@@ -85,11 +85,15 @@ namespace SMTPRelay.WinService
             SendRCPTTOTooMany,                    // Send 452 Too Many recipients. Proceed to WaitForClientVerb
             SendRCPTTOOk,                         // Got a RCPT TO that is valid. Send 250 Ok, proceed to WaitForClientVerb.
             ProcessDATAMessage,                   // We got a DATA command. Should be authenticated, in MAIL mode, with at least one recipient. Create necessary database objects.
-                                                  // If we are not in MAIL mode, or there are no recipients, proceed to SendBadCommandSeq
+                                                  // If we are not in MAIL mode, proceed to SendBadCommandSeq
+                                                  // If we have no valid recipients, proceed to SendDATANoRcpt
                                                   // If we are ready to begin receiving data, proceed to SendDATAOk.
+                                                  // If we have a failure creating the database objects, proceed to 
+            SendDATAServerError,                  // Send 451 Local server error, try again later. Proceed to WaitForClientVerb.
+            SendDATANoRcpt,                       // Send 554 No valid recipients, proceed to WaitForClientVerb
             SendDATAOk,                           // We have valid records in the database and are ready to receive. Send 354 End data with <CR><LF>.<CR><LF>. Proceed to ReceiveDATABlock
             ReceiveDATABlock,                     // We are receiving the message. When we get a \r\n.\r\n, proceed to FinalizeDATABlock.
-                                                  // If the message data exceeds our mesage limit, 
+                                                  // If the message data exceeds our mesage limit, proceed to FailDATABlock.
             FailDATABlock,                        // Send 552 Requested mail actions aborted – Exceeded storage allocation.
                                                   // Delete all message data, mark Envelope as failed. Proceed to BadCommandDisconnect.
             FinalizeDATABlock,                    // We have finished receiving the message. Finish processing, and add item to the outbound queue. Proceed to SendDATAAck.
@@ -99,7 +103,6 @@ namespace SMTPRelay.WinService
             GenericNotImplemented,                // Generic error that command isn't implemented. 550 Command not Implemented.
                                                   // If not exceeds error limit, Go to WaitForClientVerb
                                                   // if exceeds error limit, go to BadCommandDisconnect.
-            ExitProcessing                        // Exit the message loop, close streams, close socket, exit the worker.
         }
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
@@ -128,6 +131,10 @@ namespace SMTPRelay.WinService
                 SMTPStreamHandler lineStream = new SMTPStreamHandler(stream);
                 EndPoint clientEP = client.Client.RemoteEndPoint;
                 string ClientIPAddress = ((IPEndPoint)clientEP).Address.ToString();
+
+                tblEnvelope ActiveEnvelope = null;
+                List<tblEnvelopeRcpt> ActiveEnvelopeRcpts = null;
+
                 try
                 {
                     // get configuration
@@ -212,7 +219,7 @@ namespace SMTPRelay.WinService
                             lineStream.WriteLine("554 SMTP Server is shutting down");
                             CloseConnection = true;
                         }
-                        else if (sw.ElapsedMilliseconds > CommandTimeoutMS)
+                        else if (sw.ElapsedMilliseconds > CommandTimeoutMS && state != SMTPStates.ReceiveDATABlock)
                         {
                             lineStream.WriteLine("421 Timout, Closing Connection");
                             CloseConnection = true;
@@ -445,12 +452,194 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessDATAMessage)
                         {
-                            // TODO: test for validity, then create database entries for mail
+                            if (mailObject == null)
+                            {
+                                state = SMTPStates.SendBadCommandSeq;
+                                BadCommandLimit--;
+                            }
+                            else if (mailObject.Recipients.Count == 0)
+                            {
+                                state = SMTPStates.SendDATANoRcpt;
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    // create entries in the database
+                                    ActiveEnvelope = new tblEnvelope(DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0);
+                                    SQLiteDB.Envelope_Add(ActiveEnvelope);
+                                    ActiveEnvelopeRcpts = new List<tblEnvelopeRcpt>();
+                                    foreach (var rcp in mailObject.Recipients)
+                                    {
+                                        tblEnvelopeRcpt envrcp = new tblEnvelopeRcpt(ActiveEnvelope.EnvelopeID.Value, rcp);
+                                        SQLiteDB.EnvelopeRcpt_Insert(envrcp);
+                                        ActiveEnvelopeRcpts.Add(envrcp);
+                                    }
+                                    state = SMTPStates.SendDATAOk;
+                                }
+                                catch (Exception ex)
+                                {
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogError = ex.Message
+                                    });
+                                    state = SMTPStates.SendDATAServerError;
+                                }
+                            }
+                        }
+                        else if (state == SMTPStates.SendDATANoRcpt)
+                        {
+                            lineStream.WriteLine("554 No valid recipients");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendDATAServerError)
+                        {
+                            lineStream.WriteLine("451 Local server error");
+                            CleanupFailedMessageData(ActiveEnvelope);
+                            mailObject = null;
+                            ActiveEnvelope = null;
+                            ActiveEnvelopeRcpts = null;
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendDATAOk)
+                        {
+                            lineStream.WriteLine("354 End data with <CR><LF>.<CR><LF>");
+                            sw.Restart();
+                            state = SMTPStates.ReceiveDATABlock;
+                        }
+                        else if (state == SMTPStates.ReceiveDATABlock)
+                        {
+                            line = lineStream.ReadLine();
+                            // Can't use string.IsNullOrEmpty() because empty strings are valid in a message. Only null indicates that no data was received.
+                            if (line != null)
+                            {
+                                sw.Restart();
+                                bool Handled = false;
+                                if (line == ".")
+                                {
+                                    // end of message.
+                                    state = SMTPStates.FinalizeDATABlock;
+                                    Handled = true;
+                                }
+                                if (line.StartsWith(".."))
+                                {
+                                    line = line.Substring(1);
+                                }
+                                if (mailObject.ChunkData.Length + line.Length + 4 > MaxChunkSize)
+                                {
+                                    //insert a chunk for the data we have now.
+                                    try
+                                    {
+                                        byte[] buff = ASCIIEncoding.ASCII.GetBytes(mailObject.ChunkData.ToString());
+                                        mailObject.ChunkData.Clear();
+                                        SQLiteDB.MailChunk_AddChunk(ActiveEnvelope.EnvelopeID.Value, ActiveEnvelope.ChunkCount, buff);
+                                        ActiveEnvelope.ChunkCount++;
+                                        SQLiteDB.Envelope_UpdateChunkCount(ActiveEnvelope.EnvelopeID.Value, ActiveEnvelope.ChunkCount);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = ex.Message
+                                        });
+                                        state = SMTPStates.SendDATAServerError;
+                                    }
+                                }
+                                if (!Handled)
+                                {
+                                    mailObject.MessageSize += line.Length;
+                                    if (mailObject.MessageSize > MaxMessageLength)
+                                    {
+                                        state = SMTPStates.FailDATABlock;
+                                    }
+                                    else
+                                    {
+                                        mailObject.ChunkData.AppendLine(line);
+                                    }
+                                }
+                            }
+                            else if (sw.ElapsedMilliseconds > CommandTimeoutMS)
+                            {
+                                lineStream.WriteLine("421 Timout, Closing Connection");
+                                CloseConnection = true;
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogMessage = string.Format("Timeout receiving mail from {0} [{1}].", ClientHostName, ClientIPAddress)
+                                });
+                                CleanupFailedMessageData(ActiveEnvelope);
+                                mailObject = null;
+                                ActiveEnvelope = null;
+                                ActiveEnvelopeRcpts = null;
+                            }
+                        }
+                        else if (state == SMTPStates.FailDATABlock)
+                        {
+                            lineStream.WriteLine("552 Requested mail actions aborted – Exceeded storage allocation");
+                            Worker.ReportProgress(0, new WorkerReport()
+                            {
+                                LogMessage = string.Format("Mail length exceeds max message length, for client {0} [{1}].", ClientHostName, ClientIPAddress)
+                            });
+                            CleanupFailedMessageData(ActiveEnvelope);
+                            mailObject = null;
+                            ActiveEnvelope = null;
+                            ActiveEnvelopeRcpts = null;
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.FinalizeDATABlock)
+                        {
+                            // insert any remaining data that wasn't already handled.
+                            if (mailObject.ChunkData.Length > 0)
+                            {
+                                try
+                                {
+                                    byte[] buff = ASCIIEncoding.ASCII.GetBytes(mailObject.ChunkData.ToString());
+                                    mailObject.ChunkData.Clear();
+                                    SQLiteDB.MailChunk_AddChunk(ActiveEnvelope.EnvelopeID.Value, ActiveEnvelope.ChunkCount, buff);
+                                    ActiveEnvelope.ChunkCount++;
+                                    SQLiteDB.Envelope_UpdateChunkCount(ActiveEnvelope.EnvelopeID.Value, ActiveEnvelope.ChunkCount);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogError = ex.Message
+                                    });
+                                    state = SMTPStates.SendDATAServerError;
+                                }
+                            }
 
+                            try
+                            {
+                                foreach (var envrcp in ActiveEnvelopeRcpts)
+                                {
+                                    tblSendQueue snd = new tblSendQueue(ActiveEnvelope.EnvelopeID.Value, envrcp.EnvelopeRcptID.Value, 0, 0, DateTime.Now);
+                                    SQLiteDB.SendQueue_AddUpdate(snd);
+                                }
+                                state = SMTPStates.SendDATAAck;
+                            }
+                            catch (Exception ex)
+                            {
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogError = ex.Message
+                                });
+                                state = SMTPStates.SendDATAServerError;
+                            }
+                        }
+                        else if (state == SMTPStates.SendDATAAck)
+                        {
+                            lineStream.WriteLine("250 Ok, Message accepted");
+                            state = SMTPStates.WaitForClientVerb;
+                            mailObject = null;
+                            ActiveEnvelope = null;
+                            ActiveEnvelopeRcpts = null;
+                        }
+                        else if (state == SMTPStates.ProcessQUITMessage)
+                        {
+                            lineStream.WriteLine("221 Bye");
+                            CloseConnection = true;
                         }
                     }
-                    
-
                 }
                 finally
                 {
@@ -484,6 +673,26 @@ namespace SMTPRelay.WinService
             }
         }
 
+        private void CleanupFailedMessageData(tblEnvelope activeEnvelope)
+        {
+            if (activeEnvelope == null)
+            {
+                return;
+            }
+            try
+            {
+                // message too long. delete the message.
+                SQLiteDB.MailChunk_DeleteMailData(activeEnvelope.EnvelopeID.Value);
+            }
+            catch (Exception ex)
+            {
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogError = ex.Message
+                });
+            }
+        }
+
         private string BASE64Decode(string code)
         {
             try
@@ -494,6 +703,25 @@ namespace SMTPRelay.WinService
             {
                 return null;
             }
+        }
+
+        private string FormatRecipients(List<string> rcpts)
+        {
+            StringBuilder sb = new StringBuilder();
+            bool first = true;
+            foreach (var rcpt in rcpts)
+            {
+                if (!first)
+                {
+                    sb.Append("; ");
+                }
+                else
+                {
+                    first = false;
+                }
+                sb.Append(rcpt);
+            }
+            return sb.ToString();
         }
 
         private void Worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
