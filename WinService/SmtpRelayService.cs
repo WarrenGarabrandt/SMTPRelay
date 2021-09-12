@@ -337,7 +337,9 @@ namespace SMTPRelay.WinService
                 }
 
                 // test all functions.
-                TestAllSQLFunctions();
+                //TestAllSQLFunctions();
+
+
 
 
 

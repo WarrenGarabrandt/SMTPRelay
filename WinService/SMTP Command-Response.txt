@@ -1,0 +1,58 @@
+﻿Command			Positive Response		Negative Response
+SMTP connect	220						554
+STARTTLS		220						454
+EHLO or HELO	250						502 (Response to EHLO for old servers), 504, 550
+AUTH			235, 334				530, 535, 538
+MAIL FROM		250						451, 452, 455, 503, 550, 552, 553, 555
+RCPT TO			250, 251				450, 451, 452, 455, 503, 550, 551, 552, 553, 555
+DATA			250, 354				450, 451, 452, 503, 550, 552, 554
+RSET			250
+VRFY			250, 251, 252			502, 504, 550, 551, 553
+EXPN			250, 252				502, 504, 550
+HELP			211, 214				502, 504
+NOOP			250
+QUIT			221
+
+
+Response Codes
+101	Server connection error (wrong server name or connection port)
+211 System Status (Response to HELP)
+214 Help Message (Response to HELP)
+220 Server is ready. Response to a TCP connection
+221 The server closes the transmision channel
+235 Authentication Successful (Response to AUTH)
+250 Requested command completed, followed by Ok
+251 User not local, but the server will foward the message to <forward-path>
+252 Server cannot verify the user (response to VRFY). Mesage will be accepted and attemp delivery
+334 Response to AUTH command with the required security mechanism is accepted
+354 Server confirms mail content transfer (response to DATA). 
+421 The server is not unavailable because it closes the transmission channel
+422 The recipient’s mailbox has exceeded its storage limit
+431 File overload (too many messages sent to a particular domain)
+441 No response from the recipient’s server
+442 Connection Dropped
+446 Internal loop as occurred.
+450 Mailbox unavailable (busy or temporarily blocked). Requested action aborted
+451 The server aborted the command due to a local error
+452 The server aborted the command due to insufficient system storage
+454 TLS not available due to a temporary reason (response to STARTTLS)
+455 Parameters cannot be accommodated
+471 Mail server error due to the local spam filter
+500 Syntax error (also a command line may be too long). The server cannot recognize the command
+501 Syntax error in parameters or arguments
+502 The server has not implemented the command
+503 Improper sequence of commands
+504 The server has not implemented a command parameter
+510 Invalid email address
+512 A DNS error (recheck the address of your recipients)
+523 The total size of your mailing exceeds the recipient server limits
+530 Authentication problem that mostly requires the STARTTLS command to run
+535 Authentication failed
+538 Encryption required for a requested authentication mechanism
+541 Message rejected by spam filter
+550 Mailbox is unavailable. Server aborted the command because the mailbox was not found or for policy reasons. Alternatively: Authentication is required for relay
+551 User not local. The <forward-path> will be specified
+552 The server aborted the command because the mailbox is full
+553 Syntactically incorrect mail address 
+554 The transaction failed due to an unknown error or No SMTP service here as a response to the client’s attempts to establish a connection
+555 Parameters not recognized/ not implemented (response to MAIL FROM ro RCPT TO)

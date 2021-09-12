@@ -40,9 +40,12 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SMTPListener.cs" />
+    <Compile Include="SMTPReceiver.cs" />
     <Compile Include="SmtpRelayService.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="SMTPStreamHandler.cs" />
     <Compile Include="WindowsServiceInstaller.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -63,6 +66,9 @@
       <Project>{9C2D7F6F-7758-4B0C-AFCE-C3F7F7448A03}</Project>
       <Name>Model</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="SMTP Command-Response.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

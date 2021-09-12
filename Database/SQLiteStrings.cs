@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SMTPRelay.Database
+﻿namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
@@ -40,13 +34,9 @@ namespace SMTPRelay.Database
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
             @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);"
-        
             
         };
 
-        /// <summary>
-        /// Retrieves the last ID that was inserted into a table.
-        /// </summary>
         public static string Table_LastRowID = @"SELECT last_insert_rowid();";
 
         public static string System_GetAll = @"SELECT Category, Setting, Value FROM System ORDER BY Category ASC, Setting ASC;";
