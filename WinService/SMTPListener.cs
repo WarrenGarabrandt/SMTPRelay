@@ -52,12 +52,6 @@ namespace SMTPRelay.WinService
                     if (listener.Pending())
                     {
                         TcpClient newClient = listener.AcceptTcpClient();
-                        EndPoint newEP = newClient.Client.RemoteEndPoint;
-
-                        Worker.ReportProgress(0, new WorkerReport()
-                        {
-                            LogMessage = string.Format("Accepted TcpClient from {0}.", ((IPEndPoint)newEP).Address.ToString())
-                        });
                         SMTPReceiver rcv = new SMTPReceiver(newClient);
                         Receivers.Add(rcv);
                         busy = true;

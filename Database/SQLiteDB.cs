@@ -51,28 +51,7 @@ namespace SMTPRelay.Database
                     System.IO.Directory.CreateDirectory(DatabasePath);
                 }
                 SQLiteConnection.CreateFile(DatabaseFile);
-                var parms = new List<KeyValuePair<string, string>>();
-                using (var s = new SQLiteConnection(DatabaseConnectionString))
-                {
-                    s.Open();
-                    foreach (string cmdstr in SQLiteStrings.Format_Database)
-                    {
-                        RunNonQuery(s, cmdstr, parms);
-                    }
-
-                    // Insert the database version
-                    parms.Add(new KeyValuePair<string, string>("$Category", "System"));
-                    parms.Add(new KeyValuePair<string, string>("$Setting", "Version"));
-                    parms.Add(new KeyValuePair<string, string>("$Value", COMPATIBLE_DATABASE_VERSION));
-                    RunNonQuery(s, SQLiteStrings.System_Insert, parms);
-                    parms.Clear();
-
-                    // Create the admin user
-                    tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
-                    GeneratePasswordHash(newAdminUser, "password");
-                    User_AddUpdate(newAdminUser);
-
-                }
+                CreateDatabaseDefaults();
                 return null;
             }
             catch (Exception ex)
@@ -82,6 +61,30 @@ namespace SMTPRelay.Database
                     LogError = string.Format("Unable to format the database. {0}", ex.Message)
                 };
             }
+        }
+
+        private static void CreateDatabaseDefaults()
+        {
+            System_AddUpdateValue("System", "Version", COMPATIBLE_DATABASE_VERSION);
+            /// max message length = 30 MB
+            System_AddUpdateValue("Message", "MaxLength", "31457280");
+            // max message recipients = 100
+            System_AddUpdateValue("Message", "MaxRecipients", "100");
+            // max chunk size = 64 KB
+            System_AddUpdateValue("Message", "ChunkSize", "65536");
+            // SMTP server Host Name it advertises.
+            System_AddUpdateValue("SMTPServer", "Hostname", "mailrelay.local");
+            // Client has 15 seconds to send HELO or EHLO or we abort the connection.
+            System_AddUpdateValue("SMTPServer", "ConnectionTimeoutMS", "15000");
+            // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
+            System_AddUpdateValue("SMTPServer", "CommandTimeoutMS", "120000");
+            // Max number of bad commands before the connection is aborted = 10
+            System_AddUpdateValue("SMTPServer", "BadCommandLimit", "10");
+
+            // Create the admin user
+            tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
+            GeneratePasswordHash(newAdminUser, "password");
+            User_AddUpdate(newAdminUser);           
         }
 
         public static WorkerReport InitDatabase()

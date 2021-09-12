@@ -51,6 +51,7 @@
     <Compile Include="DB\tblSystem.cs" />
     <Compile Include="DB\tblUser.cs" />
     <Compile Include="DB\vwMailQueue.cs" />
+    <Compile Include="MailObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ServiceControl.cs" />
     <Compile Include="WorkerReport.cs" />

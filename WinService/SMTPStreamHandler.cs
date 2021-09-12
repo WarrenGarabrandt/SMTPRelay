@@ -80,8 +80,10 @@ namespace SMTPRelay.WinService
 
         public void WriteLine(string line)
         {
+            line = string.Format("{0}\r\n", line);
             byte[] buff = ASCIIEncoding.ASCII.GetBytes(line);
             _stream.Write(buff, 0, buff.Length);
+            _stream.Flush();
         }
     }
 }

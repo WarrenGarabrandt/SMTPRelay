@@ -1,10 +1,12 @@
-﻿using SMTPRelay.Model;
+﻿using SMTPRelay.Database;
+using SMTPRelay.Model;
 using SMTPRelay.Model.DB;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +15,6 @@ namespace SMTPRelay.WinService
 {
     public class SMTPReceiver
     {
-        public const int CONNECTION_TIMEOUTMS = 120000;
 
         private BackgroundWorker Worker;        
         public bool Running;        
@@ -25,7 +26,9 @@ namespace SMTPRelay.WinService
             Running = true;
             Worker = new BackgroundWorker();
             Worker.WorkerSupportsCancellation = true;
+            Worker.WorkerReportsProgress = true;
             Worker.DoWork += Worker_DoWork;
+            Worker.ProgressChanged += Worker_ProgressChanged;
             Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
             Worker.RunWorkerAsync(client);
         }
@@ -37,9 +40,10 @@ namespace SMTPRelay.WinService
 
         private enum SMTPStates
         {
-            SendHello,                            // Send the 220 welcome message, proceed to RcvClientHello,
-            RcvClientHello,                       // Wait for client to send the EHLO/HELO command. If get EHLO proceed to SendServerExtensions. Else, proceed to SendSuccessAck
-            SendServerExtensions,                 // Client has send EHLO/HELO, transmit our extnesions. proceed to SendSuccessAck
+            SendHello,                            // Send the 220 welcome message, proceed to WaitClientHello,
+            WaitClientHello,                      // Wait for client to send the EHLO/HELO command. If get EHLO proceed to SendServerExtensions. Else, proceed to SendSuccessAck
+            SendServerExtensions,                 // Client has send EHLO/HELO, transmit our extnesions. proceed to SendWelcomeClient
+            SendWelcomeClient,                    // Sends the 250 please to meet you. Proceed to WaitForClientVerb.
             SendSuccessAck,                       // Send 250 Ok. Procedd to WaitForClientVerb.
             WaitForClientVerb,                    // Wait for the client to send something. Depending on command... 
                                                   // RSET, clear mail object, proceed to SendSuccessAck. This is probably an antivirus interception.
@@ -55,6 +59,8 @@ namespace SMTPRelay.WinService
             SendStartTLSReq,                      // Command received that requires StartTLS first. Send 530 StartTLS Required. Proceed to WaitForClientVerb
             SendAuthReq,                          // Authentication required. Send 550 Authentication Required. Proceed to WaitForClientVerb
             SendBadCommandSeq,                    // Got a RCPT TO with no MAIL object yet. Send 503 Bad sequence of commands. Proceed to WaitForClientVerb.
+            ProcessAUTHLOGINMessage,              // Prepare to handle auth requests. If acceptable, proceed to SendAUTHLOGINUsernameChallenge.
+                                                  // If we require STARTTLS, proceed to SendStartTLSReq. This is currently not implemented.
             SendAUTHLOGINUsernameChallenge,       // Client sent AUTH LOGIN, Clear logged in user, send 334 VXNlcm5hbWU6. Proceed to WaitForClientUsernameResonse
             WaitForClientUsernameResonse,         // Receive BASE64 encoded username. Proceed to SendAUTHLOGINPasswordChallenge
             SendAUTHLOGINPasswordChallenge,       // Send 334 UGFzc3dvcmQ6. Proceed to WaitForClientPasswordResponse
@@ -98,33 +104,376 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            // keeps track of our converation timeout. Every time we 
-            System.Diagnostics.Stopwatch swTimeout = new System.Diagnostics.Stopwatch();
-            swTimeout.Start();
-            bool eSMTP= false;   // turns on ESMTP extensions for this connection.
-            tblUser connectedUser = null;   // when they Authenticate, this is the user they have logged in with. They are unauthenticated if this is NULL.
-            int AUTHLOGINTries = 4;     // they get a limited number of AUTH LOGIN tries before we disconnect them.
-            int BadCommandTries = 10;   // They get a limited number of bad commands tries before we disconnect them.
+            Random rnd = new Random();
+            // conversation state tracking 
+            SMTPStates state = SMTPStates.SendHello;
+            // turns on ESMTP extensions for this connection. Enabled if client sends EHLO.
+            bool eSMTP = false;
+            // If authentication is successful, this is the connected user loaded from the database.
+            tblUser connectedUser = null;
+            string ClientUsername = "";
+            string ClientPassword = "";
 
             try
             {
+                System.Diagnostics.Stopwatch swTimeout = new System.Diagnostics.Stopwatch();
+                swTimeout.Start();
+
                 TcpClient client = e.Argument as TcpClient;
                 if (client == null)
                 {
                     throw new Exception("Invalid TcpClient passed to SMTPReceiver.");
                 }
                 NetworkStream stream = client.GetStream();
-
-                bool CloseConnection = false;
-                while (!Worker.CancellationPending && !CloseConnection)
+                SMTPStreamHandler lineStream = new SMTPStreamHandler(stream);
+                EndPoint clientEP = client.Client.RemoteEndPoint;
+                string ClientIPAddress = ((IPEndPoint)clientEP).Address.ToString();
+                try
                 {
-                    if (swTimeout.ElapsedMilliseconds > CONNECTION_TIMEOUTMS)
+                    // get configuration
+                    int MaxMessageLength = int.Parse(SQLiteDB.System_GetValue("Message", "MaxLength"));
+                    int MaxRecipients = int.Parse(SQLiteDB.System_GetValue("Message", "MaxRecipients"));
+                    int MaxChunkSize = int.Parse(SQLiteDB.System_GetValue("Message", "ChunkSize"));
+                    string ServerHostName = SQLiteDB.System_GetValue("SMTPServer", "Hostname");
+                    int ConnectionTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "ConnectionTimeoutMS"));
+                    int CommandTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "CommandTimeoutMS"));
+                    int BadCommandLimit = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "BadCommandLimit"));
+
+                    string ClientHostName = "";
+                    MailObject mailObject = null;
+
+                    //flag True to close
+                    bool CloseConnection = false;
+
+                    // in the beginning, state = SMTPStates.SendHello
+                    lineStream.WriteLine(string.Format("220 {0} ESMTP MAIL relay service ready {1}", ServerHostName, DateTime.UtcNow));
+                    state = SMTPStates.WaitClientHello;
+
+                    System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+                    sw.Start();
+                    while (state == SMTPStates.WaitClientHello && !CloseConnection)
                     {
-                        CloseConnection = true;
+                        string line = lineStream.ReadLine();
+                        if (!string.IsNullOrEmpty(line))
+                        {
+                            // we got something.
+                            if (line.ToUpper().StartsWith("EHLO ") && line.Length > 6 && line.Length < 134)
+                            {
+                                eSMTP = true;
+                                ClientHostName = line.Substring(5).Trim();
+                                state = SMTPStates.SendServerExtensions;
+                            }
+                            else if (line.ToUpper().StartsWith("HELO ") && line.Length > 6 && line.Length < 134)
+                            {
+                                eSMTP = false;
+                                ClientHostName = line.Substring(5).Trim();
+                                state = SMTPStates.SendWelcomeClient;
+                            }
+                            else
+                            {
+                                lineStream.WriteLine("550 Command not Implemented");
+                                BadCommandLimit--;
+                            }
+                        }
+                        if (BadCommandLimit == 0 || sw.ElapsedMilliseconds > ConnectionTimeoutMS)
+                        {
+                            lineStream.WriteLine("421 Closing Connection");
+                            CloseConnection = true;
+                        }
+                        if (Worker.CancellationPending)
+                        {
+                            lineStream.WriteLine("554 SMTP Server is shutting down");
+                            CloseConnection = true;
+                        }
                     }
 
-                }
+                    if (CloseConnection)
+                    {
+                        e.Result = new WorkerReport()
+                        {
+                            LogMessage = string.Format("Couldn't negotiate a SMTP connection with {0}. Closing.", ClientIPAddress)
+                        };
+                        return;
+                    }
+                    else
+                    {
+                        Worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogMessage = string.Format("Accepted SMTP connection from {0} [{1}].", ClientHostName, ClientIPAddress)
+                        });
+                    }
 
+                    sw.Restart();
+                    while (!CloseConnection)
+                    {
+                        string line = null;
+                        if (Worker.CancellationPending)
+                        {
+                            lineStream.WriteLine("554 SMTP Server is shutting down");
+                            CloseConnection = true;
+                        }
+                        else if (sw.ElapsedMilliseconds > CommandTimeoutMS)
+                        {
+                            lineStream.WriteLine("421 Timout, Closing Connection");
+                            CloseConnection = true;
+                        }
+                        else if (BadCommandLimit == 0)
+                        {
+                            lineStream.WriteLine("421 Closing Connection");
+                            CloseConnection = true;
+                        }
+                        else if (state == SMTPStates.SendServerExtensions)
+                        {
+                            lineStream.WriteLine(string.Format("250-{0}", ServerHostName));
+                            lineStream.WriteLine(string.Format("250-SIZE {0}", MaxMessageLength));
+                            lineStream.WriteLine("250-AUTH PLAIN LOGIN");
+                            lineStream.WriteLine("250-AUTH=PLAIN LOGIN");
+                            state = SMTPStates.SendWelcomeClient;
+                        }
+                        else if (state == SMTPStates.SendWelcomeClient)
+                        {
+                            lineStream.WriteLine(string.Format("250 {0} Hello {1} [{2}], pleased to meet you", ServerHostName, ClientHostName, ClientIPAddress));
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendSuccessAck)
+                        {
+                            lineStream.WriteLine("250 Ok");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.WaitForClientVerb)
+                        {
+                            line = lineStream.ReadLine();
+                            // figure out what they said.
+                            if (line.ToUpper() == "RSET")
+                            {
+                                mailObject = null;
+                                state = SMTPStates.SendSuccessAck;
+                            }
+                            else if (line.ToUpper() == "NOOP")
+                            {
+                                state = SMTPStates.SendSuccessAck;
+                            }
+                            else if (line.ToUpper() == "STARTTLS")
+                            {
+                                state = SMTPStates.SendStartTLSNotAvail;
+                            }
+                            else if (line.ToUpper() == "AUTH")
+                            {
+                                state = SMTPStates.ProcessAUTHLOGINMessage;
+                            }
+                            else if (line.ToUpper().StartsWith("MAIL FROM:"))
+                            {
+                                state = SMTPStates.ProcessMAILFROM;
+                            }
+                            else if (line.ToUpper().StartsWith("RCPT TO:"))
+                            {
+                                state = SMTPStates.ProcessRCPTTOMessage;
+                            }
+                            else if (line.ToUpper() == "DATA")
+                            {
+                                state = SMTPStates.ProcessDATAMessage;
+                            }
+                            else if (line.ToUpper() == "QUIT")
+                            {
+                                state = SMTPStates.ProcessQUITMessage;
+                            }
+                            else
+                            {
+                                lineStream.WriteLine("550 Command not Implemented");
+                                BadCommandLimit--;
+                            }
+                        }
+                        else if (state == SMTPStates.SendStartTLSNotAvail)
+                        {
+                            lineStream.WriteLine("454 TLS not available");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendStartTLSReq)
+                        {
+                            lineStream.WriteLine("530 StartTLS Required");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendAuthReq)
+                        {
+                            lineStream.WriteLine("550 Authentication Required");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendBadCommandSeq)
+                        {
+                            lineStream.WriteLine("503 Bad sequence of commands");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.ProcessAUTHLOGINMessage)
+                        {
+                            connectedUser = null;
+                            ClientUsername = "";
+                            ClientPassword = "";
+                            // Encrypted channels aren't suported yet, so just proceed.
+                            state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                        }
+                        else if (state == SMTPStates.SendAUTHLOGINUsernameChallenge)
+                        {
+                            lineStream.WriteLine("334 VXNlcm5hbWU6");
+                            state = SMTPStates.WaitForClientUsernameResonse;
+                        }
+                        else if (state == SMTPStates.WaitForClientUsernameResonse)
+                        {
+                            line = lineStream.ReadLine();
+                            if (!string.IsNullOrEmpty(line))
+                            {
+                                ClientUsername = BASE64Decode(line);
+                                state = SMTPStates.SendAUTHLOGINPasswordChallenge;
+                            }
+                        }
+                        else if (state == SMTPStates.SendAUTHLOGINPasswordChallenge)
+                        {
+                            lineStream.WriteLine("334 UGFzc3dvcmQ6");
+                            state = SMTPStates.WaitForClientPasswordResponse;
+                        }
+                        else if (state == SMTPStates.WaitForClientPasswordResponse)
+                        {
+                            line = lineStream.ReadLine();
+                            if (!string.IsNullOrEmpty(line))
+                            {
+                                ClientPassword = BASE64Decode(line);
+                                state = SMTPStates.ProcessAUTHLOGINCredentials;
+                            }
+                        }
+                        else if (state == SMTPStates.ProcessAUTHLOGINCredentials)
+                        {
+                            System.Threading.Thread.Sleep(900 + rnd.Next(150));
+                            if (string.IsNullOrEmpty(ClientUsername) || string.IsNullOrEmpty(ClientPassword))
+                            {
+                                BadCommandLimit--;
+                                state = SMTPStates.SendAUTHLOGINFailure;
+                            }
+                            else
+                            {
+                                connectedUser = SQLiteDB.User_GetByEmailPassword(ClientUsername, ClientPassword);
+                                if (connectedUser == null)
+                                {
+                                    BadCommandLimit--;
+                                    state = SMTPStates.SendAUTHLOGINFailure;
+                                }
+                                else
+                                {
+                                    state = SMTPStates.SendAUTHLOGINSuccess;
+                                }
+                            }
+                        }
+                        else if (state == SMTPStates.SendAUTHLOGINSuccess)
+                        {
+                            lineStream.WriteLine("235 Authentication successful");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.ProcessMAILFROM)
+                        {
+                            if (connectedUser == null)
+                            {
+                                state = SMTPStates.SendAuthReq;
+                            }
+                            else
+                            {
+                                // parse the sender email address
+                                string addrString = line.Substring(10).Trim();
+                                try
+                                {
+                                    System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
+                                    mailObject = new MailObject(test.Address);
+                                    state = SMTPStates.SendMAILFROMSuccess;
+                                }
+                                catch
+                                {
+                                    line = addrString;
+                                    state = SMTPStates.SendMAILFROMFailure;
+                                }
+                            }
+                        }
+                        else if (state == SMTPStates.SendMAILFROMFailure)
+                        {
+                            lineStream.WriteLine("513 Bad email address");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendMAILFROMSuccess)
+                        {
+                            lineStream.WriteLine(string.Format("250 Originator {0} Ok.", mailObject.Sender));
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.ProcessRCPTTOMessage)
+                        {
+                            if (mailObject == null)
+                            {
+                                state = SMTPStates.SendBadCommandSeq;
+                                BadCommandLimit--;
+                            }
+                            else if (mailObject.Recipients.Count == MaxRecipients)
+                            {
+                                state = SMTPStates.SendRCPTTOTooMany;
+                            }
+                            else
+                            {
+                                // parse the recipient email address
+                                string addrString = line.Substring(8).Trim();
+                                try
+                                {
+                                    System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
+                                    mailObject.Recipients.Add(test.Address);
+                                    line = test.Address;
+                                    state = SMTPStates.SendRCPTTOOk;
+                                }
+                                catch
+                                {
+                                    line = addrString;
+                                    state = SMTPStates.SendRCPTTOBadAddress;
+                                }
+                            }
+                        }
+                        else if (state == SMTPStates.SendRCPTTOTooMany)
+                        {
+                            lineStream.WriteLine("452 Too Many recipients");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendRCPTTOBadAddress)
+                        {
+                            lineStream.WriteLine("513 Bad email address");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SendRCPTTOOk)
+                        {
+                            lineStream.WriteLine(string.Format("250 Recipient {0} Ok", line));
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.ProcessDATAMessage)
+                        {
+                            // TODO: test for validity, then create database entries for mail
+
+                        }
+                    }
+                    
+
+                }
+                finally
+                {
+                    if (stream != null)
+                    {
+                        try
+                        {
+                            stream.Close();
+                            stream = null;
+                        }
+                        catch { }
+                    }
+                    if (client != null)
+                    {
+                        try
+                        {
+                            client.Close();
+                            client.Dispose();
+                            client = null;
+                        }
+                        catch { }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -134,6 +483,27 @@ namespace SMTPRelay.WinService
                 };
             }
         }
+
+        private string BASE64Decode(string code)
+        {
+            try
+            {
+                return ASCIIEncoding.ASCII.GetString(Convert.FromBase64String(code));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void Worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            if (e.UserState is WorkerReport)
+            {
+                WorkerReports.Enqueue(e.UserState as WorkerReport);
+            }
+        }
+
 
         private void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {

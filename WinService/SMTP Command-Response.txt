@@ -39,7 +39,7 @@ Response Codes
 455 Parameters cannot be accommodated
 471 Mail server error due to the local spam filter
 500 Syntax error (also a command line may be too long). The server cannot recognize the command
-501 Syntax error in parameters or arguments
+501 Syntax error in parameters or arguments, Invalid email address
 502 The server has not implemented the command
 503 Improper sequence of commands
 504 The server has not implemented a command parameter
@@ -55,4 +55,4 @@ Response Codes
 552 The server aborted the command because the mailbox is full
 553 Syntactically incorrect mail address 
 554 The transaction failed due to an unknown error or No SMTP service here as a response to the client’s attempts to establish a connection
-555 Parameters not recognized/ not implemented (response to MAIL FROM ro RCPT TO)
+555 Parameters not recognized/not implemented (response to MAIL FROM ro RCPT TO)
