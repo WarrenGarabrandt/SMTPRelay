@@ -659,5 +659,26 @@ namespace SMTPRelay.Database
             }
         }
 
+        public static List<vwMailQueue> MailQueue_QueryView()
+        {
+            List<vwMailQueue> results = new List<vwMailQueue>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.vwMailQueue_GetQueue;
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new vwMailQueue(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt64(4)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
     }
 }

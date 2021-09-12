@@ -84,11 +84,17 @@ namespace Configuration
         {
             if (tcMain.SelectedTab == tpUsers)
             {
+                ucSendQueueEditor.SuspendUI();
                 ucUserEditor.RefreshUI();
             }
             else if (tcMain.SelectedTab == tpMailGateway)
             {
+                ucSendQueueEditor.SuspendUI();
                 ucMailGatewayEditor.RefreshUI();
+            }
+            else if (tcMain.SelectedTab == tpSendQueue)
+            {
+                ucSendQueueEditor.RefreshUI();
             }
         }
 
@@ -108,6 +114,19 @@ namespace Configuration
             {
                 MessageBox.Show(ex.Message);
                 Application.Exit();
+            }
+        }
+
+        private void Form1_Shown(object sender, EventArgs e)
+        {
+            if (tcMain.SelectedTab == tpSendQueue)
+            {
+                ucSendQueueEditor.RefreshUI();
+            }
+            else
+            {
+                ucSendQueueEditor.SuspendUI();
+
             }
         }
     }
