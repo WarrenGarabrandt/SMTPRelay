@@ -46,6 +46,10 @@ namespace SMTPRelay.WinService
                 // create listener
                 listener = new TcpListener(System.Net.IPAddress.Any, 25);
                 listener.Start();
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogMessage = "Started SMTP Listener."
+                });
                 while (!Worker.CancellationPending)
                 {
                     bool busy = false;
@@ -86,7 +90,10 @@ namespace SMTPRelay.WinService
             }
             finally
             {
-
+                e.Result = new WorkerReport()
+                {
+                    LogMessage = "SMTP Listener shut down."
+                };
             }
         }
        
