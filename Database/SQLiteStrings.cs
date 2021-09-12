@@ -30,10 +30,13 @@ namespace SMTPRelay.Database
             @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, Recipient TEXT);",
 
             // Stores email body in chunks.
-            @"CREATE TABLE MailChunk (EnvelopeID INTEGER NOT NULL, ChunkID INTEGER NOT NULL, Chunk TEXT);",
+            @"CREATE TABLE MailChunk (EnvelopeID INTEGER NOT NULL, ChunkID INTEGER NOT NULL, Chunk BLOB);",
 
             // Queue of items to be transmitted. Items are removed as they are completed.
-            @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, State INTEGER, AttemptCount INTEGER, RetryAfter TEXT);",
+            // State: -1 = disable
+            //         0 = Wait for RetryAfter Timer
+            //         1 = Currently Running
+            @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, State INTEGER NOT NULL, AttemptCount INTEGER NOT NULL, RetryAfter TEXT);",
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
             @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);"
@@ -69,12 +72,25 @@ namespace SMTPRelay.Database
         public static string MailGateway_Update = @"UPDATE MailGateway SET SMTPServer = $SMTPServer, Port = $Port, EnableSSL = $EnableSSL, Authenticate = $Authenticate, Username = $Username, Password = $Password, SenderOverride = $SenderOverride WHERE MailGatewayID = $MailGatewayID;";
         public static string MailGateway_DeleteByID = @"DELETE FROM MailGateway WHERE MailGatewayID = $MailGatewayID;";
 
-        public static string MailChunk_GetChunk = @"SELECT Chunk FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND ChunkID = $ChunkID;";
+        public static string MailChunk_GetChunk = @"SELECT LENGHT(Chunk), Chunk FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND ChunkID = $ChunkID;";
         public static string MailChunk_AddChunk = @"INSERT INTO MailChunk (EnvelopeID, ChunkID, Chunk) VALUES ($EnvelopeID, $ChunkID, $Chunk);";
-        public static string MailChunk_DeleteEnvelopeData = @"DELETE FROM MailChunk WHERE EnvelopeID = $EnvelopeID;";
+        public static string MailChunk_DeleteMailData = @"DELETE FROM MailChunk WHERE EnvelopeID = $EnvelopeID;";
+        public static string MailChunk_GetMailSize = @"SELECT SUM(LENGTH(Chunk)) FROM MailChunk WHERE EnvelopeID = $EnvelopeID;";
 
+        public static string SendQueue_GetAll = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue;";
+        public static string SendQueue_GetReady = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue WHERE RetryAfter < $RetryAfter AND SendQueue.State = 0 ORDER BY RetryAfter;";
+        public static string SendQueue_GetByID = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue WHERE SendQueueID = $SendQueueID;";
+        public static string SendQueue_Insert = @"INSERT INTO SendQueue(EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter) VALUES ($EnvelopeID, $EnvelopeRcptID, $State, $AttemptCount, $RetryAfter);";
+        public static string SendQueue_Update = @"UPDATE SendQueue SET State = $State, AttemptCount = $AttemptCount, RetryAfter = $RetryAfter WHERE SendQueueID = $SendQueueID;";
+        public static string SendQueue_DeleteByID = @"DELETE FROM SendQueue WHERE SendQueueID = $SendQueueID";
 
-        public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID ORDER BY SendQueue.RetryAfter ASC;";
+        public static string SendLog_GetPage = @"SELCT EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount FROM SendLog LIMIT $RowCount OFFSET $RowStart ORDER BY WhenAttempted DESC;";
+        public static string SendLog_Insert = @"INSERT INTO SendLog (EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount) VALUES ($EnvelopeID, $EnvelopeRcptID, $WhenAttempted, $Results, $AttemptCount);";
+
+        public static string EnvelopeRcpt_GetByEnvelopeID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
+        public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
+
+        public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";
 
     }
 }

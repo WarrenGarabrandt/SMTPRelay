@@ -42,8 +42,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DB\SendQueueState.cs" />
     <Compile Include="DB\tblEnvelope.cs" />
+    <Compile Include="DB\tblEnvelopeRcpt.cs" />
     <Compile Include="DB\tblMailGateway.cs" />
+    <Compile Include="DB\tblSendLog.cs" />
+    <Compile Include="DB\tblSendQueue.cs" />
     <Compile Include="DB\tblSystem.cs" />
     <Compile Include="DB\tblUser.cs" />
     <Compile Include="DB\vwMailQueue.cs" />

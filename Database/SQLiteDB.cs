@@ -680,5 +680,285 @@ namespace SMTPRelay.Database
             return results;
         }
 
+        public static byte[] MailChunk_GetChunk(long envelopeID, long chunkID)
+        {
+            byte[] result = null;
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailChunk_GetChunk;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    command.Parameters.AddWithValue("$ChunkID", chunkID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read() && !reader.IsDBNull(1))
+                        {
+                            long len = reader.GetInt32(0);
+                            result = new byte[len];
+                            len = reader.GetBytes(1, 0, result, 0, (int)len);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        public static void MailChunk_AddChunk(long envelopeID, long chunkID, byte[] buffer)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailChunk_AddChunk;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    command.Parameters.AddWithValue("$ChunkID", chunkID);
+                    command.Parameters.Add("$Chunk", System.Data.DbType.Binary, buffer.Length).Value = buffer;
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static void MailChunk_DeleteMailData(long envelopeID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailChunk_DeleteMailData;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static long MailChunk_GetMailSize(long envelopeID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailChunk_GetMailSize;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    return (long)command.ExecuteScalar();
+                }
+            }
+        }
+
+        public static List<tblSendQueue> SendQueue_GetAll()
+        {
+            List<tblSendQueue> results = new List<tblSendQueue>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendQueue_GetAll;
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static List<tblSendQueue> SendQueue_GetReady()
+        {
+            List<tblSendQueue> results = new List<tblSendQueue>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendQueue_GetReady;
+                    command.Parameters.AddWithValue("$RetryAfter", DateTime.UtcNow.ToString("O"));
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            //SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue;
+                            results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static void SendQueue_AddUpdate(tblSendQueue sendqueue)
+        {
+            // if the SendQueuID is populated, then we are going to try to update first. 
+            // the update might fail, in which case we insert below
+            if (sendqueue.SendQueueID.HasValue)
+            {
+                // update. First, read the existing record by ID to make sure it exists. 
+                tblSendQueue dbsendqueue = null;
+                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                {
+                    s.Open();
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.SendQueue_GetByID;
+                        command.Parameters.AddWithValue("$SendQueueID", sendqueue.SendQueueID);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                dbsendqueue = new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5));
+                            }
+                        }
+                    }
+                    if (dbsendqueue == null)
+                    {
+                        // SendQueue doesn't exit, so below we will insert it.
+                        sendqueue.SendQueueID = null;
+                    }
+                    else
+                    {
+                        using (var command = s.CreateCommand())
+                        {
+                            command.CommandText = SQLiteStrings.SendQueue_Update;
+                            command.Parameters.AddWithValue("$State", sendqueue.StateInt);
+                            command.Parameters.AddWithValue("$AttemptCount", sendqueue.AttemptCount);
+                            command.Parameters.AddWithValue("$RetryAfter", sendqueue.RetryAfterStr);
+                            command.Parameters.AddWithValue("$SendQueueID", sendqueue.SendQueueID);
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+            }
+
+            // if there is no SendQueueID, then we insert a new record and select the ID back.
+            if (!sendqueue.SendQueueID.HasValue)
+            {
+                // insert new record and read back the ID
+                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                {
+                    s.Open();
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.SendQueue_Insert;
+                        command.Parameters.AddWithValue("$EnvelopeID", sendqueue.EnvelopeID);
+                        command.Parameters.AddWithValue("$EnvelopeRcptID", sendqueue.EnvelopeRcptID);
+                        command.Parameters.AddWithValue("$State", sendqueue.StateInt);
+                        command.Parameters.AddWithValue("$AttemptCount", sendqueue.AttemptCount);
+                        command.Parameters.AddWithValue("$RetryAfter", sendqueue.RetryAfterStr);
+                        command.ExecuteNonQuery();
+                    }
+                    using (var command = s.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Table_LastRowID;
+                        sendqueue.SendQueueID = (long)command.ExecuteScalar();
+                    }
+                }
+            }
+        }
+
+        public static void SendQueue_DeleteByID(long sendQueueID)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendQueue_DeleteByID;
+                    command.Parameters.AddWithValue("$SendQueueID", sendQueueID);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get a page of SendLog.
+        /// </summary>
+        /// <param name="count">How many rows to return</param>
+        /// <param name="offset">zero-based index for first row to return</param>
+        /// <returns></returns>
+        public static List<tblSendLog> SendLog_GetPage(long count, long offset)
+        {
+            List<tblSendLog> results = new List<tblSendLog>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendLog_GetPage;
+                    command.Parameters.AddWithValue("$RowCount", count);
+                    command.Parameters.AddWithValue("$RowStart", offset);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new tblSendLog(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static void SendLog_Insert(tblSendLog sendlog)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendLog_Insert;
+                    command.Parameters.AddWithValue("$EnvelopeID", sendlog.EnvelopeID);
+                    command.Parameters.AddWithValue("$EnvelopeRcptID", sendlog.EnvelopeRcptID);
+                    command.Parameters.AddWithValue("$WhenAttempted", sendlog.WhenAttemptedStr);
+                    command.Parameters.AddWithValue("$Results", sendlog.Results);
+                    command.Parameters.AddWithValue("$AttemptCount", sendlog.AttemptCount);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static List<tblEnvelopeRcpt> EnvelopeRcpt_GetByEnvelopeID (long envelopeID)
+        {
+            List<tblEnvelopeRcpt> results = new List<tblEnvelopeRcpt>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.EnvelopeRcpt_GetByEnvelopeID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            //EnvelopeRcptID, EnvelopeID, Recipient
+                            results.Add(new tblEnvelopeRcpt(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2)));
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public static void EnvelopeRcpt_Insert(long envelopeID, string recipient)
+        {
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                using (var command = s.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.EnvelopeRcpt_Insert;
+                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
+                    command.Parameters.AddWithValue("$Recipient", recipient);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
     }
 }
