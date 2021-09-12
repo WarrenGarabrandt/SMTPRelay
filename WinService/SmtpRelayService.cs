@@ -338,178 +338,29 @@ namespace SMTPRelay.WinService
 
                 // test all functions.
                 //TestAllSQLFunctions();
-
-
-
-
-
-                /*
-                while (!worker.CancellationPending)
+                SMTPListener listener = new SMTPListener();
+                while (!worker.CancellationPending && listener.Running)
                 {
-                    Thread.Sleep(10);
-                    foreach (var l in Listeners)
+                    WorkerReport status;
+                    if (listener.WorkerReports.TryDequeue(out status))
                     {
-                        if (l.Pending())
-                        {
-                            try
-                            {
-                                SmtpServer client = new SmtpServer(l.AcceptTcpClient());
-                                Servers.Add(client);
-                                worker.ReportProgress(0, new WorkerReport()
-                                {
-                                    LogMessage = "Accepted SMTP Connection.",
-                                    ServiceState = ServiceState.SERVICE_RUNNING,
-                                    SetServiceState = true
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                worker.ReportProgress(0, new WorkerReport()
-                                {
-                                    LogWarning = string.Format("Accepting Client Exception: {0}", ex.Message)
-                                });
-                            }
-                        }
+                        worker.ReportProgress(0, status);
                     }
-                    foreach (var s in Servers)
-                    {
-                        if (s.Messages.Count != 0)
-                        {
-                            var m = s.Messages.Dequeue();
-                            switch (m.Priority)
-                            {
-                                case MessagePriority.Information:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogMessage = m.Message
-                                    });
-                                    break;
-                                case MessagePriority.Warning:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogWarning = m.Message
-                                    });
-                                    break;
-                                case MessagePriority.Error:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogError = m.Message
-                                    });
-                                    break;
-                            }
-                        }
-                        if (s.Done)
-                        {
-                            while (s.Messages.Count > 0)
-                            {
-                                var m = s.Messages.Dequeue();
-                                switch (m.Priority)
-                                {
-                                    case MessagePriority.Information:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogMessage = m.Message
-                                        });
-                                        break;
-                                    case MessagePriority.Warning:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogWarning = m.Message
-                                        });
-                                        break;
-                                    case MessagePriority.Error:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogError = m.Message
-                                        });
-                                        break;
-                                }
-                            }
-                            DoneServers.Add(s);
-                        }
-                    }
-                    if (DoneServers.Count > 0)
-                    {
-                        foreach (var s in DoneServers)
-                        {
-                            Servers.Remove(s);
-                            s.Dispose();
-                        }
-                        DoneServers.Clear();
-                    }
-                    foreach (var c in Clients)
-                    {
-                        if (c.Messages.Count != 0)
-                        {
-                            var m = c.Messages.Dequeue();
-                            switch (m.Priority)
-                            {
-                                case MessagePriority.Information:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogMessage = m.Message
-                                    });
-                                    break;
-                                case MessagePriority.Warning:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogWarning = m.Message
-                                    });
-                                    break;
-                                case MessagePriority.Error:
-                                    worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogError = m.Message
-                                    });
-                                    break;
-                            }
-                        }
-                        if (c.Done)
-                        {
-                            while (c.Messages.Count > 0)
-                            {
-                                var m = c.Messages.Dequeue();
-                                switch (m.Priority)
-                                {
-                                    case MessagePriority.Information:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogMessage = m.Message
-                                        });
-                                        break;
-                                    case MessagePriority.Warning:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogWarning = m.Message
-                                        });
-                                        break;
-                                    case MessagePriority.Error:
-                                        worker.ReportProgress(0, new WorkerReport()
-                                        {
-                                            LogError = m.Message
-                                        });
-                                        break;
-                                }
-                            }
-                            DoneClients.Add(c);
-                        }
-                    }
-                    if (DoneClients.Count > 0)
-                    {
-                        foreach (var c in DoneClients)
-                        {
-                            Clients.Remove(c);
-                            c.Dispose();
-                        }
-                        DoneClients.Clear();
-                    }
-                    if (CheckQueue.ElapsedMilliseconds > StaticConfiguration.CheckOutboundQueueIntervalms)
-                    {
-                        throw new NotImplementedException();
-                        CheckQueue.Restart();
-                    }
+                    System.Threading.Thread.Sleep(10);
                 }
-                */
+
+                if (worker.CancellationPending)
+                {
+                    worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogMessage = "Shutting down Listeners."
+                    });
+                    listener.Cancel();
+                    while (listener.Running)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                }              
             }
             catch (Exception ex)
             {
@@ -522,7 +373,7 @@ namespace SMTPRelay.WinService
             {
                 worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogMessage = "Shutting Down."
+                    LogMessage = "Cleanup complete."
                 });
             }
         }

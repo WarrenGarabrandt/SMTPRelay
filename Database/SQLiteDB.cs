@@ -51,6 +51,28 @@ namespace SMTPRelay.Database
                     System.IO.Directory.CreateDirectory(DatabasePath);
                 }
                 SQLiteConnection.CreateFile(DatabaseFile);
+                var parms = new List<KeyValuePair<string, string>>();
+                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                {
+                    s.Open();
+                    foreach (string cmdstr in SQLiteStrings.Format_Database)
+                    {
+                        RunNonQuery(s, cmdstr, parms);
+                    }
+
+                    // Insert the database version
+                    parms.Add(new KeyValuePair<string, string>("$Category", "System"));
+                    parms.Add(new KeyValuePair<string, string>("$Setting", "Version"));
+                    parms.Add(new KeyValuePair<string, string>("$Value", COMPATIBLE_DATABASE_VERSION));
+                    RunNonQuery(s, SQLiteStrings.System_Insert, parms);
+                    parms.Clear();
+
+                    // Create the admin user
+                    tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
+                    GeneratePasswordHash(newAdminUser, "password");
+                    User_AddUpdate(newAdminUser);
+
+                }
                 CreateDatabaseDefaults();
                 return null;
             }
@@ -65,7 +87,6 @@ namespace SMTPRelay.Database
 
         private static void CreateDatabaseDefaults()
         {
-            System_AddUpdateValue("System", "Version", COMPATIBLE_DATABASE_VERSION);
             /// max message length = 30 MB
             System_AddUpdateValue("Message", "MaxLength", "31457280");
             // max message recipients = 100
@@ -79,12 +100,7 @@ namespace SMTPRelay.Database
             // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
             System_AddUpdateValue("SMTPServer", "CommandTimeoutMS", "120000");
             // Max number of bad commands before the connection is aborted = 10
-            System_AddUpdateValue("SMTPServer", "BadCommandLimit", "10");
-
-            // Create the admin user
-            tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
-            GeneratePasswordHash(newAdminUser, "password");
-            User_AddUpdate(newAdminUser);           
+            System_AddUpdateValue("SMTPServer", "BadCommandLimit", "10");      
         }
 
         public static WorkerReport InitDatabase()
