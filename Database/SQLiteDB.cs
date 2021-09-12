@@ -557,7 +557,7 @@ namespace SMTPRelay.Database
                 using (var command = s.CreateCommand())
                 {
                     command.CommandText = SQLiteStrings.MailGateway_GetByID;
-                    command.Parameters.AddWithValue("$MailRouteID", mailGatewayID);
+                    command.Parameters.AddWithValue("$MailGatewayID", mailGatewayID);
                     using (var reader = command.ExecuteReader())
                     {
                         if (reader.Read())
@@ -584,7 +584,7 @@ namespace SMTPRelay.Database
                     using (var command = s.CreateCommand())
                     {
                         command.CommandText = SQLiteStrings.MailGateway_GetByID;
-                        command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailGatewayID);
+                        command.Parameters.AddWithValue("$MailGatewayID", mailGateway.MailGatewayID);
                         using (var reader = command.ExecuteReader())
                         {
                             if (reader.Read())
@@ -610,14 +610,14 @@ namespace SMTPRelay.Database
                             command.Parameters.AddWithValue("$Username", mailGateway.Username);
                             command.Parameters.AddWithValue("$Password", mailGateway.Password);
                             command.Parameters.AddWithValue("$SenderOverride", mailGateway.SenderOverride);
-                            command.Parameters.AddWithValue("$MailRouteID", mailGateway.MailGatewayID);
+                            command.Parameters.AddWithValue("$MailGatewayID", mailGateway.MailGatewayID);
                             command.ExecuteNonQuery();
                         }
                     }
                 }
             }
-            
-            // if there is no MailRouteID, then we insert a new record and select the ID back.
+
+            // if there is no MailGatewayID, then we insert a new record and select the ID back.
             if (!mailGateway.MailGatewayID.HasValue)
             {
                 // insert new record and read back the ID
