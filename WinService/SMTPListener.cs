@@ -80,6 +80,10 @@ namespace SMTPRelay.WinService
             }
             catch (Exception ex)
             {
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogError = ex.Message
+                });
                 if (listener != null)
                 {
                     try

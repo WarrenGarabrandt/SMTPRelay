@@ -14,6 +14,7 @@ using static SMTPRelay.Model.ServiceControl;
 using SMTPRelay.Model;
 using SMTPRelay.Database;
 using SMTPRelay.Model.DB;
+using System.Threading.Tasks;
 
 namespace SMTPRelay.WinService
 {
@@ -339,33 +340,43 @@ namespace SMTPRelay.WinService
                 // test all functions.
                 //TestAllSQLFunctions();
 
-                // Start listener
-                SMTPListener listener = new SMTPListener();
+                // Start SMTP listener
+                SMTPListener smtpListener = new SMTPListener();
+                // Start SMTP queue
+                SMTPSendQueue smtpQueue = new SMTPSendQueue();
 
                 System.Threading.Thread.Sleep(1000);
                 // send a test email.
-                SendTestEmail();
+                Parallel.For(0, 10000, index =>
+                {
+                    SendTestEmail();
+                });
 
-                while (!worker.CancellationPending && listener.Running)
+                while (!worker.CancellationPending && smtpListener.Running)
                 {
                     WorkerReport status;
-                    if (listener.WorkerReports.TryDequeue(out status))
+                    if (smtpListener.WorkerReports.TryDequeue(out status))
                     {
                         worker.ReportProgress(0, status);
                     }
-                    System.Threading.Thread.Sleep(10);
+                    if (smtpQueue.WorkerReports.TryDequeue(out status))
+                    {
+                        worker.ReportProgress(0, status);
+                    }
+                    Thread.Sleep(10);
                 }
 
                 if (worker.CancellationPending)
                 {
                     worker.ReportProgress(0, new WorkerReport()
                     {
-                        LogMessage = "Shutting down Listeners."
+                        LogMessage = "Shutting down Listeners and Senders."
                     });
-                    listener.Cancel();
-                    while (listener.Running)
+                    smtpListener.Cancel();
+                    smtpQueue.Cancel();
+                    while (smtpListener.Running || smtpQueue.Running)
                     {
-                        System.Threading.Thread.Sleep(100);
+                        Thread.Sleep(100);
                     }
                 }              
             }
