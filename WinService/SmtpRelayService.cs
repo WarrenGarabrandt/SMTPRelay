@@ -347,7 +347,7 @@ namespace SMTPRelay.WinService
 
                 System.Threading.Thread.Sleep(1000);
                 // send a test email.
-                Parallel.For(0, 10000, index =>
+                Parallel.For(0, 100, index =>
                 {
                     SendTestEmail();
                 });

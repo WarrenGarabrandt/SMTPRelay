@@ -15,6 +15,8 @@ namespace SMTPRelay.WinService
 {
     public class SMTPListener
     {
+        private const int MAX_ACTIVE_RECEIVERS = 10;
+
         private BackgroundWorker Worker = null;
         public bool Running;
         public ConcurrentQueue<WorkerReport> WorkerReports;
@@ -41,7 +43,8 @@ namespace SMTPRelay.WinService
         {
             TcpListener listener = null;
             List<SMTPReceiver> Receivers = new List<SMTPReceiver>();
-
+            System.Diagnostics.Stopwatch cleanupSW = new System.Diagnostics.Stopwatch();
+            cleanupSW.Start();
             try
             {
                 // create listener
@@ -55,13 +58,30 @@ namespace SMTPRelay.WinService
                 while (!Worker.CancellationPending)
                 {
                     bool busy = false;
-                    if (listener.Pending())
+                    if (listener.Pending() && Receivers.Count < MAX_ACTIVE_RECEIVERS)
                     {
                         TcpClient newClient = listener.AcceptTcpClient();
                         SMTPReceiver rcv = new SMTPReceiver(newClient);
                         Receivers.Add(rcv);
                         busy = true;
                     }
+                    else if (listener.Pending() && Receivers.Count >= MAX_ACTIVE_RECEIVERS && cleanupSW.ElapsedMilliseconds > 100)
+                    {
+                        CleanupReceivers(Receivers);
+                        cleanupSW.Restart();
+                    }
+
+                    if (Receivers.Count > 4 && cleanupSW.ElapsedMilliseconds > 500)
+                    {
+                        CleanupReceivers(Receivers);
+                        cleanupSW.Restart();
+                    }
+                    else if (cleanupSW.ElapsedMilliseconds >= 1000)
+                    {
+                        CleanupReceivers(Receivers);
+                        cleanupSW.Restart();
+                    }
+                    
                     if (!busy)
                     {
                         System.Threading.Thread.Sleep(50);
