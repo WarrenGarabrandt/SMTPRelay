@@ -158,9 +158,10 @@ namespace SMTPRelay.WinService
 
                     System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
                     sw.Start();
+                    string line = null;
                     while (state == SMTPStates.WaitClientHello && !CloseConnection)
                     {
-                        string line = lineStream.ReadLine();
+                        line = lineStream.ReadLine();
                         if (!string.IsNullOrEmpty(line))
                         {
                             // we got something.
@@ -213,7 +214,6 @@ namespace SMTPRelay.WinService
                     sw.Restart();
                     while (!CloseConnection)
                     {
-                        string line = null;
                         if (Worker.CancellationPending)
                         {
                             lineStream.WriteLine("554 SMTP Server is shutting down");
@@ -240,8 +240,8 @@ namespace SMTPRelay.WinService
                         {
                             lineStream.WriteLine(string.Format("250-{0}", ServerHostName));
                             lineStream.WriteLine(string.Format("250-SIZE {0}", MaxMessageLength));
-                            lineStream.WriteLine("250-AUTH PLAIN LOGIN");
-                            lineStream.WriteLine("250-AUTH=PLAIN LOGIN");
+                            lineStream.WriteLine("250-AUTH LOGIN PLAIN CRAM-MD5");
+                            //lineStream.WriteLine("250-AUTH=PLAIN LOGIN");
                             state = SMTPStates.SendWelcomeClient;
                         }
                         else if (state == SMTPStates.SendWelcomeClient)
@@ -271,7 +271,7 @@ namespace SMTPRelay.WinService
                             {
                                 state = SMTPStates.SendStartTLSNotAvail;
                             }
-                            else if (line.ToUpper() == "AUTH")
+                            else if (line.ToUpper().StartsWith("AUTH"))
                             {
                                 state = SMTPStates.ProcessAUTHLOGINMessage;
                             }
@@ -319,11 +319,34 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessAUTHLOGINMessage)
                         {
+
                             connectedUser = null;
                             ClientUsername = "";
                             ClientPassword = "";
                             // Encrypted channels aren't suported yet, so just proceed.
-                            state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                            if (line.ToUpper().StartsWith("AUTH LOGIN") && line.Length > 10)
+                            {
+                                try
+                                {
+                                    ClientUsername = BASE64Decode(line.Substring(10).Trim());
+                                }
+                                catch
+                                {
+                                    ClientUsername = null;
+                                }
+                                if (string.IsNullOrEmpty(ClientUsername))
+                                {
+                                    state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                                }
+                                else
+                                {
+                                    state = SMTPStates.SendAUTHLOGINPasswordChallenge;
+                                }
+                            }
+                            else
+                            {
+                                state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                            }
                         }
                         else if (state == SMTPStates.SendAUTHLOGINUsernameChallenge)
                         {

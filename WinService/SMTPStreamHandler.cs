@@ -18,6 +18,7 @@ namespace SMTPRelay.WinService
         /// <param name="stream">The stream to read/write data. No extra characters are read so that streams can be swapped.</param>
         public SMTPStreamHandler(Stream stream)
         {
+            _sb = new StringBuilder();
             _stream = stream;
         }
 

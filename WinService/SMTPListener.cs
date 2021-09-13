@@ -29,6 +29,7 @@ namespace SMTPRelay.WinService
             Worker.DoWork += Worker_DoWork;
             Worker.ProgressChanged += Worker_ProgressChanged;
             Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
+            Worker.RunWorkerAsync();
         }
 
         public void Cancel()
@@ -44,7 +45,8 @@ namespace SMTPRelay.WinService
             try
             {
                 // create listener
-                listener = new TcpListener(System.Net.IPAddress.Any, 25);
+                listener = new TcpListener(System.Net.IPAddress.Any, 10025);
+                
                 listener.Start();
                 Worker.ReportProgress(0, new WorkerReport()
                 {

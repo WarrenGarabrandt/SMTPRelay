@@ -338,7 +338,14 @@ namespace SMTPRelay.WinService
 
                 // test all functions.
                 //TestAllSQLFunctions();
+
+                // Start listener
                 SMTPListener listener = new SMTPListener();
+
+                System.Threading.Thread.Sleep(1000);
+                // send a test email.
+                SendTestEmail();
+
                 while (!worker.CancellationPending && listener.Running)
                 {
                     WorkerReport status;
@@ -375,6 +382,26 @@ namespace SMTPRelay.WinService
                 {
                     LogMessage = "Cleanup complete."
                 });
+            }
+        }
+
+        private void SendTestEmail()
+        {
+            string Addr_to = "wgarabrandt@mn-e.com";
+            string Addr_from = "avayavoicemail@miamination.com";
+            System.Net.Mail.MailMessage msg = new System.Net.Mail.MailMessage(Addr_from, Addr_to);
+            msg.Subject = "Test Email";
+            //"C:\Users\wgarabrandt\OneDrive - Miami Tribe of Oklahoma\Documents\test.zip"
+            //System.Net.Mail.Attachment att = new System.Net.Mail.Attachment(@"C:\Users\wgarabrandt\OneDrive - Miami Tribe of Oklahoma\Documents\test.zip", "audio/wav");
+            //msg.Attachments.Add(att);
+            msg.Body = "Hello world!";
+            string server = "127.0.0.1";// "smtp.office365.com";
+            using (System.Net.Mail.SmtpClient client = new System.Net.Mail.SmtpClient(server, 10025))
+            {
+                client.EnableSsl = false; // true;
+                client.UseDefaultCredentials = false;    // false;
+                client.Credentials = new NetworkCredential("test@local", "test");
+                client.Send(msg);
             }
         }
         
