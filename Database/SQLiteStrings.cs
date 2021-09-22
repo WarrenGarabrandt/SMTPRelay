@@ -1,8 +1,11 @@
-﻿namespace SMTPRelay.Database
+﻿using System;
+using System.Collections.Generic;
+
+namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-
+        private const string COMPATIBLE_DATABASE_VERSION = "1.0";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.
@@ -35,6 +38,26 @@
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
             @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);"
             
+        };
+
+        public static List<Tuple<string, string, string>> DatabaseDefaults = new List<Tuple<string, string, string>>()
+        {
+            // current database version
+            new Tuple<string, string, string>("System", "Version", COMPATIBLE_DATABASE_VERSION),
+            // max message length = 30 MB
+            new Tuple<string, string, string>("Message", "MaxLength", "31457280"),
+            // max message recipients = 100
+            new Tuple<string, string, string>("Message", "MaxRecipients", "100"),
+            // max chunk size = 64 KB
+            new Tuple<string, string, string>("Message", "ChunkSize", "65536"),
+            // SMTP server Host Name it advertises.
+            new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
+            // Client has 15 seconds to send HELO or EHLO or we abort the connection.
+            new Tuple<string, string, string>("SMTPServer", "ConnectionTimeoutMS", "15000"),
+            // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
+            new Tuple<string, string, string>("SMTPServer", "CommandTimeoutMS", "120000"),
+            // Max number of bad commands before the connection is aborted = 10
+            new Tuple<string, string, string>("SMTPServer", "BadCommandLimit", "10")             
         };
 
         public static string Table_LastRowID = @"SELECT last_insert_rowid();";

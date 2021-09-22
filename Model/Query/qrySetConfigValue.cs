@@ -26,10 +26,12 @@ namespace SMTPRelay.Model.Query
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();
+            if (Aborted)
+            {
+                throw new OperationCanceledException();
+            }
             return SuccessResult;
         }
-
-        private System.Threading.ManualResetEventSlim DoneSignal { get; set; }
 
         public string Category { get; private set; }
         public string Setting { get; private set; }

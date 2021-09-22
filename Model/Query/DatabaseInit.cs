@@ -6,22 +6,22 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryGetConfigValue : DatabaseQuery
+    public class DatabaseInit : DatabaseQuery
     {
-        public qryGetConfigValue(string category, string setting)
+        public WorkerReport ValueResult { get; set; }
+
+        public DatabaseInit()
         {
-            Category = category;
-            Setting = setting;
             DoneSignal = new System.Threading.ManualResetEventSlim();
         }
-
-        public void SetResult(string value)
+        
+        public void SetResult(WorkerReport value)
         {
             ValueResult = value;
             DoneSignal.Set();
         }
 
-        public string GetResult()
+        public WorkerReport GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();
@@ -31,9 +31,5 @@ namespace SMTPRelay.Model.Query
             }
             return ValueResult;
         }
-
-        public string Category { get; private set; }
-        public string Setting { get; private set; }
-        public string ValueResult { get; set; }
     }
 }

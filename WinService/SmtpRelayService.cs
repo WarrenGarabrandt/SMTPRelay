@@ -338,7 +338,7 @@ namespace SMTPRelay.WinService
                 }
 
                 // test all functions.
-                //TestAllSQLFunctions();
+                TestAllSQLFunctions();
 
                 // Start SMTP listener
                 SMTPListener smtpListener = new SMTPListener();

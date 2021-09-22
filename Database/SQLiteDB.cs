@@ -1,7 +1,10 @@
 ﻿using SMTPRelay.Model;
 using SMTPRelay.Model.DB;
+using SMTPRelay.Model.Query;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.SQLite;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,6 +13,96 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteDB
     {
+        private static BackgroundWorker Worker = null;
+
+        private static BlockingCollection<DatabaseQuery> QueryQueue = new BlockingCollection<DatabaseQuery>();
+
+        private static void Worker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            BlockingCollection<DatabaseQuery> queue = e.Argument as BlockingCollection<DatabaseQuery>;
+            if (queue == null)
+            {
+                e.Result = new Exception("No Work Queue Provided.");
+                return;
+            }
+            SQLiteConnection conn = null;
+            try
+            {
+                while (!Worker.CancellationPending)
+                {
+                    try
+                    {
+                        DatabaseQuery query;
+                        if (queue.TryTake(out query, 2000))
+                        {
+                            switch (query)
+                            {
+                                case DatabaseInit q:
+                                    _initDatabase(ref conn, q);
+                                    break;
+                                case qryGetAllConfigValues q:
+                                    _system_GetAll(ref conn, q);
+                                    break;
+                                case qryGetConfigValue q:
+                                    _system_GetValue(ref conn, q);
+                                    break;
+                                case qrySetConfigValue q:
+                                    _system_AddUpdateValue(ref conn, q);
+                                    break;
+                                case qryGetAllUsers q:
+                                    _user_GetAll(ref conn, q);
+                                    break;
+                                default:
+                                    throw new Exception(string.Format("Don't understand object type: {0}", query.GetType().ToString()));
+                            }
+                        }
+                        else
+                        {
+                            if (conn != null)
+                            {
+                                try
+                                {
+                                    conn.Dispose();
+                                }
+                                catch { }
+                                conn = null;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                }
+            }
+            finally
+            {
+                if (conn != null)
+                {
+                    try
+                    {
+                        conn.Dispose();
+                        conn = null;
+                    }
+                    catch { }
+                }
+            }
+            throw new NotImplementedException();
+        }
+
+        private static void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            if (e.Result is Exception)
+            {
+                System.Diagnostics.Debug.WriteLine(((Exception)e.Result).Message);
+            }
+            DatabaseQuery q;
+            while (QueryQueue.TryTake(out q, 100))
+            {
+                q.Abort();
+            }
+        }
+
         private const string COMPATIBLE_DATABASE_VERSION = "1.0";
 
         private static string DatabasePath
@@ -30,6 +123,7 @@ namespace SMTPRelay.Database
         }
 
         private static string _cached_DatabaseConnectionString = null;
+
         private static string DatabaseConnectionString
         {
             get
@@ -41,108 +135,197 @@ namespace SMTPRelay.Database
                 return _cached_DatabaseConnectionString;
             }
         }
-        
-        public static WorkerReport FormatNewDatabase()
-        {
-            try
-            {
-                if (!System.IO.Directory.Exists(DatabasePath))
-                {
-                    System.IO.Directory.CreateDirectory(DatabasePath);
-                }
-                SQLiteConnection.CreateFile(DatabaseFile);
-                var parms = new List<KeyValuePair<string, string>>();
-                using (var s = new SQLiteConnection(DatabaseConnectionString))
-                {
-                    s.Open();
-                    foreach (string cmdstr in SQLiteStrings.Format_Database)
-                    {
-                        RunNonQuery(s, cmdstr, parms);
-                    }
 
-                    // Insert the database version
-                    parms.Add(new KeyValuePair<string, string>("$Category", "System"));
-                    parms.Add(new KeyValuePair<string, string>("$Setting", "Version"));
-                    parms.Add(new KeyValuePair<string, string>("$Value", COMPATIBLE_DATABASE_VERSION));
-                    RunNonQuery(s, SQLiteStrings.System_Insert, parms);
-                    parms.Clear();
-
-                    // Create the admin user
-                    tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
-                    GeneratePasswordHash(newAdminUser, "password");
-                    User_AddUpdate(newAdminUser);
-
-                }
-                CreateDatabaseDefaults();
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return new WorkerReport()
-                {
-                    LogError = string.Format("Unable to format the database. {0}", ex.Message)
-                };
-            }
-        }
-
-        private static void CreateDatabaseDefaults()
-        {
-            /// max message length = 30 MB
-            System_AddUpdateValue("Message", "MaxLength", "31457280");
-            // max message recipients = 100
-            System_AddUpdateValue("Message", "MaxRecipients", "100");
-            // max chunk size = 64 KB
-            System_AddUpdateValue("Message", "ChunkSize", "65536");
-            // SMTP server Host Name it advertises.
-            System_AddUpdateValue("SMTPServer", "Hostname", "mailrelay.local");
-            // Client has 15 seconds to send HELO or EHLO or we abort the connection.
-            System_AddUpdateValue("SMTPServer", "ConnectionTimeoutMS", "15000");
-            // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
-            System_AddUpdateValue("SMTPServer", "CommandTimeoutMS", "120000");
-            // Max number of bad commands before the connection is aborted = 10
-            System_AddUpdateValue("SMTPServer", "BadCommandLimit", "10");      
-        }
-
+        #region Public Methods
+        /// <summary>
+        /// Sets up the connection to the database. Will create a new database if one doesn't exist already.
+        /// </summary>
+        /// <returns></returns>
         public static WorkerReport InitDatabase()
         {
+            if (Worker != null && !Worker.IsBusy)
+            {
+                Worker = null;
+            }
+            if (Worker == null)
+            {
+                Worker = new BackgroundWorker();
+                Worker.WorkerReportsProgress = false;
+                Worker.WorkerSupportsCancellation = true;
+                Worker.DoWork += Worker_DoWork;
+                Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
+                Worker.RunWorkerAsync(QueryQueue);
+            }
+            DatabaseInit q = new DatabaseInit();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+        /// <summary>
+        /// Gets all system configuration values.
+        /// </summary>
+        /// <returns>All config values in the System table</returns>
+        public static List<tblSystem> System_GetAll()
+        {
+            qryGetAllConfigValues q = new qryGetAllConfigValues();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Returns a setting value from the System table for a given Category and Setting.
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="setting"></param>
+        /// <returns></returns>
+        public static string System_GetValue(string category, string setting)
+        {
+            qryGetConfigValue q = new qryGetConfigValue(category, setting);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Creates or updates a setting to a specified value.
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="setting"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static bool System_AddUpdateValue(string category, string setting, string value)
+        {
+            qrySetConfigValue q = new qrySetConfigValue(category, setting, value);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a list of all user accounts
+        /// </summary>
+        /// <returns></returns>
+        public static List<tblUser> User_GetAll()
+        {
+            qryGetAllUsers q = new qryGetAllUsers();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        #endregion
+
+        #region Private Methods
+        private static bool _verifyConnection(ref SQLiteConnection conn)
+        {
+            if (conn != null)
+            {
+                if (conn.State == System.Data.ConnectionState.Broken || conn.State == System.Data.ConnectionState.Closed)
+                {
+                    try
+                    {
+                        conn.Dispose();
+                        conn = null;
+                    }
+                    catch { }
+                }
+            }
+            if (conn == null)
+            {
+                try
+                {
+                    conn = new SQLiteConnection(DatabaseConnectionString);
+                    conn.Open();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(string.Format("Unable to connect to the database. {0}", ex.Message));
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static void _initDatabase(ref SQLiteConnection conn, DatabaseInit query)
+        {
+            if (conn != null)
+            {
+                try
+                {
+                    conn.Dispose();
+                }
+                catch { }
+                conn = null;
+            }
             try
             {
                 if (!System.IO.File.Exists(DatabaseFile))
                 {
-                    WorkerReport rep = FormatNewDatabase();
-                    if (rep != null)
+                    try
                     {
-                        return rep;
+                        _formatNewDatabase();
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(string.Format("Error formattting database: {0}", ex.Message));
                     }
                 }
-                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                conn = new SQLiteConnection(DatabaseConnectionString);
+                conn.Open();
+                List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
+                parms.Add(new KeyValuePair<string, string>("$Category", "System"));
+                parms.Add(new KeyValuePair<string, string>("$Setting", "Version"));
+                string value = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
+                if (value != COMPATIBLE_DATABASE_VERSION)
                 {
-                    s.Open();
-                    List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
-                    parms.Add(new KeyValuePair<string, string>("$Category", "System"));
-                    parms.Add(new KeyValuePair<string, string>("$Setting", "Version"));
-                    string value = RunValueQuery(s, SQLiteStrings.System_Select, parms);
-
+                    throw new Exception("Incompatible database version.");
                 }
+                query.SetResult(null);
             }
             catch (Exception ex)
             {
-                return new WorkerReport()
+                query.SetResult(new WorkerReport()
                 {
                     LogError = string.Format("Unable to start the database. {0}", ex.Message),
-                };
+                });
+                return;
             }
-            return null;
+        }
+
+        private static void _formatNewDatabase()
+        {
+            if (!System.IO.Directory.Exists(DatabasePath))
+            {
+                System.IO.Directory.CreateDirectory(DatabasePath);
+            }
+            SQLiteConnection.CreateFile(DatabaseFile);
+            var parms = new List<KeyValuePair<string, string>>();
+            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            {
+                s.Open();
+                // create all tables
+                foreach (string cmdstr in SQLiteStrings.Format_Database)
+                {
+                    _runNonQuery(s, cmdstr, parms);
+                }
+
+                // create all default values
+                foreach (var setting in SQLiteStrings.DatabaseDefaults)
+                {
+                    parms.Add(new KeyValuePair<string, string>("$Category", setting.Item1));
+                    parms.Add(new KeyValuePair<string, string>("$Setting", setting.Item2));
+                    parms.Add(new KeyValuePair<string, string>("$Value", setting.Item3));
+                    _runNonQuery(s, SQLiteStrings.System_Insert, parms);
+                }
+
+                // Create the admin user
+                tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
+                GeneratePasswordHash(newAdminUser, "password");
+                User_AddUpdate(newAdminUser);
+            }
         }
 
         /// <summary>
         /// Gets a value from a table. if not found, returns null;
         /// </summary>
-        /// <param name="conn"></param>
-        /// <param name="query"></param>
-        /// <param name="parms"></param>
         /// <returns></returns>
-        private static string RunValueQuery(SQLiteConnection conn, string query, List<KeyValuePair<string, string>> parms)
+        private static string _runValueQuery(SQLiteConnection conn, string query, List<KeyValuePair<string, string>> parms)
         {
             string result = null;
             using (var command = conn.CreateCommand())
@@ -163,7 +346,7 @@ namespace SMTPRelay.Database
             return result;
         }
 
-        private static void RunNonQuery(SQLiteConnection conn, string query, List<KeyValuePair<string, string>> parms)
+        private static void _runNonQuery(SQLiteConnection conn, string query, List<KeyValuePair<string, string>> parms)
         {
             using (var command = conn.CreateCommand())
             {
@@ -176,13 +359,16 @@ namespace SMTPRelay.Database
             }
         }
 
-        public static List<tblSystem> System_GetAll()
+        private static void _system_GetAll(ref SQLiteConnection conn, qryGetAllConfigValues query)
         {
-            List<tblSystem> results = new List<tblSystem>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            if (!_verifyConnection(ref conn))
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                query.Abort();
+                return;
+            }
+            List<tblSystem> results = new List<tblSystem>();
+            {
+                using (var command = conn.CreateCommand())
                 {
                     command.CommandText = SQLiteStrings.System_GetAll;
                     using (var reader = command.ExecuteReader())
@@ -194,54 +380,66 @@ namespace SMTPRelay.Database
                     }
                 }
             }
-            return results;
+            query.SetResult(results);
         }
-
-        public static string System_GetValue(string category, string setting)
+        
+        private static void _system_GetValue(ref SQLiteConnection conn, qryGetConfigValue query)
         {
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            if (!_verifyConnection(ref conn))
             {
-                s.Open();
-                List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
-                parms.Add(new KeyValuePair<string, string>("$Category", category));
-                parms.Add(new KeyValuePair<string, string>("$Setting", setting));
-                return RunValueQuery(s, SQLiteStrings.System_Select, parms);
+                query.Abort();
+                return;
             }
+            List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
+            parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
+            parms.Add(new KeyValuePair<string, string>("$Setting", query.Setting));
+            query.SetResult(_runValueQuery(conn, SQLiteStrings.System_Select, parms));
         }
-
-        public static void System_AddUpdateValue(string category, string setting, string value)
+        
+        private static void _system_AddUpdateValue(ref SQLiteConnection conn, qrySetConfigValue query)
         {
+            if (!_verifyConnection(ref conn))
+            {
+                query.Abort();
+                return;
+            }
             var parms = new List<KeyValuePair<string, string>>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
-            {
-                s.Open();
-                parms.Add(new KeyValuePair<string, string>("$Category", category));
-                parms.Add(new KeyValuePair<string, string>("$Setting", setting));
-                parms.Add(new KeyValuePair<string, string>("$Value", value));
-                RunNonQuery(s, SQLiteStrings.System_Insert, parms);
-            }
+            parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
+            parms.Add(new KeyValuePair<string, string>("$Setting", query.Setting));
+            parms.Add(new KeyValuePair<string, string>("$Value", query.Value));
+            _runNonQuery(conn, SQLiteStrings.System_Insert, parms);
+            query.SetResult(true);
         }
 
-        public static List<tblUser> User_GetAll()
+        private static void _user_GetAll(ref SQLiteConnection conn, qryGetAllUsers query)
         {
-            List<tblUser> results = new List<tblUser>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            if (!_verifyConnection(ref conn))
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                query.Abort();
+                return;
+            }
+            List<tblUser> results = new List<tblUser>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.User_GetAll;
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.User_GetAll;
-                    using (var reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7)));
-                        }
+                        results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7)));
                     }
                 }
             }
-            return results;
+            query.SetResult(results);
         }
+
+        #endregion
+
+
+
+
+
+
 
         public static tblUser User_GetByID(long? userID)
         {
