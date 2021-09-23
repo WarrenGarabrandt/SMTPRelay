@@ -55,6 +55,16 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Query\DatabaseInit.cs" />
     <Compile Include="Query\DatabaseQuery.cs" />
+    <Compile Include="Query\qryDeleteMailChunkData.cs" />
+    <Compile Include="Query\qryDeleteMailGatwayByID.cs" />
+    <Compile Include="Query\qryDeleteSendQueueByID.cs" />
+    <Compile Include="Query\qryGetAllMailGateways.cs" />
+    <Compile Include="Query\qryGetAllSendQueue.cs" />
+    <Compile Include="Query\qryGetMailDataSize.cs" />
+    <Compile Include="Query\qryGetMailGatewayByID.cs" />
+    <Compile Include="Query\qryGetMailChunkData.cs" />
+    <Compile Include="Query\qryGetReadySendQueue.cs" />
+    <Compile Include="Query\qrySetEnvelopeChunkCount.cs" />
     <Compile Include="Query\qryClearUserGatewayByID.cs" />
     <Compile Include="Query\qryDeleteUserByID.cs" />
     <Compile Include="Query\qryGetAllEnvelopes.cs" />
@@ -67,7 +77,11 @@
     <Compile Include="Query\qryGetUserByID.cs" />
     <Compile Include="Query\qrySetConfigValue.cs" />
     <Compile Include="Query\qrySetEnvelope.cs" />
+    <Compile Include="Query\qrySetMailChunk.cs" />
+    <Compile Include="Query\qrySetMailGateway.cs" />
+    <Compile Include="Query\qrySetSendQueue.cs" />
     <Compile Include="Query\qrySetUser.cs" />
+    <Compile Include="Query\qryViewMailQueue.cs" />
     <Compile Include="ServiceControl.cs" />
     <Compile Include="WorkerReport.cs" />
   </ItemGroup>
