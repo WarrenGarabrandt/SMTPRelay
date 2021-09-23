@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SMTPRelay.Model.DB;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,26 +7,26 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryGetConfigValue : DatabaseQuery
+    public class qryGetUserByEmailPassword : DatabaseQuery
     {
-        public string Category { get; private set; }
-        public string Setting { get; private set; }
-        public string ValueResult { get; set; }
+        public string Email { get; private set; }
+        public string Password { get; private set; }
+        public tblUser ValueResult { get; set; }
 
-        public qryGetConfigValue(string category, string setting)
+        public qryGetUserByEmailPassword(string email, string password)
         {
-            Category = category;
-            Setting = setting;
+            Email = email;
+            Password = password;
             DoneSignal = new System.Threading.ManualResetEventSlim();
         }
 
-        public void SetResult(string value)
+        public void SetResult(tblUser value)
         {
             ValueResult = value;
             DoneSignal.Set();
         }
 
-        public string GetResult()
+        public tblUser GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();
@@ -35,7 +36,5 @@ namespace SMTPRelay.Model.Query
             }
             return ValueResult;
         }
-
-
     }
 }

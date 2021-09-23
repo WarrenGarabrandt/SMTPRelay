@@ -90,7 +90,7 @@ namespace SMTPRelay.Configuration.Controls
 
         private void PopulateSelectedUser()
         { 
-            tblUser dbUser = SQLiteDB.User_GetByID(SelectedUser);
+            tblUser dbUser = SQLiteDB.User_GetByID(SelectedUser ?? -1);
             txtDisplayName.Text = dbUser.DisplayName;
             txtEmailAddress.Text = dbUser.Email;
             txtPassword1.Text = dbUser.PassHash;
@@ -204,7 +204,7 @@ namespace SMTPRelay.Configuration.Controls
             if (SelectedUser != -1)
             {
                 // update user
-                tblUser updateUser = SQLiteDB.User_GetByID(SelectedUser);
+                tblUser updateUser = SQLiteDB.User_GetByID(SelectedUser ?? -1);
                 if (updateUser == null)
                 {
                     if (MessageBox.Show("The user you are editing has been deleted.\r\n" + 

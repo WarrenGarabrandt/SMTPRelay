@@ -52,6 +52,18 @@ namespace SMTPRelay.Database
                                 case qryGetAllUsers q:
                                     _user_GetAll(ref conn, q);
                                     break;
+                                case qryGetUserByID q:
+                                    _user_GetByID(ref conn, q);
+                                    break;
+                                case qryGetUserByEmail q:
+                                    _user_GetByEmail(ref conn, q);
+                                    break;
+                                case qryGetUserByEmailPassword q:
+                                    _user_GetByEmailPassword(ref conn, q);
+                                    break;
+                                case qrySetUser q:
+                                    _user_AddUpdate(ref conn, q);
+                                    break;
                                 default:
                                     throw new Exception(string.Format("Don't understand object type: {0}", query.GetType().ToString()));
                             }
@@ -209,6 +221,53 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        /// <summary>
+        /// Gets a user by UserID
+        /// </summary>
+        /// <param name="userID"></param>
+        /// <returns></returns>
+        public static tblUser User_GetByID(long userID)
+        {
+            qryGetUserByID q = new qryGetUserByID(userID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a user by email address
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
+        public static tblUser User_GetByEmail(string email)
+        {
+            qryGetUserByEmail q = new qryGetUserByEmail(email);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a user by email address and password.
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        public static tblUser User_GetByEmailPassword(string email, string password)
+        {
+            qryGetUserByEmailPassword q = new qryGetUserByEmailPassword(email, password);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Adds or updates a user in the database.
+        /// </summary>
+        /// <param name="user"></param>
+        public static bool User_AddUpdate(tblUser user)
+        {
+            qrySetUser q = new qrySetUser(user);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
         #endregion
 
         #region Private Methods
@@ -433,165 +492,165 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        #endregion
-
-
-
-
-
-
-
-        public static tblUser User_GetByID(long? userID)
+        private static void _user_GetByID(ref SQLiteConnection conn, qryGetUserByID query)
         {
             tblUser dbUser = null;
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.User_GetByID;
+                command.Parameters.AddWithValue("$UserID", query.UserID);
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.User_GetByID;
-                    command.Parameters.AddWithValue("$UserID", userID);
-                    using (var reader = command.ExecuteReader())
+                    if (reader.Read())
                     {
-                        if (reader.Read())
-                        {
-                            dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
-                        }
+                        dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
                     }
                 }
             }
-            return dbUser;
+            query.SetResult(dbUser);
         }
 
-        public static tblUser User_GetByEmail(string email)
+        private static tblUser _user_GetByEmail(ref SQLiteConnection conn, string email)
         {
-            tblUser results = null;
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            tblUser result = null;
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.User_GetByEmail;
+                command.Parameters.AddWithValue("$Email", email);
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.User_GetByEmail;
-                    command.Parameters.AddWithValue("$Email", email);
-                    using (var reader = command.ExecuteReader())
+                    if (reader.Read())
                     {
-                        if (reader.Read())
-                        {
-                            results = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
-                        }
+                        result = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
                     }
                 }
             }
-            return results;
+            return result;
         }
 
-        public static tblUser User_GetByEmailPassword(string email, string password)
+        private static void _user_GetByEmail(ref SQLiteConnection conn, qryGetUserByEmail query)
         {
-            tblUser user = User_GetByEmail(email);
+            query.SetResult(_user_GetByEmail(ref conn, query.Email));
+        }
+
+        private static void _user_GetByEmailPassword(ref SQLiteConnection conn, qryGetUserByEmailPassword query)
+        {
+            tblUser user = _user_GetByEmail(ref conn, query.Email);
             if (user == null)
             {
-                return null;
+                query.SetResult(null);
             }
-            if (user.Enabled && ValidatePasswordHash(user, password))
+            if (user.Enabled && ValidatePasswordHash(user, query.Password))
             {
-                return user;
+                query.SetResult(user);
             }
             else
             {
-                return null;
+                query.SetResult(null);
             }
         }
 
-        public static void User_AddUpdate(tblUser user)
+        private static void _user_AddUpdate(ref SQLiteConnection conn, qrySetUser query)
         {
-            // if the UserID is populated, then we are going to try to update first. 
-            // the update might fail, in which case we insert below
-            if (user.UserID.HasValue)
+            try
             {
-                // update
-                tblUser dbUser = null;
-                using (var s = new SQLiteConnection(DatabaseConnectionString))
+                // if the UserID is populated, then we are going to try to update first. 
+                // the update might fail, in which case we insert below
+                if (query.User.UserID.HasValue)
                 {
-                    s.Open();
-                    using (var command = s.CreateCommand())
+                    // update
+                    tblUser dbUser = null;
+                    using (var s = new SQLiteConnection(DatabaseConnectionString))
                     {
-                        command.CommandText = SQLiteStrings.User_GetByID;
-                        command.Parameters.AddWithValue("$UserID", user.UserID);
-                        using (var reader = command.ExecuteReader())
+                        s.Open();
+                        using (var command = s.CreateCommand())
                         {
-                            if (reader.Read())
+                            command.CommandText = SQLiteStrings.User_GetByID;
+                            command.Parameters.AddWithValue("$UserID", query.User.UserID);
+                            using (var reader = command.ExecuteReader())
                             {
-                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                                if (reader.Read())
+                                {
+                                    dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                                }
+                            }
+                        }
+                        if (dbUser == null)
+                        {
+                            // user doesn't exit afterall
+                            query.User.UserID = null;
+                        }
+                        else
+                        {
+                            using (var command = s.CreateCommand())
+                            {
+                                command.CommandText = SQLiteStrings.User_Update;
+                                //@"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin WHERE UserID = $UserID;"
+                                command.Parameters.AddWithValue("$DisplayName", query.User.DisplayName);
+                                command.Parameters.AddWithValue("$Email", query.User.Email);
+                                command.Parameters.AddWithValue("$Salt", query.User.Salt);
+                                command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
+                                command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
+                                command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
+                                if (query.User.MailGateway.HasValue)
+                                {
+                                    command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
+                                }
+                                else
+                                {
+                                    command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                                }
+                                command.Parameters.AddWithValue("$UserID", query.User.UserID);
+                                command.ExecuteNonQuery();
                             }
                         }
                     }
-                    if (dbUser == null)
+                }
+
+                // if there is no UserID, then we insert a new record and select the ID back.
+                if (!query.User.UserID.HasValue)
+                {
+                    // insert new record and read back the ID
+                    using (var s = new SQLiteConnection(DatabaseConnectionString))
                     {
-                        // user doesn't exit afterall
-                        user.UserID = null;
-                    }
-                    else
-                    {
+                        s.Open();
                         using (var command = s.CreateCommand())
                         {
-                            command.CommandText = SQLiteStrings.User_Update;
-                            //@"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin WHERE UserID = $UserID;"
-                            command.Parameters.AddWithValue("$DisplayName", user.DisplayName);
-                            command.Parameters.AddWithValue("$Email", user.Email);
-                            command.Parameters.AddWithValue("$Salt", user.Salt);
-                            command.Parameters.AddWithValue("$PassHash", user.PassHash);
-                            command.Parameters.AddWithValue("$Enabled", user.EnabledInt);
-                            command.Parameters.AddWithValue("$Admin", user.AdminInt);
-                            if (user.MailGateway.HasValue)
+                            command.CommandText = SQLiteStrings.User_Insert;
+                            //@"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin);"
+                            command.Parameters.AddWithValue("$DisplayName", query.User.DisplayName);
+                            command.Parameters.AddWithValue("$Email", query.User.Email);
+                            command.Parameters.AddWithValue("$Salt", query.User.Salt);
+                            command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
+                            command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
+                            command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
+                            if (query.User.MailGateway.HasValue)
                             {
-                                command.Parameters.AddWithValue("$MailGatewayID", user.MailGateway);
+                                command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
                             }
                             else
                             {
                                 command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
                             }
-                            command.Parameters.AddWithValue("$UserID", user.UserID);
                             command.ExecuteNonQuery();
                         }
+                        using (var command = s.CreateCommand())
+                        {
+                            command.CommandText = SQLiteStrings.Table_LastRowID;
+                            query.User.UserID = (long)command.ExecuteScalar();
+                        }
                     }
                 }
+                query.SetResult(true);
             }
-
-            // if there is no UserID, then we insert a new record and select the ID back.
-            if (!user.UserID.HasValue)
+            catch (Exception ex)
             {
-                // insert new record and read back the ID
-                using (var s = new SQLiteConnection(DatabaseConnectionString))
-                {
-                    s.Open();
-                    using (var command = s.CreateCommand())
-                    {
-                        command.CommandText = SQLiteStrings.User_Insert;
-                        //@"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin);"
-                        command.Parameters.AddWithValue("$DisplayName", user.DisplayName);
-                        command.Parameters.AddWithValue("$Email", user.Email);
-                        command.Parameters.AddWithValue("$Salt", user.Salt);
-                        command.Parameters.AddWithValue("$PassHash", user.PassHash);
-                        command.Parameters.AddWithValue("$Enabled", user.EnabledInt);
-                        command.Parameters.AddWithValue("$Admin", user.AdminInt);
-                        if (user.MailGateway.HasValue)
-                        {
-                            command.Parameters.AddWithValue("$MailGatewayID", user.MailGateway);
-                        }
-                        else
-                        {
-                            command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
-                        }
-                        command.ExecuteNonQuery();
-                    }
-                    using (var command = s.CreateCommand())
-                    {
-                        command.CommandText = SQLiteStrings.Table_LastRowID;
-                        user.UserID = (long)command.ExecuteScalar();
-                    }
-                }
+                query.SetResult(false);
+                throw ex;
             }
         }
+
+        #endregion
 
         public static void User_ClearGatewayByID(long gatewayID)
         {
