@@ -6,22 +6,19 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qrySetConfigValue : DatabaseQuery
+    public class qryClearUserGatewayByID : DatabaseQuery
     {
-        public string Category { get; private set; }
-        public string Setting { get; private set; }
-        public string Value { get; private set; }
 
         public bool SuccessResult { get; private set; }
 
-        public qrySetConfigValue(string category, string setting, string value)
+        public long GatewayID { get; private set; }
+
+        public qryClearUserGatewayByID(long gatewayID)
         {
-            Category = category;
-            Setting = setting;
-            Value = value;
+            GatewayID = gatewayID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
         }
-        
+
         public void SetResult(bool result)
         {
             SuccessResult = result;

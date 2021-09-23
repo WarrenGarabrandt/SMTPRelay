@@ -14,6 +14,7 @@ namespace SMTPRelay.Database
     public static class SQLiteDB
     {
         private static BackgroundWorker Worker = null;
+        public static bool ConnectionInitialized = false;
 
         private static BlockingCollection<DatabaseQuery> QueryQueue = new BlockingCollection<DatabaseQuery>();
 
@@ -35,6 +36,10 @@ namespace SMTPRelay.Database
                         DatabaseQuery query;
                         if (queue.TryTake(out query, 2000))
                         {
+                            if (!_verifyConnection(ref conn))
+                            {
+                                query.Abort();
+                            }
                             switch (query)
                             {
                                 case DatabaseInit q:
@@ -64,8 +69,23 @@ namespace SMTPRelay.Database
                                 case qrySetUser q:
                                     _user_AddUpdate(ref conn, q);
                                     break;
+                                case qryClearUserGatewayByID q:
+                                    _user_ClearGatewayByID(ref conn, q);
+                                    break;
+                                case qryDeleteUserByID q:
+                                    _user_DeleteByID(ref conn, q);
+                                    break;
+                                case qryGetAllEnvelopes q:
+                                    _envelope_GetAll(ref conn, q);
+                                    break;
+                                case qryGetEnvelopeByID q:
+                                    _envelope_GetByID(ref conn, q);
+                                    break;
+                                case qrySetEnvelope q:
+                                    _envelope_Add(ref conn, q);
+                                    break;
                                 default:
-                                    throw new Exception(string.Format("Don't understand object type: {0}", query.GetType().ToString()));
+                                    throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
                             }
                         }
                         else
@@ -149,6 +169,64 @@ namespace SMTPRelay.Database
         }
 
         #region Public Methods
+        /// <summary>
+        /// Generates and sets the salt and password hash on a user for a given password.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="newPassword"></param>
+        public static void GeneratePasswordHash(tblUser user, string newPassword)
+        {
+            user.Salt = GenerateNonce(16);
+            string Password = string.Format("{0}:{1}", user.Salt, newPassword);
+            byte[] passbytes = UTF8Encoding.UTF8.GetBytes(Password);
+            using (SHA256 sha = SHA256.Create())
+            {
+                passbytes = sha.ComputeHash(passbytes);
+            }
+            user.PassHash = Convert.ToBase64String(passbytes);
+        }
+
+        /// <summary>
+        /// Compute a password hash for a provided password and verify that it matches the expected value
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        public static bool ValidatePasswordHash(tblUser user, string password)
+        {
+            string Password = string.Format("{0}:{1}", user.Salt, password);
+            byte[] passbytes = UTF8Encoding.UTF8.GetBytes(Password);
+            using (SHA256 sha = SHA256.Create())
+            {
+                passbytes = sha.ComputeHash(passbytes);
+            }
+            if (user.PassHash == Convert.ToBase64String(passbytes))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Generates a random string of letters and numbers.
+        /// </summary>
+        /// <param name="len"></param>
+        /// <returns></returns>
+        public static string GenerateNonce(int len)
+        {
+            Random rnd = new Random();
+            string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < len; i++)
+            {
+                sb.Append(chars[rnd.Next(chars.Length)]);
+            }
+            return sb.ToString();
+        }
+
         /// <summary>
         /// Sets up the connection to the database. Will create a new database if one doesn't exist already.
         /// </summary>
@@ -268,11 +346,75 @@ namespace SMTPRelay.Database
             QueryQueue.Add(q);
             return q.GetResult();
         }
+        
+        /// <summary>
+        /// Clear the gateway ID for all users that have the specified gateway ID assigned.
+        /// </summary>
+        /// <param name="gatewayID"></param>
+        /// <returns></returns>
+        public static bool User_ClearGatewayByID(long gatewayID)
+        {
+            qryClearUserGatewayByID q = new qryClearUserGatewayByID(gatewayID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Deletes a user from the database specified by UserID
+        /// </summary>
+        /// <param name="userID"></param>
+        /// <returns></returns>
+        public static bool User_DeleteByID(long userID)
+        {
+            qryDeleteUserByID q = new qryDeleteUserByID(userID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a full list all envelopes.
+        /// </summary>
+        /// <returns></returns>
+        public static List<tblEnvelope> Envelope_GetAll()
+        {
+            qryGetAllEnvelopes q = new qryGetAllEnvelopes();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets an envelope by ID.
+        /// </summary>
+        /// <param name="envelopeID"></param>
+        /// <returns></returns>
+        public static tblEnvelope Envelope_GetByID(long envelopeID)
+        {
+            qryGetEnvelopeByID q = new qryGetEnvelopeByID(envelopeID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Adds an envelope to the database
+        /// </summary>
+        /// <param name="envelope"></param>
+        /// <returns></returns>
+        public static bool Envelope_Add(tblEnvelope envelope)
+        {
+            qrySetEnvelope q = new qrySetEnvelope(envelope);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
         #endregion
 
         #region Private Methods
         private static bool _verifyConnection(ref SQLiteConnection conn)
         {
+            if (!ConnectionInitialized)
+            {
+                return false;
+            }
             if (conn != null)
             {
                 if (conn.State == System.Data.ConnectionState.Broken || conn.State == System.Data.ConnectionState.Closed)
@@ -294,6 +436,7 @@ namespace SMTPRelay.Database
                 }
                 catch (Exception ex)
                 {
+                    ConnectionInitialized = false;
                     System.Diagnostics.Debug.WriteLine(string.Format("Unable to connect to the database. {0}", ex.Message));
                     return false;
                 }
@@ -335,10 +478,12 @@ namespace SMTPRelay.Database
                 {
                     throw new Exception("Incompatible database version.");
                 }
+                ConnectionInitialized = true;
                 query.SetResult(null);
             }
             catch (Exception ex)
             {
+                ConnectionInitialized = false;
                 query.SetResult(new WorkerReport()
                 {
                     LogError = string.Format("Unable to start the database. {0}", ex.Message),
@@ -420,11 +565,6 @@ namespace SMTPRelay.Database
 
         private static void _system_GetAll(ref SQLiteConnection conn, qryGetAllConfigValues query)
         {
-            if (!_verifyConnection(ref conn))
-            {
-                query.Abort();
-                return;
-            }
             List<tblSystem> results = new List<tblSystem>();
             {
                 using (var command = conn.CreateCommand())
@@ -444,11 +584,6 @@ namespace SMTPRelay.Database
         
         private static void _system_GetValue(ref SQLiteConnection conn, qryGetConfigValue query)
         {
-            if (!_verifyConnection(ref conn))
-            {
-                query.Abort();
-                return;
-            }
             List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
             parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
             parms.Add(new KeyValuePair<string, string>("$Setting", query.Setting));
@@ -457,11 +592,6 @@ namespace SMTPRelay.Database
         
         private static void _system_AddUpdateValue(ref SQLiteConnection conn, qrySetConfigValue query)
         {
-            if (!_verifyConnection(ref conn))
-            {
-                query.Abort();
-                return;
-            }
             var parms = new List<KeyValuePair<string, string>>();
             parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
             parms.Add(new KeyValuePair<string, string>("$Setting", query.Setting));
@@ -472,11 +602,6 @@ namespace SMTPRelay.Database
 
         private static void _user_GetAll(ref SQLiteConnection conn, qryGetAllUsers query)
         {
-            if (!_verifyConnection(ref conn))
-            {
-                query.Abort();
-                return;
-            }
             List<tblUser> results = new List<tblUser>();
             using (var command = conn.CreateCommand())
             {
@@ -560,64 +685,29 @@ namespace SMTPRelay.Database
                 {
                     // update
                     tblUser dbUser = null;
-                    using (var s = new SQLiteConnection(DatabaseConnectionString))
+                    using (var command = conn.CreateCommand())
                     {
-                        s.Open();
-                        using (var command = s.CreateCommand())
+                        command.CommandText = SQLiteStrings.User_GetByID;
+                        command.Parameters.AddWithValue("$UserID", query.User.UserID);
+                        using (var reader = command.ExecuteReader())
                         {
-                            command.CommandText = SQLiteStrings.User_GetByID;
-                            command.Parameters.AddWithValue("$UserID", query.User.UserID);
-                            using (var reader = command.ExecuteReader())
+                            if (reader.Read())
                             {
-                                if (reader.Read())
-                                {
-                                    dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
-                                }
-                            }
-                        }
-                        if (dbUser == null)
-                        {
-                            // user doesn't exit afterall
-                            query.User.UserID = null;
-                        }
-                        else
-                        {
-                            using (var command = s.CreateCommand())
-                            {
-                                command.CommandText = SQLiteStrings.User_Update;
-                                //@"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin WHERE UserID = $UserID;"
-                                command.Parameters.AddWithValue("$DisplayName", query.User.DisplayName);
-                                command.Parameters.AddWithValue("$Email", query.User.Email);
-                                command.Parameters.AddWithValue("$Salt", query.User.Salt);
-                                command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
-                                command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
-                                command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
-                                if (query.User.MailGateway.HasValue)
-                                {
-                                    command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
-                                }
-                                else
-                                {
-                                    command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
-                                }
-                                command.Parameters.AddWithValue("$UserID", query.User.UserID);
-                                command.ExecuteNonQuery();
+                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
                             }
                         }
                     }
-                }
-
-                // if there is no UserID, then we insert a new record and select the ID back.
-                if (!query.User.UserID.HasValue)
-                {
-                    // insert new record and read back the ID
-                    using (var s = new SQLiteConnection(DatabaseConnectionString))
+                    if (dbUser == null)
                     {
-                        s.Open();
-                        using (var command = s.CreateCommand())
+                        // user doesn't exit afterall
+                        query.User.UserID = null;
+                    }
+                    else
+                    {
+                        using (var command = conn.CreateCommand())
                         {
-                            command.CommandText = SQLiteStrings.User_Insert;
-                            //@"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin);"
+                            command.CommandText = SQLiteStrings.User_Update;
+                            //@"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin WHERE UserID = $UserID;"
                             command.Parameters.AddWithValue("$DisplayName", query.User.DisplayName);
                             command.Parameters.AddWithValue("$Email", query.User.Email);
                             command.Parameters.AddWithValue("$Salt", query.User.Salt);
@@ -632,13 +722,40 @@ namespace SMTPRelay.Database
                             {
                                 command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
                             }
+                            command.Parameters.AddWithValue("$UserID", query.User.UserID);
                             command.ExecuteNonQuery();
                         }
-                        using (var command = s.CreateCommand())
+                    }
+                }
+
+                // if there is no UserID, then we insert a new record and select the ID back.
+                if (!query.User.UserID.HasValue)
+                {
+                    // insert new record and read back the ID
+                    using (var command = conn.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.User_Insert;
+                        //@"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin);"
+                        command.Parameters.AddWithValue("$DisplayName", query.User.DisplayName);
+                        command.Parameters.AddWithValue("$Email", query.User.Email);
+                        command.Parameters.AddWithValue("$Salt", query.User.Salt);
+                        command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
+                        command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
+                        command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
+                        if (query.User.MailGateway.HasValue)
                         {
-                            command.CommandText = SQLiteStrings.Table_LastRowID;
-                            query.User.UserID = (long)command.ExecuteScalar();
+                            command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
                         }
+                        else
+                        {
+                            command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                        }
+                        command.ExecuteNonQuery();
+                    }
+                    using (var command = conn.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Table_LastRowID;
+                        query.User.UserID = (long)command.ExecuteScalar();
                     }
                 }
                 query.SetResult(true);
@@ -650,143 +767,84 @@ namespace SMTPRelay.Database
             }
         }
 
-        #endregion
-
-        public static void User_ClearGatewayByID(long gatewayID)
+        private static void _user_ClearGatewayByID(ref SQLiteConnection conn, qryClearUserGatewayByID query)
         {
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.User_ClearGatewayByID;
-                    command.Parameters.AddWithValue("$MailGatewayID", gatewayID);
-                    command.ExecuteNonQuery();
-                }
+                command.CommandText = SQLiteStrings.User_ClearGatewayByID;
+                command.Parameters.AddWithValue("$MailGatewayID", query.GatewayID);
+                command.ExecuteNonQuery();
             }
+            query.SetResult(true);
         }
 
-        public static void User_DeleteByID(long userID)
+        private static void _user_DeleteByID(ref SQLiteConnection conn, qryDeleteUserByID query)
         {
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.User_DeleteByID;
-                    command.Parameters.AddWithValue("$UserID", userID);
-                    command.ExecuteNonQuery();
-                }
+                command.CommandText = SQLiteStrings.User_DeleteByID;
+                command.Parameters.AddWithValue("$UserID", query.UserID);
+                command.ExecuteNonQuery();
             }
+            query.SetResult(true);
         }
 
-        public static void GeneratePasswordHash(tblUser user, string newPassword)
-        {
-            user.Salt = GenerateNonce(16);
-            string Password = string.Format("{0}:{1}", user.Salt, newPassword);
-            byte[] passbytes = UTF8Encoding.UTF8.GetBytes(Password);
-            using (SHA256 sha = SHA256.Create())
-            {
-                passbytes = sha.ComputeHash(passbytes);
-            }
-            user.PassHash = Convert.ToBase64String(passbytes);
-        }
-
-        public static bool ValidatePasswordHash(tblUser user, string password)
-        {
-            string Password = string.Format("{0}:{1}", user.Salt, password);
-            byte[] passbytes = UTF8Encoding.UTF8.GetBytes(Password);
-            using (SHA256 sha = SHA256.Create())
-            {
-                passbytes = sha.ComputeHash(passbytes);
-            }
-            if (user.PassHash == Convert.ToBase64String(passbytes))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public static string GenerateNonce(int len)
-        {
-            Random rnd = new Random();
-            string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < len; i++)
-            {
-                sb.Append(chars[rnd.Next(chars.Length)]);
-            }
-            return sb.ToString();
-        }
-
-        public static List<tblEnvelope> Envelope_GetAll()
+        private static void _envelope_GetAll(ref SQLiteConnection conn, qryGetAllEnvelopes query)
         {
             List<tblEnvelope> results = new List<tblEnvelope>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.Envelope_GetAll;
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.Envelope_GetAll;
-                    using (var reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
-                        }
+                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
                     }
                 }
             }
-            return results;
+            query.SetResult(results);
         }
 
-        public static tblEnvelope Envelope_GetByID(long envelopeID)
+        private static void _envelope_GetByID(ref SQLiteConnection conn, qryGetEnvelopeByID query)
         {
             tblEnvelope result = null;
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.Envelope_GetByID;
+                command.Parameters.AddWithValue("$EnvelopeID", query.EnvelopeID);
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.Envelope_GetByID;
-                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
-                    using (var reader = command.ExecuteReader())
+                    if (reader.Read())
                     {
-                        if (reader.Read())
-                        {
-                            result = new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4));
-                        }
+                        result = new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4));
                     }
                 }
             }
-            return result;
+            query.SetResult(result);
         }
 
-        public static void Envelope_Add(tblEnvelope envelope)
+        private static void _envelope_Add(ref SQLiteConnection conn, qrySetEnvelope query)
         {
-            // insert new record and read back the ID
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.Envelope_Insert;
-                    command.Parameters.AddWithValue("$WhenReceived", envelope.WhenReceivedString);
-                    command.Parameters.AddWithValue("$Sender", envelope.Sender);
-                    command.Parameters.AddWithValue("$Recipients", envelope.Recipients);
-                    command.Parameters.AddWithValue("$ChunkCount", envelope.ChunkCount);
-                    command.ExecuteNonQuery();
-                }
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.Table_LastRowID;
-                    envelope.EnvelopeID = (long)command.ExecuteScalar();
-                }
+                command.CommandText = SQLiteStrings.Envelope_Insert;
+                command.Parameters.AddWithValue("$WhenReceived", query.Envelope.WhenReceivedString);
+                command.Parameters.AddWithValue("$Sender", query.Envelope.Sender);
+                command.Parameters.AddWithValue("$Recipients", query.Envelope.Recipients);
+                command.Parameters.AddWithValue("$ChunkCount", query.Envelope.ChunkCount);
+                command.ExecuteNonQuery();
             }
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Table_LastRowID;
+                query.Envelope.EnvelopeID = (long)command.ExecuteScalar();
+            }
+            query.SetResult(true);
         }
+
+        #endregion
+
 
         public static void Envelope_UpdateChunkCount(long envelopeID, int chunkCount)
         {
