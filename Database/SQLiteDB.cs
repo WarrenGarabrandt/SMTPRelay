@@ -27,6 +27,7 @@ namespace SMTPRelay.Database
                 return;
             }
             SQLiteConnection conn = null;
+            long queryCount = 0;
             try
             {
                 while (!Worker.CancellationPending)
@@ -46,6 +47,8 @@ namespace SMTPRelay.Database
                                 {
                                     query.Abort();
                                 }
+                                queryCount++;
+                                System.Diagnostics.Debug.WriteLine(string.Format("Query Count: {0}", queryCount));
                                 switch (query)
                                 {
                                     case qryGetAllConfigValues q:
@@ -938,6 +941,7 @@ namespace SMTPRelay.Database
             if (user == null)
             {
                 query.SetResult(null);
+                return;
             }
             if (user.Enabled && ValidatePasswordHash(user, query.Password))
             {
@@ -1229,8 +1233,9 @@ namespace SMTPRelay.Database
                 {
                     command.CommandText = SQLiteStrings.Table_LastRowID;
                     query.MailGateway.MailGatewayID = (long)command.ExecuteScalar();
-                }                
+                }
             }
+            query.SetResult(true);
         }
 
         private static void _mailGateway_DeleteByID(SQLiteConnection conn, qryDeleteMailGatwayByID query)

@@ -338,7 +338,7 @@ namespace SMTPRelay.WinService
                 }
 
                 // test all functions.
-                TestAllSQLFunctions();
+                //TestAllSQLFunctions();
 
                 // Start SMTP listener
                 SMTPListener smtpListener = new SMTPListener();
@@ -346,11 +346,9 @@ namespace SMTPRelay.WinService
                 SMTPSendQueue smtpQueue = new SMTPSendQueue();
 
                 System.Threading.Thread.Sleep(1000);
-                // send a test email.
-                Parallel.For(0, 100, index =>
-                {
-                    SendTestEmail();
-                });
+
+                // Test email sending
+                //EmailSendBenchmark();
 
                 while (!worker.CancellationPending && smtpListener.Running)
                 {
@@ -396,7 +394,26 @@ namespace SMTPRelay.WinService
             }
         }
 
-        private void SendTestEmail()
+        private void EmailSendBenchmark()
+        {
+            System.Diagnostics.Stopwatch sw = new Stopwatch();
+            string testUserEmail = string.Format("testuser{0}@{1}.test.local", SQLiteDB.GenerateNonce(24), SQLiteDB.GenerateNonce(16));
+            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, null);
+            string testuserPass = SQLiteDB.GenerateNonce(24);
+            SQLiteDB.GeneratePasswordHash(testUser, testuserPass);
+            SQLiteDB.User_AddUpdate(testUser);
+            sw.Start();
+            // send a test email.
+            int SendQuantity = 25;
+            Parallel.For(0, SendQuantity, index =>
+            {
+                SendTestEmail(testUserEmail, testuserPass);
+            });
+            sw.Stop();
+            System.Diagnostics.Debug.WriteLine(string.Format("Benchmark email sending took {0} seconds.", sw.Elapsed.TotalSeconds));
+        }
+
+        private void SendTestEmail(string senderEmail, string senderPassword)
         {
             string Addr_to = "wgarabrandt@mn-e.com";
             string Addr_from = "avayavoicemail@miamination.com";
@@ -411,7 +428,7 @@ namespace SMTPRelay.WinService
             {
                 client.EnableSsl = false; // true;
                 client.UseDefaultCredentials = false;    // false;
-                client.Credentials = new NetworkCredential("test@local", "test");
+                client.Credentials = new NetworkCredential(senderEmail, senderPassword);
                 client.Send(msg);
             }
         }

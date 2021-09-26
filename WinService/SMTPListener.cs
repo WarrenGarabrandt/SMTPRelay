@@ -15,7 +15,7 @@ namespace SMTPRelay.WinService
 {
     public class SMTPListener
     {
-        private const int MAX_ACTIVE_RECEIVERS = 10;
+        private const int MAX_ACTIVE_RECEIVERS = 100;
 
         private BackgroundWorker Worker = null;
         public bool Running;
