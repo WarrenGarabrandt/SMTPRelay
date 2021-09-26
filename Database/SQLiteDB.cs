@@ -126,6 +126,18 @@ namespace SMTPRelay.Database
                                 case qryDeleteSendQueueByID q:
                                     _sendQueue_DeleteByID(ref conn, q);
                                     break;
+                                case qryGetSendLogPage q:
+                                    _sendLog_GetPage(ref conn, q);
+                                    break;
+                                case qrySetSendLog q:
+                                    _sendLog_Insert(ref conn, q);
+                                    break;
+                                case qryGetEnvelopeRcptByEnvelopeID q:
+                                    _envelopeRcpt_GetByEnvelopeID(ref conn, q);
+                                    break;
+                                case qrySetEnvelopeRcpt q:
+                                    _envelopeRcpt_Insert(ref conn, q);
+                                    break;
                                 default:
                                     throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
                             }
@@ -609,6 +621,56 @@ namespace SMTPRelay.Database
         public static bool SendQueue_DeleteByID(long sendQueueID)
         {
             qryDeleteSendQueueByID q = new qryDeleteSendQueueByID(sendQueueID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+        
+        /// <summary>
+        /// Get a page of SendLog.
+        /// </summary>
+        /// <param name="count">How many rows to return</param>
+        /// <param name="offset">zero-based index for first row to return</param>
+        /// <returns></returns>
+        public static List<tblSendLog> SendLog_GetPage(long count, long offset)
+        {
+            qryGetSendLogPage q = new qryGetSendLogPage(count, offset);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Adds a record to the send log.
+        /// The ID of the inserted row is not returned.
+        /// </summary>
+        /// <param name="sendlog"></param>
+        /// <returns></returns>
+        public static bool SendLog_Insert(tblSendLog sendlog)
+        {
+            qrySetSendLog q = new qrySetSendLog(sendlog);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Inserts an Envelope Recipient
+        /// </summary>
+        /// <param name="envrcpt"></param>
+        /// <returns></returns>
+        public static bool EnvelopeRcpt_Insert(tblEnvelopeRcpt envrcpt)
+        {
+            qrySetEnvelopeRcpt q = new qrySetEnvelopeRcpt(envrcpt);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a list of Envelope Recipients by Envelope ID
+        /// </summary>
+        /// <param name="envelopeID"></param>
+        /// <returns></returns>
+        public static List<tblEnvelopeRcpt> EnvelopeRcpt_GetByEnvelopeID(long envelopeID)
+        {
+            qryGetEnvelopeRcptByEnvelopeID q = new qryGetEnvelopeRcptByEnvelopeID(envelopeID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1360,104 +1422,78 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        #endregion
-
-
-
-
-
-
-
-
-
-        /// <summary>
-        /// Get a page of SendLog.
-        /// </summary>
-        /// <param name="count">How many rows to return</param>
-        /// <param name="offset">zero-based index for first row to return</param>
-        /// <returns></returns>
-        public static List<tblSendLog> SendLog_GetPage(long count, long offset)
+        private static void _sendLog_GetPage(ref SQLiteConnection conn, qryGetSendLogPage query)
         {
             List<tblSendLog> results = new List<tblSendLog>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.SendLog_GetPage;
+                command.Parameters.AddWithValue("$RowCount", query.Count);
+                command.Parameters.AddWithValue("$RowStart", query.Offset);
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.SendLog_GetPage;
-                    command.Parameters.AddWithValue("$RowCount", count);
-                    command.Parameters.AddWithValue("$RowStart", offset);
-                    using (var reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            results.Add(new tblSendLog(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
-                        }
+                        results.Add(new tblSendLog(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
                     }
                 }
             }
-            return results;
+            query.SetResult(results);
         }
 
-        public static void SendLog_Insert(tblSendLog sendlog)
+        private static void _sendLog_Insert(ref SQLiteConnection conn, qrySetSendLog query)
         {
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.SendLog_Insert;
-                    command.Parameters.AddWithValue("$EnvelopeID", sendlog.EnvelopeID);
-                    command.Parameters.AddWithValue("$EnvelopeRcptID", sendlog.EnvelopeRcptID);
-                    command.Parameters.AddWithValue("$WhenAttempted", sendlog.WhenAttemptedStr);
-                    command.Parameters.AddWithValue("$Results", sendlog.Results);
-                    command.Parameters.AddWithValue("$AttemptCount", sendlog.AttemptCount);
-                    command.ExecuteNonQuery();
-                }
+                command.CommandText = SQLiteStrings.SendLog_Insert;
+                command.Parameters.AddWithValue("$EnvelopeID", query.SendLog.EnvelopeID);
+                command.Parameters.AddWithValue("$EnvelopeRcptID", query.SendLog.EnvelopeRcptID);
+                command.Parameters.AddWithValue("$WhenAttempted", query.SendLog.WhenAttemptedStr);
+                command.Parameters.AddWithValue("$Results", query.SendLog.Results);
+                command.Parameters.AddWithValue("$AttemptCount", query.SendLog.AttemptCount);
+                command.ExecuteNonQuery();
             }
+            query.SetResult(true);
         }
 
-        public static List<tblEnvelopeRcpt> EnvelopeRcpt_GetByEnvelopeID (long envelopeID)
+        private static void _envelopeRcpt_GetByEnvelopeID(ref SQLiteConnection conn, qryGetEnvelopeRcptByEnvelopeID query)
         {
             List<tblEnvelopeRcpt> results = new List<tblEnvelopeRcpt>();
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
+                command.CommandText = SQLiteStrings.EnvelopeRcpt_GetByEnvelopeID;
+                command.Parameters.AddWithValue("$EnvelopeID", query.EnvelopeID);
+                using (var reader = command.ExecuteReader())
                 {
-                    command.CommandText = SQLiteStrings.EnvelopeRcpt_GetByEnvelopeID;
-                    command.Parameters.AddWithValue("$EnvelopeID", envelopeID);
-                    using (var reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            //EnvelopeRcptID, EnvelopeID, Recipient
-                            results.Add(new tblEnvelopeRcpt(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2)));
-                        }
+                        //EnvelopeRcptID, EnvelopeID, Recipient
+                        results.Add(new tblEnvelopeRcpt(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2)));
                     }
                 }
             }
-            return results;
+            query.SetResult(results);
         }
 
-        public static void EnvelopeRcpt_Insert(tblEnvelopeRcpt envrcpt)
+        private static void _envelopeRcpt_Insert(ref SQLiteConnection conn, qrySetEnvelopeRcpt query)
         {
-            using (var s = new SQLiteConnection(DatabaseConnectionString))
+            using (var command = conn.CreateCommand())
             {
-                s.Open();
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.EnvelopeRcpt_Insert;
-                    command.Parameters.AddWithValue("$EnvelopeID", envrcpt.EnvelopeID);
-                    command.Parameters.AddWithValue("$Recipient", envrcpt.Recipient);
-                    command.ExecuteNonQuery();
-                }
-                using (var command = s.CreateCommand())
-                {
-                    command.CommandText = SQLiteStrings.Table_LastRowID;
-                    envrcpt.EnvelopeRcptID = (long)command.ExecuteScalar();
-                }
+                command.CommandText = SQLiteStrings.EnvelopeRcpt_Insert;
+                command.Parameters.AddWithValue("$EnvelopeID", query.EnvelopeRcpt.EnvelopeID);
+                command.Parameters.AddWithValue("$Recipient", query.EnvelopeRcpt.Recipient);
+                command.ExecuteNonQuery();
             }
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Table_LastRowID;
+                query.EnvelopeRcpt.EnvelopeRcptID = (long)command.ExecuteScalar();
+            }
+            query.SetResult(true);
         }
+
+        #endregion
+
     }
 }
