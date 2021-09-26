@@ -17,6 +17,7 @@ namespace SMTPRelay.Model.Query
         {
             GatewayID = gatewayID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(bool result)

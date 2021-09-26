@@ -17,6 +17,7 @@ namespace SMTPRelay.Model.Query
             Category = category;
             Setting = setting;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(string value)

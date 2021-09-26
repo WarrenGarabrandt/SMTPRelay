@@ -18,6 +18,7 @@ namespace SMTPRelay.Model.Query
             Email = email;
             Password = password;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(tblUser value)

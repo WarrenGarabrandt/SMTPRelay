@@ -20,6 +20,7 @@ namespace SMTPRelay.Model.Query
         {
             Results = value;
             DoneSignal.Set();
+            Aborted = false;
         }
 
         public List<tblSendQueue> GetResult()

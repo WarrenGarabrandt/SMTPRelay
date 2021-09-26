@@ -14,6 +14,7 @@ namespace SMTPRelay.Model.Query
         {
             Results = null;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(List<tblEnvelope> value)

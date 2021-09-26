@@ -13,6 +13,7 @@ namespace SMTPRelay.Model.Query
         public DatabaseInit()
         {
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
         
         public void SetResult(WorkerReport value)

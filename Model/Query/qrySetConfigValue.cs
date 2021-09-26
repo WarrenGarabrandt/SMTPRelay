@@ -20,8 +20,9 @@ namespace SMTPRelay.Model.Query
             Setting = setting;
             Value = value;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
-        
+
         public void SetResult(bool result)
         {
             SuccessResult = result;

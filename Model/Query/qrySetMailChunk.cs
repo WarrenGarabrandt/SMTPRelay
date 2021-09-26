@@ -20,6 +20,7 @@ namespace SMTPRelay.Model.Query
             ChunkID = chunkID;
             Buffer = buffer;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(bool result)

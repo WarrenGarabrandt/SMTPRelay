@@ -16,6 +16,7 @@ namespace SMTPRelay.Model.Query
         {
             UserID = userID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(tblUser value)

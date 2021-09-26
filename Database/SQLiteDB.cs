@@ -35,111 +35,115 @@ namespace SMTPRelay.Database
                     if (queue.TryTake(out query, 2000))
                     {
                         try
-                        { 
-                            if (!_verifyConnection(ref conn))
+                        {
+                            if (query is DatabaseInit)
                             {
-                                query.Abort();
+                                _initDatabase(ref conn, query as DatabaseInit);
                             }
-                            switch (query)
+                            else
                             {
-                                case DatabaseInit q:
-                                    _initDatabase(ref conn, q);
-                                    break;
-                                case qryGetAllConfigValues q:
-                                    _system_GetAll(ref conn, q);
-                                    break;
-                                case qryGetConfigValue q:
-                                    _system_GetValue(ref conn, q);
-                                    break;
-                                case qrySetConfigValue q:
-                                    _system_AddUpdateValue(ref conn, q);
-                                    break;
-                                case qryGetAllUsers q:
-                                    _user_GetAll(ref conn, q);
-                                    break;
-                                case qryGetUserByID q:
-                                    _user_GetByID(ref conn, q);
-                                    break;
-                                case qryGetUserByEmail q:
-                                    _user_GetByEmail(ref conn, q);
-                                    break;
-                                case qryGetUserByEmailPassword q:
-                                    _user_GetByEmailPassword(ref conn, q);
-                                    break;
-                                case qrySetUser q:
-                                    _user_AddUpdate(ref conn, q);
-                                    break;
-                                case qryClearUserGatewayByID q:
-                                    _user_ClearGatewayByID(ref conn, q);
-                                    break;
-                                case qryDeleteUserByID q:
-                                    _user_DeleteByID(ref conn, q);
-                                    break;
-                                case qryGetAllEnvelopes q:
-                                    _envelope_GetAll(ref conn, q);
-                                    break;
-                                case qryGetEnvelopeByID q:
-                                    _envelope_GetByID(ref conn, q);
-                                    break;
-                                case qrySetEnvelope q:
-                                    _envelope_Add(ref conn, q);
-                                    break;
-                                case qrySetEnvelopeChunkCount q:
-                                    _envelope_UpdateChunkCount(ref conn, q);
-                                    break;
-                                case qryGetAllMailGateways q:
-                                    _mailGateway_GetAll(ref conn, q);
-                                    break;
-                                case qryGetMailGatewayByID q:
-                                    _mailGateway_GetByID(ref conn, q);
-                                    break;
-                                case qrySetMailGateway q:
-                                    _mailGateway_AddUpdate(ref conn, q);
-                                    break;
-                                case qryDeleteMailGatwayByID q:
-                                    _mailGateway_DeleteByID(ref conn, q);
-                                    break;
-                                case qryViewMailQueue q:
-                                    _mailQueue_QueryView(ref conn, q);
-                                    break;
-                                case qryGetMailChunkData q:
-                                    _mailChunks_GetChunk(ref conn, q);
-                                    break;
-                                case qrySetMailChunk q:
-                                    _mailChunk_AddChunk(ref conn, q);
-                                    break;
-                                case qryDeleteMailChunkData q:
-                                    _mailChunk_DeleteMailData(ref conn, q);
-                                    break;
-                                case qryGetMailDataSize q:
-                                    _mailChunk_GetMailSize(ref conn, q);
-                                    break;
-                                case qryGetAllSendQueue q:
-                                    _sendQueue_GetAll(ref conn, q);
-                                    break;
-                                case qryGetReadySendQueue q:
-                                    _sendQueue_GetReady(ref conn, q);
-                                    break;
-                                case qrySetSendQueue q:
-                                    _sendQueue_AddUpdate(ref conn, q);
-                                    break;
-                                case qryDeleteSendQueueByID q:
-                                    _sendQueue_DeleteByID(ref conn, q);
-                                    break;
-                                case qryGetSendLogPage q:
-                                    _sendLog_GetPage(ref conn, q);
-                                    break;
-                                case qrySetSendLog q:
-                                    _sendLog_Insert(ref conn, q);
-                                    break;
-                                case qryGetEnvelopeRcptByEnvelopeID q:
-                                    _envelopeRcpt_GetByEnvelopeID(ref conn, q);
-                                    break;
-                                case qrySetEnvelopeRcpt q:
-                                    _envelopeRcpt_Insert(ref conn, q);
-                                    break;
-                                default:
-                                    throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
+                                if (!_verifyConnection(ref conn))
+                                {
+                                    query.Abort();
+                                }
+                                switch (query)
+                                {
+                                    case qryGetAllConfigValues q:
+                                        _system_GetAll(conn, q);
+                                        break;
+                                    case qryGetConfigValue q:
+                                        _system_GetValue(conn, q);
+                                        break;
+                                    case qrySetConfigValue q:
+                                        _system_AddUpdateValue(conn, q);
+                                        break;
+                                    case qryGetAllUsers q:
+                                        _user_GetAll(conn, q);
+                                        break;
+                                    case qryGetUserByID q:
+                                        _user_GetByID(conn, q);
+                                        break;
+                                    case qryGetUserByEmail q:
+                                        _user_GetByEmail(conn, q);
+                                        break;
+                                    case qryGetUserByEmailPassword q:
+                                        _user_GetByEmailPassword(conn, q);
+                                        break;
+                                    case qrySetUser q:
+                                        _user_AddUpdate(conn, q);
+                                        break;
+                                    case qryClearUserGatewayByID q:
+                                        _user_ClearGatewayByID(conn, q);
+                                        break;
+                                    case qryDeleteUserByID q:
+                                        _user_DeleteByID(conn, q);
+                                        break;
+                                    case qryGetAllEnvelopes q:
+                                        _envelope_GetAll(conn, q);
+                                        break;
+                                    case qryGetEnvelopeByID q:
+                                        _envelope_GetByID(conn, q);
+                                        break;
+                                    case qrySetEnvelope q:
+                                        _envelope_Add(conn, q);
+                                        break;
+                                    case qrySetEnvelopeChunkCount q:
+                                        _envelope_UpdateChunkCount(conn, q);
+                                        break;
+                                    case qryGetAllMailGateways q:
+                                        _mailGateway_GetAll(conn, q);
+                                        break;
+                                    case qryGetMailGatewayByID q:
+                                        _mailGateway_GetByID(conn, q);
+                                        break;
+                                    case qrySetMailGateway q:
+                                        _mailGateway_AddUpdate(conn, q);
+                                        break;
+                                    case qryDeleteMailGatwayByID q:
+                                        _mailGateway_DeleteByID(conn, q);
+                                        break;
+                                    case qryViewMailQueue q:
+                                        _mailQueue_QueryView(conn, q);
+                                        break;
+                                    case qryGetMailChunkData q:
+                                        _mailChunks_GetChunk(conn, q);
+                                        break;
+                                    case qrySetMailChunk q:
+                                        _mailChunk_AddChunk(conn, q);
+                                        break;
+                                    case qryDeleteMailChunkData q:
+                                        _mailChunk_DeleteMailData(conn, q);
+                                        break;
+                                    case qryGetMailDataSize q:
+                                        _mailChunk_GetMailSize(conn, q);
+                                        break;
+                                    case qryGetAllSendQueue q:
+                                        _sendQueue_GetAll(conn, q);
+                                        break;
+                                    case qryGetReadySendQueue q:
+                                        _sendQueue_GetReady(conn, q);
+                                        break;
+                                    case qrySetSendQueue q:
+                                        _sendQueue_AddUpdate(conn, q);
+                                        break;
+                                    case qryDeleteSendQueueByID q:
+                                        _sendQueue_DeleteByID(conn, q);
+                                        break;
+                                    case qryGetSendLogPage q:
+                                        _sendLog_GetPage(conn, q);
+                                        break;
+                                    case qrySetSendLog q:
+                                        _sendLog_Insert(conn, q);
+                                        break;
+                                    case qryGetEnvelopeRcptByEnvelopeID q:
+                                        _envelopeRcpt_GetByEnvelopeID(conn, q);
+                                        break;
+                                    case qrySetEnvelopeRcpt q:
+                                        _envelopeRcpt_Insert(conn, q);
+                                        break;
+                                    default:
+                                        throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -724,6 +728,7 @@ namespace SMTPRelay.Database
                 catch { }
                 conn = null;
             }
+            ConnectionInitialized = false;
             try
             {
                 if (!System.IO.File.Exists(DatabaseFile))
@@ -752,7 +757,6 @@ namespace SMTPRelay.Database
             }
             catch (Exception ex)
             {
-                ConnectionInitialized = false;
                 query.SetResult(new WorkerReport()
                 {
                     LogError = string.Format("Unable to start the database. {0}", ex.Message),
@@ -790,7 +794,8 @@ namespace SMTPRelay.Database
                 // Create the admin user
                 tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
                 GeneratePasswordHash(newAdminUser, "password");
-                User_AddUpdate(newAdminUser);
+                qrySetUser q = new qrySetUser(newAdminUser);
+                _user_AddUpdate(s, q);
             }
         }
 
@@ -832,7 +837,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _system_GetAll(ref SQLiteConnection conn, qryGetAllConfigValues query)
+        private static void _system_GetAll(SQLiteConnection conn, qryGetAllConfigValues query)
         {
             List<tblSystem> results = new List<tblSystem>();
             {
@@ -851,7 +856,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
         
-        private static void _system_GetValue(ref SQLiteConnection conn, qryGetConfigValue query)
+        private static void _system_GetValue(SQLiteConnection conn, qryGetConfigValue query)
         {
             List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
             parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
@@ -859,7 +864,7 @@ namespace SMTPRelay.Database
             query.SetResult(_runValueQuery(conn, SQLiteStrings.System_Select, parms));
         }
         
-        private static void _system_AddUpdateValue(ref SQLiteConnection conn, qrySetConfigValue query)
+        private static void _system_AddUpdateValue(SQLiteConnection conn, qrySetConfigValue query)
         {
             var parms = new List<KeyValuePair<string, string>>();
             parms.Add(new KeyValuePair<string, string>("$Category", query.Category));
@@ -869,7 +874,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _user_GetAll(ref SQLiteConnection conn, qryGetAllUsers query)
+        private static void _user_GetAll(SQLiteConnection conn, qryGetAllUsers query)
         {
             List<tblUser> results = new List<tblUser>();
             using (var command = conn.CreateCommand())
@@ -886,7 +891,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _user_GetByID(ref SQLiteConnection conn, qryGetUserByID query)
+        private static void _user_GetByID(SQLiteConnection conn, qryGetUserByID query)
         {
             tblUser dbUser = null;
             using (var command = conn.CreateCommand())
@@ -904,7 +909,7 @@ namespace SMTPRelay.Database
             query.SetResult(dbUser);
         }
 
-        private static tblUser _user_GetByEmail(ref SQLiteConnection conn, string email)
+        private static tblUser _user_GetByEmail(SQLiteConnection conn, string email)
         {
             tblUser result = null;
             using (var command = conn.CreateCommand())
@@ -922,14 +927,14 @@ namespace SMTPRelay.Database
             return result;
         }
 
-        private static void _user_GetByEmail(ref SQLiteConnection conn, qryGetUserByEmail query)
+        private static void _user_GetByEmail(SQLiteConnection conn, qryGetUserByEmail query)
         {
-            query.SetResult(_user_GetByEmail(ref conn, query.Email));
+            query.SetResult(_user_GetByEmail(conn, query.Email));
         }
 
-        private static void _user_GetByEmailPassword(ref SQLiteConnection conn, qryGetUserByEmailPassword query)
+        private static void _user_GetByEmailPassword(SQLiteConnection conn, qryGetUserByEmailPassword query)
         {
-            tblUser user = _user_GetByEmail(ref conn, query.Email);
+            tblUser user = _user_GetByEmail(conn, query.Email);
             if (user == null)
             {
                 query.SetResult(null);
@@ -944,7 +949,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _user_AddUpdate(ref SQLiteConnection conn, qrySetUser query)
+        private static void _user_AddUpdate(SQLiteConnection conn, qrySetUser query)
         {
             try
             {
@@ -1036,7 +1041,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _user_ClearGatewayByID(ref SQLiteConnection conn, qryClearUserGatewayByID query)
+        private static void _user_ClearGatewayByID(SQLiteConnection conn, qryClearUserGatewayByID query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1047,7 +1052,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _user_DeleteByID(ref SQLiteConnection conn, qryDeleteUserByID query)
+        private static void _user_DeleteByID(SQLiteConnection conn, qryDeleteUserByID query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1058,7 +1063,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _envelope_GetAll(ref SQLiteConnection conn, qryGetAllEnvelopes query)
+        private static void _envelope_GetAll(SQLiteConnection conn, qryGetAllEnvelopes query)
         {
             List<tblEnvelope> results = new List<tblEnvelope>();
             using (var command = conn.CreateCommand())
@@ -1075,7 +1080,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _envelope_GetByID(ref SQLiteConnection conn, qryGetEnvelopeByID query)
+        private static void _envelope_GetByID(SQLiteConnection conn, qryGetEnvelopeByID query)
         {
             tblEnvelope result = null;
             using (var command = conn.CreateCommand())
@@ -1093,7 +1098,7 @@ namespace SMTPRelay.Database
             query.SetResult(result);
         }
 
-        private static void _envelope_Add(ref SQLiteConnection conn, qrySetEnvelope query)
+        private static void _envelope_Add(SQLiteConnection conn, qrySetEnvelope query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1112,7 +1117,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _envelope_UpdateChunkCount(ref SQLiteConnection conn, qrySetEnvelopeChunkCount query)
+        private static void _envelope_UpdateChunkCount(SQLiteConnection conn, qrySetEnvelopeChunkCount query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1124,7 +1129,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _mailGateway_GetAll(ref SQLiteConnection conn, qryGetAllMailGateways query)
+        private static void _mailGateway_GetAll(SQLiteConnection conn, qryGetAllMailGateways query)
         {
             List<tblMailGateway> results = new List<tblMailGateway>();
             using (var command = conn.CreateCommand())
@@ -1141,7 +1146,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _mailGateway_GetByID(ref SQLiteConnection conn, qryGetMailGatewayByID query)
+        private static void _mailGateway_GetByID(SQLiteConnection conn, qryGetMailGatewayByID query)
         {
             tblMailGateway results = null;
             using (var command = conn.CreateCommand())
@@ -1159,7 +1164,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _mailGateway_AddUpdate(ref SQLiteConnection conn, qrySetMailGateway query)
+        private static void _mailGateway_AddUpdate(SQLiteConnection conn, qrySetMailGateway query)
         {
             // if the MailGatewayID is populated, then we are going to try to update first. 
             // the update might fail, in which case we insert below
@@ -1228,7 +1233,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _mailGateway_DeleteByID(ref SQLiteConnection conn, qryDeleteMailGatwayByID query)
+        private static void _mailGateway_DeleteByID(SQLiteConnection conn, qryDeleteMailGatwayByID query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1239,7 +1244,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _mailQueue_QueryView(ref SQLiteConnection conn, qryViewMailQueue query)
+        private static void _mailQueue_QueryView(SQLiteConnection conn, qryViewMailQueue query)
         {
             List<vwMailQueue> results = new List<vwMailQueue>();
             using (var command = conn.CreateCommand())
@@ -1256,7 +1261,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _mailChunks_GetChunk(ref SQLiteConnection conn, qryGetMailChunkData query)
+        private static void _mailChunks_GetChunk(SQLiteConnection conn, qryGetMailChunkData query)
         {
             byte[] result = null;
             conn.Open();
@@ -1278,7 +1283,7 @@ namespace SMTPRelay.Database
             query.SetResult(result);
         }
 
-        private static void _mailChunk_AddChunk(ref SQLiteConnection conn, qrySetMailChunk query)
+        private static void _mailChunk_AddChunk(SQLiteConnection conn, qrySetMailChunk query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1291,7 +1296,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _mailChunk_DeleteMailData(ref SQLiteConnection conn, qryDeleteMailChunkData query)
+        private static void _mailChunk_DeleteMailData(SQLiteConnection conn, qryDeleteMailChunkData query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1302,7 +1307,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
         
-        private static void _mailChunk_GetMailSize(ref SQLiteConnection conn, qryGetMailDataSize query)
+        private static void _mailChunk_GetMailSize(SQLiteConnection conn, qryGetMailDataSize query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1312,7 +1317,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _sendQueue_GetAll(ref SQLiteConnection conn, qryGetAllSendQueue query)
+        private static void _sendQueue_GetAll(SQLiteConnection conn, qryGetAllSendQueue query)
         {
             List<tblSendQueue> results = new List<tblSendQueue>();
             using (var command = conn.CreateCommand())
@@ -1329,7 +1334,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _sendQueue_GetReady(ref SQLiteConnection conn, qryGetReadySendQueue query)
+        private static void _sendQueue_GetReady(SQLiteConnection conn, qryGetReadySendQueue query)
         {
             List<tblSendQueue> results = new List<tblSendQueue>();
             using (var command = conn.CreateCommand())
@@ -1348,7 +1353,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _sendQueue_AddUpdate(ref SQLiteConnection conn, qrySetSendQueue query)
+        private static void _sendQueue_AddUpdate(SQLiteConnection conn, qrySetSendQueue query)
         {
             // if the SendQueuID is populated, then we are going to try to update first. 
             // the update might fail, in which case we insert below
@@ -1411,7 +1416,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _sendQueue_DeleteByID(ref SQLiteConnection conn, qryDeleteSendQueueByID query)
+        private static void _sendQueue_DeleteByID(SQLiteConnection conn, qryDeleteSendQueueByID query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1422,7 +1427,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _sendLog_GetPage(ref SQLiteConnection conn, qryGetSendLogPage query)
+        private static void _sendLog_GetPage(SQLiteConnection conn, qryGetSendLogPage query)
         {
             List<tblSendLog> results = new List<tblSendLog>();
 
@@ -1442,7 +1447,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _sendLog_Insert(ref SQLiteConnection conn, qrySetSendLog query)
+        private static void _sendLog_Insert(SQLiteConnection conn, qrySetSendLog query)
         {
             using (var command = conn.CreateCommand())
             {
@@ -1457,7 +1462,7 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
-        private static void _envelopeRcpt_GetByEnvelopeID(ref SQLiteConnection conn, qryGetEnvelopeRcptByEnvelopeID query)
+        private static void _envelopeRcpt_GetByEnvelopeID(SQLiteConnection conn, qryGetEnvelopeRcptByEnvelopeID query)
         {
             List<tblEnvelopeRcpt> results = new List<tblEnvelopeRcpt>();
             using (var command = conn.CreateCommand())
@@ -1476,7 +1481,7 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
-        private static void _envelopeRcpt_Insert(ref SQLiteConnection conn, qrySetEnvelopeRcpt query)
+        private static void _envelopeRcpt_Insert(SQLiteConnection conn, qrySetEnvelopeRcpt query)
         {
             using (var command = conn.CreateCommand())
             {

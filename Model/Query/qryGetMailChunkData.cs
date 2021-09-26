@@ -17,6 +17,7 @@ namespace SMTPRelay.Model.Query
             EnvelopeID = envelopeID;
             ChunkID = chunkID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
+            Aborted = false;
         }
 
         public void SetResult(byte[] value)
