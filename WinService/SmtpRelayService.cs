@@ -278,7 +278,7 @@ namespace SMTPRelay.WinService
             testUser = SQLiteDB.User_GetByEmailPassword(testUserEmail, testuserPass);
             Debug.Assert(testUser == null, "Disabled user passed authentication.");
 
-            tblEnvelope env = new tblEnvelope(DateTime.Now, "test@domain.com", "admin@local", 0);
+            tblEnvelope env = new tblEnvelope(testUser.UserID.Value, DateTime.Now, "test@domain.com", "admin@local", 0);
 
             SQLiteDB.Envelope_Add(env);
 
