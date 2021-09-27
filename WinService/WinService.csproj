@@ -40,6 +40,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ISMTPStream.cs" />
     <Compile Include="SMTPListener.cs" />
     <Compile Include="SMTPReceiver.cs" />
     <Compile Include="SmtpRelayService.cs">
@@ -47,6 +48,7 @@
     </Compile>
     <Compile Include="SMTPSendQueue.cs" />
     <Compile Include="SMTPStreamHandler.cs" />
+    <Compile Include="SMTPTLSStreamHandler.cs" />
     <Compile Include="WindowsServiceInstaller.cs">
       <SubType>Component</SubType>
     </Compile>

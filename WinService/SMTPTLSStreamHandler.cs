@@ -1,37 +1,60 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using System.IO;
 
 namespace SMTPRelay.WinService
 {
-    public class SMTPStreamHandler : ISMTPStream
+    public class SMTPTLSStreamHandler : ISMTPStream
     {
         private Stream _stream;
+        private SslStream _sslStream;
 
         /// <summary>
-        /// Reads and writes text on a stream one line at a time.
+        /// If a connection error occurs due to a policy error, that will be populated here
         /// </summary>
-        /// <param name="stream">The stream to read/write data. No extra characters are read so that streams can be swapped.</param>
-        public SMTPStreamHandler(Stream stream)
-        {
-            _sb = new StringBuilder();
-            _stream = stream;
-        }
+        public SslPolicyErrors SslPolicyErrors { get; private set; }
 
         private StringBuilder _sb;
         private bool _crSeen = false;
 
-        /// <summary>
-        /// Reads a line of text from the stream, or returns NULL if a full line isn't ready.
-        /// Waits a specified number of milliseconds for new data before giving up.
-        /// If waitms is specified as -1, then it waits indefinitely.
-        /// </summary>
-        /// <param name="waitms">How long to wait in milliseconds before giving up and returning nothing</param>
-        /// <returns>A full line of text </returns>
+        public SMTPTLSStreamHandler(Stream stream, string hostName)
+        {
+            _stream = stream;
+            _sb = new StringBuilder();
+            _crSeen = false;
+            _sslStream = new SslStream(_stream, true, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
+            try
+            {
+                _sslStream.AuthenticateAsClient(hostName);
+            }
+            catch (AuthenticationException ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+                try
+                {
+                    _sslStream.Dispose();
+                }
+                catch { }
+                throw;
+            }
+        }
+
+        public bool ValidateServerCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            if (sslPolicyErrors == SslPolicyErrors.None)
+            {
+                return true;
+            }
+            SslPolicyErrors = sslPolicyErrors;
+            return false;
+        }
+
         public string ReadLine(int waitms = 10)
         {
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
@@ -40,7 +63,7 @@ namespace SMTPRelay.WinService
             while (GetingChars || sw.ElapsedMilliseconds < waitms || waitms == -1)
             {
                 byte[] buff = new byte[1];
-                int read = _stream.Read(buff, 0, 1);
+                int read = _sslStream.Read(buff, 0, 1);
                 if (read == 1)
                 {
                     GetingChars = true;
@@ -83,13 +106,21 @@ namespace SMTPRelay.WinService
         {
             line = string.Format("{0}\r\n", line);
             byte[] buff = ASCIIEncoding.ASCII.GetBytes(line);
-            _stream.Write(buff, 0, buff.Length);
-            _stream.Flush();
+            _sslStream.Write(buff, 0, buff.Length);
+            _sslStream.Flush();
         }
 
         public void Release()
         {
-            return;
+            try
+            {
+                if (_sslStream != null)
+                {
+                    _sslStream.Dispose();
+                    _sslStream = null;
+                }
+            }
+            catch { }
         }
     }
 }
