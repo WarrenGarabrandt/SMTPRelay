@@ -46,6 +46,7 @@
     <Compile Include="SmtpRelayService.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="SMTPSender.cs" />
     <Compile Include="SMTPSendQueue.cs" />
     <Compile Include="SMTPStreamHandler.cs" />
     <Compile Include="SMTPTLSStreamHandler.cs" />

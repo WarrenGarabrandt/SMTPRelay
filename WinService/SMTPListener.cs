@@ -15,7 +15,7 @@ namespace SMTPRelay.WinService
 {
     public class SMTPListener
     {
-        private const int MAX_ACTIVE_RECEIVERS = 100;
+        private const int MAX_ACTIVE_RECEIVERS = 20;
 
         private BackgroundWorker Worker = null;
         public bool Running;
@@ -172,7 +172,7 @@ namespace SMTPRelay.WinService
             {
                 WorkerReports.Enqueue(rpt);
             }
-        }            
+        }
 
     }
 }

@@ -762,7 +762,6 @@ namespace SMTPRelay.WinService
             }
         }
 
-
         private void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
             if (e.Result is WorkerReport)

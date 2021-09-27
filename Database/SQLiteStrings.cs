@@ -57,7 +57,9 @@ namespace SMTPRelay.Database
             // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
             new Tuple<string, string, string>("SMTPServer", "CommandTimeoutMS", "120000"),
             // Max number of bad commands before the connection is aborted = 10
-            new Tuple<string, string, string>("SMTPServer", "BadCommandLimit", "10")             
+            new Tuple<string, string, string>("SMTPServer", "BadCommandLimit", "10"),
+            // For SMTPSenderQueue, Refresh interval in milliseconds.
+            new Tuple<string, string, string>("SMTPSenderQueue", "RefreshMS", "10000")
         };
 
         public static string Table_LastRowID = @"SELECT last_insert_rowid();";
