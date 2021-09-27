@@ -8,12 +8,12 @@ namespace SMTPRelay.Model.DB
 {
     public class tblEnvelope
     {
-        //CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, WhenReceived TEXT, Sender TEXT, ChunkCount INTEGER);
+        //CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER NOT NULL, WhenReceived TEXT, Sender TEXT, ChunkCount INTEGER);
 
         /// <summary>
         /// Creates a new instance that has not been saved into the database yet.
         /// </summary>
-        public tblEnvelope(DateTime whenReceived, string sender, string recipients, int chunkCount)
+        public tblEnvelope(long userID, DateTime whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = null;
             WhenReceived = whenReceived;
@@ -25,7 +25,7 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance that existes in the database.
         /// </summary>
-        public tblEnvelope(long envelopeID, string whenReceived, string sender, string recipients, int chunkCount)
+        public tblEnvelope(long envelopeID, long userID, string whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = envelopeID;
             DateTime.UtcNow.ToString();
@@ -36,6 +36,8 @@ namespace SMTPRelay.Model.DB
         }
 
         public long? EnvelopeID { get; set; }
+
+        public long UserID { get; set; }
 
         public DateTime WhenReceived { get; set; }
 

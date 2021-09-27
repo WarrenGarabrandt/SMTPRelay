@@ -66,6 +66,8 @@ namespace SMTPRelay.WinService
                     {
                         tblSendQueue sq = pendingQueue.First();
                         pendingQueue.RemoveAt(0);
+                        sq.State = SendQueueState.InProgress;
+                        SQLiteDB.SendQueue_AddUpdate(sq);
                         SMTPSender snd = new SMTPSender(sq);
                         Senders.Add(snd);
                         if (pendingQueue.Count() > 0)

@@ -138,6 +138,9 @@ namespace SMTPRelay.Database
                                     case qrySetSendLog q:
                                         _sendLog_Insert(conn, q);
                                         break;
+                                    case qryGetEnvelopeRcptByID q:
+                                        _envelopeRcpt_GetByID(conn, q);
+                                        break;
                                     case qryGetEnvelopeRcptByEnvelopeID q:
                                         _envelopeRcpt_GetByEnvelopeID(conn, q);
                                         break;
@@ -682,6 +685,13 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        public static tblEnvelopeRcpt EnvelopeRcpt_GetByID(long envelopeRcptID)
+        {
+            qryGetEnvelopeRcptByID q = new qryGetEnvelopeRcptByID(envelopeRcptID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
         #endregion
 
         #region Private Methods
@@ -1077,7 +1087,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
+                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5)));
                     }
                 }
             }
@@ -1095,7 +1105,7 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        result = new tblEnvelope(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4));
+                        result = new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5));
                     }
                 }
             }
@@ -1107,6 +1117,7 @@ namespace SMTPRelay.Database
             using (var command = conn.CreateCommand())
             {
                 command.CommandText = SQLiteStrings.Envelope_Insert;
+                command.Parameters.AddWithValue("$UserID", query.Envelope.UserID);
                 command.Parameters.AddWithValue("$WhenReceived", query.Envelope.WhenReceivedString);
                 command.Parameters.AddWithValue("$Sender", query.Envelope.Sender);
                 command.Parameters.AddWithValue("$Recipients", query.Envelope.Recipients);
@@ -1484,6 +1495,25 @@ namespace SMTPRelay.Database
                 }
             }
             query.SetResult(results);
+        }
+
+        private static void _envelopeRcpt_GetByID(SQLiteConnection conn, qryGetEnvelopeRcptByID query)
+        {
+            tblEnvelopeRcpt result = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.EnvelopeRcpt_GetByID;
+                command.Parameters.AddWithValue("$EnvelopeRcptID", query.EnvelopeRcptID);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        //EnvelopeRcptID, EnvelopeID, Recipient
+                        result = new tblEnvelopeRcpt(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2));
+                    }
+                }
+            }
+            query.SetResult(result);
         }
 
         private static void _envelopeRcpt_Insert(SQLiteConnection conn, qrySetEnvelopeRcpt query)

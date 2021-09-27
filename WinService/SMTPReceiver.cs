@@ -496,7 +496,12 @@ namespace SMTPRelay.WinService
                                 try
                                 {
                                     // create entries in the database
-                                    ActiveEnvelope = new tblEnvelope(DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0);
+                                    long userid = -1;
+                                    if (connectedUser != null && connectedUser.UserID.HasValue)
+                                    {
+                                        userid = connectedUser.UserID.Value;
+                                    }
+                                    ActiveEnvelope = new tblEnvelope(userid, DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0);
                                     SQLiteDB.Envelope_Add(ActiveEnvelope);
                                     ActiveEnvelopeRcpts = new List<tblEnvelopeRcpt>();
                                     foreach (var rcp in mailObject.Recipients)

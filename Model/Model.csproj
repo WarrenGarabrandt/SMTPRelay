@@ -61,6 +61,7 @@
     <Compile Include="Query\qryGetAllMailGateways.cs" />
     <Compile Include="Query\qryGetAllSendQueue.cs" />
     <Compile Include="Query\qryGetEnvelopeRcptByEnvelopeID.cs" />
+    <Compile Include="Query\qryGetEnvelopeRcptByID.cs" />
     <Compile Include="Query\qryGetMailDataSize.cs" />
     <Compile Include="Query\qryGetMailGatewayByID.cs" />
     <Compile Include="Query\qryGetMailChunkData.cs" />

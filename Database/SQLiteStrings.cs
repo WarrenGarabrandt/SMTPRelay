@@ -21,7 +21,7 @@ namespace SMTPRelay.Database
             @"CREATE TABLE MailGateway (MailGatewayID INTEGER PRIMARY KEY, SMTPServer TEXT NOT NULL, Port INTEGER NOT NULL, EnableSSL INTEGER NOT NULL, Authenticate INTEGER NOT NULL, Username TEXT, Password TEXT, SenderOverride TEXT);",
 
             // Basic email header info.
-            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER);",
+            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER NOT NULL, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER);",
 
             // Envelope Recipients
             @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, Recipient TEXT);",
@@ -76,9 +76,9 @@ namespace SMTPRelay.Database
         public static string User_ClearGatewayByID = @"UPDATE User SET MailGatewayID = NULL WHERE MailGatewayID = $MailGatewayID;";
         public static string User_DeleteByID = @"DELETE FROM User WHERE UserID = $UserID;";
 
-        public static string Envelope_GetAll = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope;";
-        public static string Envelope_GetByID = @"SELECT EnvelopeID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
-        public static string Envelope_Insert = @"INSERT INTO Envelope(WhenReceived, Sender, Recipients, ChunkCount) VALUES ($WhenReceived, $Sender, $Recipients, $ChunkCount);";
+        public static string Envelope_GetAll = @"SELECT EnvelopeID, UserID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope;";
+        public static string Envelope_GetByID = @"SELECT EnvelopeID, UserID, WhenReceived, Sender, Recipients, ChunkCount FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
+        public static string Envelope_Insert = @"INSERT INTO Envelope(UserID, WhenReceived, Sender, Recipients, ChunkCount) VALUES ($UserID, $WhenReceived, $Sender, $Recipients, $ChunkCount);";
         public static string Envelope_UpdateChunkCount = @"UPDATE Envelope SET ChunkCount = $ChunkCount WHERE EnvelopeID = $EnvelopeID;";
 
         public static string MailGateway_GetAll = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway;";
@@ -102,8 +102,10 @@ namespace SMTPRelay.Database
         public static string SendLog_GetPage = @"SELCT EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount FROM SendLog LIMIT $RowCount OFFSET $RowStart ORDER BY WhenAttempted DESC;";
         public static string SendLog_Insert = @"INSERT INTO SendLog (EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount) VALUES ($EnvelopeID, $EnvelopeRcptID, $WhenAttempted, $Results, $AttemptCount);";
 
+        public static string EnvelopeRcpt_GetByID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeRcptID = $EnvelopeRcptID;";
         public static string EnvelopeRcpt_GetByEnvelopeID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
         public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
+        
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";
 
