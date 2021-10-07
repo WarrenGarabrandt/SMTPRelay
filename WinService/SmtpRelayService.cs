@@ -404,7 +404,7 @@ namespace SMTPRelay.WinService
             SQLiteDB.User_AddUpdate(testUser);
             sw.Start();
             // send a test email.
-            int SendQuantity = 25;
+            int SendQuantity = 1;
             Parallel.For(0, SendQuantity, index =>
             {
                 SendTestEmail(testUserEmail, testuserPass);

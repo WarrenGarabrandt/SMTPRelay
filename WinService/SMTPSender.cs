@@ -102,8 +102,9 @@ namespace SMTPRelay.WinService
                 // figure out how to contact the server.
                 // if there's a gateway specified, look that up and connect.
                 // if there's no gateway, we need to look up the MX record for the recipient's domain.
-                IPEndPoint serverEP = null;
+                List<IPEndPoint> serverEPs = new List<IPEndPoint>();
                 string serverHostname;
+                int serverPort = 25;
                 bool useTLS = false;
                 bool login = false;
                 string username = null;
@@ -111,29 +112,60 @@ namespace SMTPRelay.WinService
                 if (gateway != null)
                 {
                     serverHostname = gateway.SMTPServer;
+                    serverPort = gateway.Port;
                     login = gateway.Authenticate;
                     username = gateway.Username;
                     password = gateway.Password;
-                    IPAddress serverAddress;
-                    if (IPAddress.TryParse(gateway.SMTPServer, out serverAddress))
-                    {
-                        serverEP = new IPEndPoint(serverAddress, gateway.Port);
-                        useTLS = gateway.EnableSSL;
-                    }
+                    useTLS = gateway.EnableSSL;
                 }
                 else
                 {
                     throw new NotImplementedException("Looking up domain MX recoreds is not implemented.");
                 }
 
-                // attempt to connect to the server
-                if (serverEP == null)
+                // at this point, we should have either a domain name or an IP address in serverAddress.
+                // first, try parsing it as an IP address. If that fails, then do a DNS lookup on it.
+                IPAddress serverAddress;
+                if (IPAddress.TryParse(serverHostname, out serverAddress))
                 {
-                    throw new Exception("Unable to connect to SMTP server. No End Point specified.");
+                    serverEPs.Add(new IPEndPoint(serverAddress, serverPort));
+                }
+                else
+                {
+                    // try a DNS lookup.
+                    IPHostEntry entry = Dns.GetHostEntry(serverHostname);
+                    foreach (IPAddress addr in entry.AddressList)
+                    {
+                        serverEPs.Add(new IPEndPoint(addr, serverPort));
+                    }
                 }
 
-                client = new TcpClient();
-                client.Connect(serverEP);
+                // attempt to connect to the server
+                if (serverEPs.Count == 0)
+                {
+                    throw new Exception("Unable to connect to SMTP server. No End Point could be resolved.");
+                }
+
+                client = null;
+                foreach (var ep in serverEPs)
+                {
+                    try
+                    {
+                        client = new TcpClient();
+                        client.Connect(ep);
+                        break;
+                    }
+                    catch
+                    {
+                        client = null;
+                    }
+                }
+
+                if (client == null)
+                {
+                    throw new Exception("Unable to connect to the SMTP Server.");
+                }
+
                 stream = client.GetStream();
                 smtpStream = new SMTPStreamHandler(stream);
 

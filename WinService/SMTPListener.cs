@@ -41,14 +41,34 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            
             TcpListener listener = null;
             List<SMTPReceiver> Receivers = new List<SMTPReceiver>();
             System.Diagnostics.Stopwatch cleanupSW = new System.Diagnostics.Stopwatch();
             cleanupSW.Start();
             try
             {
+                string readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenAddr");
+                IPAddress listenAddr = IPAddress.None;
+                if (readValue == "0.0.0.0")
+                {
+                    listenAddr = IPAddress.Any;
+                }
+                else
+                {
+                    if (!IPAddress.TryParse(readValue, out listenAddr))
+                    {
+                        throw new Exception("Invalid SMTPListener ListenAddr");
+                    }
+                }
+                readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenPort");
+                int listenPort = 0;
+                if (!int.TryParse(readValue, out listenPort))
+                {
+                    throw new Exception("Invalid SMTPListener ListenPort");
+                }
                 // create listener
-                listener = new TcpListener(System.Net.IPAddress.Any, 10025);
+                listener = new TcpListener(listenAddr, listenPort);
                 
                 listener.Start();
                 Worker.ReportProgress(0, new WorkerReport()

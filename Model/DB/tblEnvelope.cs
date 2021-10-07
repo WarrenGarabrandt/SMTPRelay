@@ -16,6 +16,7 @@ namespace SMTPRelay.Model.DB
         public tblEnvelope(long userID, DateTime whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = null;
+            UserID = userID;
             WhenReceived = whenReceived;
             Sender = sender;
             Recipients = recipients;
@@ -28,6 +29,7 @@ namespace SMTPRelay.Model.DB
         public tblEnvelope(long envelopeID, long userID, string whenReceived, string sender, string recipients, int chunkCount)
         {
             EnvelopeID = envelopeID;
+            UserID = userID;
             DateTime.UtcNow.ToString();
             WhenReceived = DateTime.Parse(whenReceived);
             Sender = sender;

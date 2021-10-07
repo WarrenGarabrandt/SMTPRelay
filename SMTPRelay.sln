@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31410.357
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SMTPRelay", "SMTPRelay\SMTPRelay.csproj", "{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database", "Database\Database.csproj", "{9CD4E473-CDF2-40BC-B926-920CFCAC5A34}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Model", "Model\Model.csproj", "{9C2D7F6F-7758-4B0C-AFCE-C3F7F7448A03}"
@@ -19,10 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AB36C9F9-37B3-4EE2-9C14-BC1404C092EF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9CD4E473-CDF2-40BC-B926-920CFCAC5A34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9CD4E473-CDF2-40BC-B926-920CFCAC5A34}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9CD4E473-CDF2-40BC-B926-920CFCAC5A34}.Release|Any CPU.ActiveCfg = Release|Any CPU
