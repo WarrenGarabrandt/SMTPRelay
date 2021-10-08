@@ -1280,7 +1280,6 @@ namespace SMTPRelay.Database
         private static void _mailChunks_GetChunk(SQLiteConnection conn, qryGetMailChunkData query)
         {
             byte[] result = null;
-            conn.Open();
             using (var command = conn.CreateCommand())
             {
                 command.CommandText = SQLiteStrings.MailChunk_GetChunk;

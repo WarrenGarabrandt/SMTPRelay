@@ -348,7 +348,7 @@ namespace SMTPRelay.WinService
                 {
                     byte[] datablock = SQLiteDB.MailChunk_GetChunk(envelope.EnvelopeID.Value, i);
                     string datastring = ASCIIEncoding.ASCII.GetString(datablock);
-                    List<string> datalines = datastring.Split(new string[] { "/r/n" }, StringSplitOptions.None).ToList();
+                    List<string> datalines = datastring.Split(new string[] { "\r\n" }, StringSplitOptions.None).ToList();
                     foreach (string dl in datalines)
                     {
                         string outputLine = dl;
@@ -382,7 +382,7 @@ namespace SMTPRelay.WinService
                 Worker.ReportProgress(0, new WorkerReport()
                 {
                     LogMessage = string.Format("Email sent. {0}", line)
-                }); ;
+                });
 
                 // close the tcp connection
                 smtpStream.WriteLine("QUIT");

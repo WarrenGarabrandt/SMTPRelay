@@ -256,7 +256,11 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientVerb)
                         {
-                            line = lineStream.ReadLine();
+                            line = lineStream.ReadLine(30000);
+                            if (string.IsNullOrEmpty(line))
+                            {
+                                throw new TimeoutException();
+                            }
                             // figure out what they said.
                             if (line.ToUpper() == "RSET")
                             {
@@ -718,6 +722,13 @@ namespace SMTPRelay.WinService
             {
                 // message too long. delete the message.
                 SQLiteDB.MailChunk_DeleteMailData(activeEnvelope.EnvelopeID.Value);
+            }
+            catch (TimeoutException ext)
+            {
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogWarning = "Timeout exceeded. Terminating connection."
+                });
             }
             catch (Exception ex)
             {
