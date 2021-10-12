@@ -130,7 +130,9 @@ namespace SMTPRelay.WinService
                 NetworkStream stream = client.GetStream();
                 SMTPStreamHandler lineStream = new SMTPStreamHandler(stream);
                 EndPoint clientEP = client.Client.RemoteEndPoint;
+                EndPoint localEP = client.Client.LocalEndPoint;
                 string ClientIPAddress = ((IPEndPoint)clientEP).Address.ToString();
+                string LocalIPAddress = ((IPEndPoint)localEP).Address.ToString();
 
                 tblEnvelope ActiveEnvelope = null;
                 List<tblEnvelopeRcpt> ActiveEnvelopeRcpts = null;
@@ -505,7 +507,7 @@ namespace SMTPRelay.WinService
                                     {
                                         userid = connectedUser.UserID.Value;
                                     }
-                                    ActiveEnvelope = new tblEnvelope(userid, DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0);
+                                    ActiveEnvelope = new tblEnvelope(userid, DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0, SQLiteDB.GenerateNonce(16));
                                     SQLiteDB.Envelope_Add(ActiveEnvelope);
                                     ActiveEnvelopeRcpts = new List<tblEnvelopeRcpt>();
                                     foreach (var rcp in mailObject.Recipients)
@@ -514,6 +516,10 @@ namespace SMTPRelay.WinService
                                         SQLiteDB.EnvelopeRcpt_Insert(envrcp);
                                         ActiveEnvelopeRcpts.Add(envrcp);
                                     }
+                                    mailObject.ChunkData.AppendLine(
+                                        string.Format("Received: from {0} ({1})\r\n by {2} ({3}) with {4} id {5};\r\n {6}",
+                                        ClientHostName, ClientIPAddress, ServerHostName, LocalIPAddress, eSMTP ? "ESMTP" : "SMTP",
+                                        ActiveEnvelope.MsgID, DateTime.UtcNow.ToString("ddd, dd MMM yyyy HH\\:mm\\:ss +0000")));
                                     state = SMTPStates.SendDATAOk;
                                 }
                                 catch (Exception ex)

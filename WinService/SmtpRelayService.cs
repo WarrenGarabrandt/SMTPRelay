@@ -289,7 +289,7 @@ namespace SMTPRelay.WinService
             testUser = SQLiteDB.User_GetByEmailPassword(testUserEmail, testuserPass);
             Debug.Assert(testUser == null, "Disabled user passed authentication.");
 
-            tblEnvelope env = new tblEnvelope(testUser.UserID.Value, DateTime.Now, "test@domain.com", "admin@local", 0);
+            tblEnvelope env = new tblEnvelope(testUser.UserID.Value, DateTime.Now, "test@domain.com", "admin@local", 0, SQLiteDB.GenerateNonce(16));
 
             SQLiteDB.Envelope_Add(env);
 
@@ -364,7 +364,7 @@ namespace SMTPRelay.WinService
                 System.Threading.Thread.Sleep(1000);
 
                 // Test email sending
-                //EmailSendBenchmark();
+                EmailSendBenchmark();
 
                 while (!worker.CancellationPending && smtpListener.Running)
                 {
@@ -440,7 +440,7 @@ namespace SMTPRelay.WinService
             //msg.Attachments.Add(att);
             msg.Body = "Hello world!";
             string server = "127.0.0.1";// "smtp.office365.com";
-            using (System.Net.Mail.SmtpClient client = new System.Net.Mail.SmtpClient(server, 10025))
+            using (System.Net.Mail.SmtpClient client = new System.Net.Mail.SmtpClient(server, 1025))
             {
                 client.EnableSsl = false; // true;
                 client.UseDefaultCredentials = false;    // false;

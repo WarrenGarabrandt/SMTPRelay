@@ -199,7 +199,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private const string COMPATIBLE_DATABASE_VERSION = "1.0";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.1";
 
         private static string DBPathOverride = null;
 
@@ -1110,7 +1110,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5)));
+                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetString(6)));
                     }
                 }
             }
@@ -1128,7 +1128,7 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        result = new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5));
+                        result = new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetString(6));
                     }
                 }
             }
@@ -1145,6 +1145,7 @@ namespace SMTPRelay.Database
                 command.Parameters.AddWithValue("$Sender", query.Envelope.Sender);
                 command.Parameters.AddWithValue("$Recipients", query.Envelope.Recipients);
                 command.Parameters.AddWithValue("$ChunkCount", query.Envelope.ChunkCount);
+                command.Parameters.AddWithValue("$MsgID", query.Envelope.MsgID);
                 command.ExecuteNonQuery();
             }
             using (var command = conn.CreateCommand())
