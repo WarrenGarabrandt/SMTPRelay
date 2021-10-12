@@ -201,12 +201,23 @@ namespace SMTPRelay.Database
 
         private const string COMPATIBLE_DATABASE_VERSION = "1.0";
 
+        private static string DBPathOverride = null;
+
         private static string DatabasePath
         {
             get
             {
-                string progdata = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                return System.IO.Path.Combine(progdata, "SMTPRelay");
+                string progdata;
+                if (string.IsNullOrEmpty(DBPathOverride))
+                {
+                    progdata = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    progdata = System.IO.Path.Combine(progdata, "SMTPRelay");
+                }
+                else
+                {
+                    progdata = System.IO.Path.GetDirectoryName(DBPathOverride);
+                }
+                return progdata;
             }
         }
 
@@ -214,7 +225,16 @@ namespace SMTPRelay.Database
         {
             get
             {
-                return System.IO.Path.Combine(DatabasePath, "config.db");
+                string filePath;
+                if (string.IsNullOrEmpty(DBPathOverride))
+                {
+                    filePath = System.IO.Path.Combine(DatabasePath, "config.db");
+                }
+                else
+                {
+                    filePath = DBPathOverride;
+                }
+                return filePath;
             }
         }
 
@@ -295,7 +315,7 @@ namespace SMTPRelay.Database
         /// Sets up the connection to the database. Will create a new database if one doesn't exist already.
         /// </summary>
         /// <returns></returns>
-        public static WorkerReport InitDatabase()
+        public static WorkerReport InitDatabase(string dbPath = null)
         {
             if (Worker != null && !Worker.IsBusy)
             {
@@ -310,10 +330,11 @@ namespace SMTPRelay.Database
                 Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
                 Worker.RunWorkerAsync(QueryQueue);
             }
-            DatabaseInit q = new DatabaseInit();
+            DatabaseInit q = new DatabaseInit(dbPath);
             QueryQueue.Add(q);
             return q.GetResult();
         }
+
         /// <summary>
         /// Gets all system configuration values.
         /// </summary>
@@ -742,6 +763,8 @@ namespace SMTPRelay.Database
                 conn = null;
             }
             ConnectionInitialized = false;
+            DBPathOverride = query.DBPath;
+            _cached_DatabaseConnectionString = null;
             try
             {
                 if (!System.IO.File.Exists(DatabaseFile))

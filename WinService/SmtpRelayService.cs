@@ -48,6 +48,8 @@ namespace SMTPRelay.WinService
 
         public bool RunningInteractively = false;
 
+        public string DBPathOverride = null;
+
         public SmtpRelayService()
         {
             this.ServiceName = "SMTP Relay Service";
@@ -72,6 +74,12 @@ namespace SMTPRelay.WinService
         /// </summary>
         static void Main()
         {
+            string dbPath = null;
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Length > 1)
+            {
+                dbPath = args[1];
+            }
             if (Environment.UserInteractive)
             {
                 AllocConsole();
@@ -87,6 +95,7 @@ namespace SMTPRelay.WinService
                 standardOutput.Flush();
                 SmtpRelayService svc = new SmtpRelayService();
                 svc.RunningInteractively = true;
+                svc.DBPathOverride = dbPath;
                 svc.OnStart(null);
                 while (true)
                 {
@@ -95,7 +104,9 @@ namespace SMTPRelay.WinService
             }
             else
             {
-                ServiceBase.Run(new SmtpRelayService());
+                SmtpRelayService svc = new SmtpRelayService();
+                svc.DBPathOverride = dbPath;
+                ServiceBase.Run(svc);
             }
         }
 
@@ -138,7 +149,7 @@ namespace SMTPRelay.WinService
             worker.DoWork += Worker_DoWork;
             worker.ProgressChanged += Worker_ProgressChanged;
             worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
-            worker.RunWorkerAsync();
+            worker.RunWorkerAsync(DBPathOverride);
             base.OnStart(args);
         }
 
@@ -316,12 +327,17 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            string dbPath = null;
+            if (e.Argument is string)
+            {
+                dbPath = e.Argument as string;
+            }
             try
             {
                 // initialize the database
                 try
                 {
-                    WorkerReport InitReport = SQLiteDB.InitDatabase();
+                    WorkerReport InitReport = SQLiteDB.InitDatabase(dbPath);
                     if (InitReport != null)
                     {
                         worker.ReportProgress(0, InitReport);

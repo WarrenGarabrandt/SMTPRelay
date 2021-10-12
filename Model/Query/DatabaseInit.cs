@@ -10,8 +10,9 @@ namespace SMTPRelay.Model.Query
     {
         public WorkerReport ValueResult { get; set; }
 
-        public DatabaseInit()
+        public DatabaseInit(string dbPath = null)
         {
+            DBPath = dbPath;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
@@ -32,5 +33,8 @@ namespace SMTPRelay.Model.Query
             }
             return ValueResult;
         }
+
+        public string DBPath { get; set; }
+
     }
 }
