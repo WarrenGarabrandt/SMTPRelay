@@ -1668,7 +1668,7 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
                         command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
                         command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
-                        command.Parameters.AddWithValue("$IPEndpoint", query.IPEndpoint.IPEndpointID);
+                        command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpoint.IPEndpointID);
                         command.ExecuteNonQuery();
                     }
                 }

@@ -31,8 +31,13 @@ namespace Configuration
         {
             this.tcMain = new System.Windows.Forms.TabControl();
             this.tpSendQueue = new System.Windows.Forms.TabPage();
+            this.ucSendQueueEditor = new SMTPRelay.Configuration.Controls.ucSendQueueEditor();
+            this.tpEndpoints = new System.Windows.Forms.TabPage();
+            this.ucEndpointEditor = new SMTPRelay.Configuration.Controls.ucEndpointEditor();
             this.tpUsers = new System.Windows.Forms.TabPage();
+            this.ucUserEditor = new SMTPRelay.Configuration.Controls.ucUserEditor();
             this.tpMailGateway = new System.Windows.Forms.TabPage();
+            this.ucMailGatewayEditor = new SMTPRelay.Configuration.Controls.ucMailGatewayEditor();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.cmdStartConsole = new System.Windows.Forms.Button();
             this.cmdLogin = new System.Windows.Forms.Button();
@@ -42,11 +47,9 @@ namespace Configuration
             this.label2 = new System.Windows.Forms.Label();
             this.txtServerURL = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
-            this.ucSendQueueEditor = new SMTPRelay.Configuration.Controls.ucSendQueueEditor();
-            this.ucUserEditor = new SMTPRelay.Configuration.Controls.ucUserEditor();
-            this.ucMailGatewayEditor = new SMTPRelay.Configuration.Controls.ucMailGatewayEditor();
             this.tcMain.SuspendLayout();
             this.tpSendQueue.SuspendLayout();
+            this.tpEndpoints.SuspendLayout();
             this.tpUsers.SuspendLayout();
             this.tpMailGateway.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -58,6 +61,7 @@ namespace Configuration
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcMain.Controls.Add(this.tpSendQueue);
+            this.tcMain.Controls.Add(this.tpEndpoints);
             this.tcMain.Controls.Add(this.tpUsers);
             this.tcMain.Controls.Add(this.tpMailGateway);
             this.tcMain.Location = new System.Drawing.Point(12, 12);
@@ -78,6 +82,33 @@ namespace Configuration
             this.tpSendQueue.Text = "Send Queue";
             this.tpSendQueue.UseVisualStyleBackColor = true;
             // 
+            // ucSendQueueEditor
+            // 
+            this.ucSendQueueEditor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucSendQueueEditor.Location = new System.Drawing.Point(3, 3);
+            this.ucSendQueueEditor.Name = "ucSendQueueEditor";
+            this.ucSendQueueEditor.Size = new System.Drawing.Size(796, 520);
+            this.ucSendQueueEditor.TabIndex = 0;
+            // 
+            // tpEndpoints
+            // 
+            this.tpEndpoints.Controls.Add(this.ucEndpointEditor);
+            this.tpEndpoints.Location = new System.Drawing.Point(4, 22);
+            this.tpEndpoints.Name = "tpEndpoints";
+            this.tpEndpoints.Padding = new System.Windows.Forms.Padding(3);
+            this.tpEndpoints.Size = new System.Drawing.Size(802, 526);
+            this.tpEndpoints.TabIndex = 3;
+            this.tpEndpoints.Text = "Endpoints";
+            this.tpEndpoints.UseVisualStyleBackColor = true;
+            // 
+            // ucEndpointEditor
+            // 
+            this.ucEndpointEditor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucEndpointEditor.Location = new System.Drawing.Point(3, 3);
+            this.ucEndpointEditor.Name = "ucEndpointEditor";
+            this.ucEndpointEditor.Size = new System.Drawing.Size(796, 520);
+            this.ucEndpointEditor.TabIndex = 0;
+            // 
             // tpUsers
             // 
             this.tpUsers.Controls.Add(this.ucUserEditor);
@@ -89,6 +120,14 @@ namespace Configuration
             this.tpUsers.Text = "Users";
             this.tpUsers.UseVisualStyleBackColor = true;
             // 
+            // ucUserEditor
+            // 
+            this.ucUserEditor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucUserEditor.Location = new System.Drawing.Point(3, 3);
+            this.ucUserEditor.Name = "ucUserEditor";
+            this.ucUserEditor.Size = new System.Drawing.Size(796, 520);
+            this.ucUserEditor.TabIndex = 0;
+            // 
             // tpMailGateway
             // 
             this.tpMailGateway.Controls.Add(this.ucMailGatewayEditor);
@@ -99,6 +138,14 @@ namespace Configuration
             this.tpMailGateway.TabIndex = 2;
             this.tpMailGateway.Text = "Mail Gateways";
             this.tpMailGateway.UseVisualStyleBackColor = true;
+            // 
+            // ucMailGatewayEditor
+            // 
+            this.ucMailGatewayEditor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucMailGatewayEditor.Location = new System.Drawing.Point(3, 3);
+            this.ucMailGatewayEditor.Name = "ucMailGatewayEditor";
+            this.ucMailGatewayEditor.Size = new System.Drawing.Size(796, 520);
+            this.ucMailGatewayEditor.TabIndex = 0;
             // 
             // groupBox1
             // 
@@ -199,30 +246,6 @@ namespace Configuration
             this.label1.TabIndex = 0;
             this.label1.Text = "Server URL";
             // 
-            // ucSendQueueEditor
-            // 
-            this.ucSendQueueEditor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucSendQueueEditor.Location = new System.Drawing.Point(3, 3);
-            this.ucSendQueueEditor.Name = "ucSendQueueEditor";
-            this.ucSendQueueEditor.Size = new System.Drawing.Size(796, 520);
-            this.ucSendQueueEditor.TabIndex = 0;
-            // 
-            // ucUserEditor
-            // 
-            this.ucUserEditor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucUserEditor.Location = new System.Drawing.Point(3, 3);
-            this.ucUserEditor.Name = "ucUserEditor";
-            this.ucUserEditor.Size = new System.Drawing.Size(796, 520);
-            this.ucUserEditor.TabIndex = 0;
-            // 
-            // ucMailGatewayEditor
-            // 
-            this.ucMailGatewayEditor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucMailGatewayEditor.Location = new System.Drawing.Point(3, 3);
-            this.ucMailGatewayEditor.Name = "ucMailGatewayEditor";
-            this.ucMailGatewayEditor.Size = new System.Drawing.Size(796, 520);
-            this.ucMailGatewayEditor.TabIndex = 0;
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -236,6 +259,7 @@ namespace Configuration
             this.Shown += new System.EventHandler(this.Form1_Shown);
             this.tcMain.ResumeLayout(false);
             this.tpSendQueue.ResumeLayout(false);
+            this.tpEndpoints.ResumeLayout(false);
             this.tpUsers.ResumeLayout(false);
             this.tpMailGateway.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
@@ -262,6 +286,8 @@ namespace Configuration
         private System.Windows.Forms.TabPage tpMailGateway;
         private SMTPRelay.Configuration.Controls.ucMailGatewayEditor ucMailGatewayEditor;
         private SMTPRelay.Configuration.Controls.ucSendQueueEditor ucSendQueueEditor;
+        private System.Windows.Forms.TabPage tpEndpoints;
+        private SMTPRelay.Configuration.Controls.ucEndpointEditor ucEndpointEditor;
     }
 }
 

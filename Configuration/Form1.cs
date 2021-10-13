@@ -96,6 +96,11 @@ namespace Configuration
             {
                 ucSendQueueEditor.RefreshUI();
             }
+            else if (tcMain.SelectedTab == tpEndpoints)
+            {
+                ucSendQueueEditor.SuspendUI();
+                ucEndpointEditor.RefreshUI();
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)

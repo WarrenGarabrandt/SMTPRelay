@@ -182,6 +182,24 @@ namespace SMTPRelay.Model.DB
             }
         }
 
+        public string TLSModeString
+        {
+            get
+            {
+                switch (TLSMode)
+                {
+                    case IPEndpointTLSModes.Disabled:
+                        return "Disabled";
+                    case IPEndpointTLSModes.Enabled:
+                        return "Enabled";
+                    case IPEndpointTLSModes.Enforced:
+                        return "Enforced";
+                    default:
+                        return "Disabled";
+                }
+            }
+        }
+
         public IPEndpointTLSModes TLSMode { get; set; }
 
         public string CertFriendlyName { get; set; }

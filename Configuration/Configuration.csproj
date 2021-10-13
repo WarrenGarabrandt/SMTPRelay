@@ -47,6 +47,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\ucEndpointEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ucEndpointEditor.Designer.cs">
+      <DependentUpon>ucEndpointEditor.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ucMailGatewayEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -73,6 +79,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Controls\ucEndpointEditor.resx">
+      <DependentUpon>ucEndpointEditor.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\ucMailGatewayEditor.resx">
       <DependentUpon>ucMailGatewayEditor.cs</DependentUpon>
     </EmbeddedResource>

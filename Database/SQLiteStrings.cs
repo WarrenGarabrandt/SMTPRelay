@@ -123,7 +123,7 @@ namespace SMTPRelay.Database
         public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint;";
         public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $CertFriendlyName);";
-        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, CertFriendlyName = $CertFriendlyName WHERE IPEndpoint = $IPEndpoint;";
+        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, CertFriendlyName = $CertFriendlyName WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_DeleteByID = @"DELETE FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";
