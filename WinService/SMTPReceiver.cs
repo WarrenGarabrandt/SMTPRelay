@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -20,7 +21,7 @@ namespace SMTPRelay.WinService
         public bool Running;        
         public ConcurrentQueue<WorkerReport> WorkerReports;
 
-        public SMTPReceiver(TcpClient client)
+        public SMTPReceiver(TcpClient client, tblIPEndpoint endpoint)
         {
             WorkerReports = new ConcurrentQueue<WorkerReport>();
             Running = true;
@@ -30,7 +31,20 @@ namespace SMTPRelay.WinService
             Worker.DoWork += Worker_DoWork;
             Worker.ProgressChanged += Worker_ProgressChanged;
             Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
-            Worker.RunWorkerAsync(client);
+            WorkerArgs args = new WorkerArgs(client, endpoint);
+            Worker.RunWorkerAsync(args);
+        }
+
+        private class WorkerArgs
+        {
+            public WorkerArgs(TcpClient client, tblIPEndpoint endpoint)
+            {
+                Client = client;
+                EndPoint = endpoint;
+            }
+            public TcpClient Client { get; private set; }
+
+            public tblIPEndpoint EndPoint { get; private set; }
         }
 
         public void Cancel()
@@ -48,13 +62,16 @@ namespace SMTPRelay.WinService
             WaitForClientVerb,                    // Wait for the client to send something. Depending on command... 
                                                   // RSET, clear mail object, proceed to SendSuccessAck. This is probably an antivirus interception.
                                                   // NOOP, proceed to SendSuccessAck
-                                                  // STARTTLS, proceed to SendStartTLSNotAvail
-                                                  // AUTH, proceed to SendAUTHLOGINUsernameChallenge
-                                                  // MAIL FROM, proceed to ProcessMAILFROM.
+                                                  // STARTTLS, proceed to ProcessStartTLS
+                                                  // AUTH, proceed to SendAUTHLOGINUsernameChallenge. If TLS Enforced but not enabled, proceed to SendStartTLSReq
+                                                  // MAIL FROM, proceed to ProcessMAILFROM. If TLS Enforced but not enabled, proceed to SendStartTLSReq
                                                   // RCPT TO, proceed to ProcessRCPTTOMessage
                                                   // QUIT, proceed to ProcessQUITMessage.
                                                   // DATA, proceed to ProcessDATAMessage.
                                                   // For all other messages, proceed to GenericNotImplemented.
+            ProcessStartTLS,                      // If we can support TLS, proceed to SendStartTLSProceed, else proceed to SendStartTLSNotAvail
+            SendStartTLSProceed,                  // Send 220 Ready to start TLS and procced to SwitchToTLS
+            SwitchToTLS,                          // Change over to TLS Stream, and proceded to WaitClientHello
             SendStartTLSNotAvail,                 // Send 454 TLS not available. proceed to WaitForClientVerb.
             SendStartTLSReq,                      // Command received that requires StartTLS first. Send 530 StartTLS Required. Proceed to WaitForClientVerb
             SendAuthReq,                          // Authentication required. Send 550 Authentication Required. Proceed to WaitForClientVerb
@@ -121,18 +138,21 @@ namespace SMTPRelay.WinService
             {
                 System.Diagnostics.Stopwatch swTimeout = new System.Diagnostics.Stopwatch();
                 swTimeout.Start();
-
-                TcpClient client = e.Argument as TcpClient;
-                if (client == null)
+                WorkerArgs args = e.Argument as WorkerArgs;
+                if (args == null || args.Client == null || args.EndPoint == null)
                 {
-                    throw new Exception("Invalid TcpClient passed to SMTPReceiver.");
+                    throw new Exception("Invalid TcpClient or EndPoint passed to SMTPReceiver.");
                 }
+
+                TcpClient client = args.Client;
+
                 NetworkStream stream = client.GetStream();
-                SMTPStreamHandler lineStream = new SMTPStreamHandler(stream);
+                ISMTPStream lineStream = new SMTPStreamHandler(stream);
                 EndPoint clientEP = client.Client.RemoteEndPoint;
                 EndPoint localEP = client.Client.LocalEndPoint;
                 string ClientIPAddress = ((IPEndPoint)clientEP).Address.ToString();
                 string LocalIPAddress = ((IPEndPoint)localEP).Address.ToString();
+                X509Certificate2 serverCert = null;
 
                 tblEnvelope ActiveEnvelope = null;
                 List<tblEnvelopeRcpt> ActiveEnvelopeRcpts = null;
@@ -275,7 +295,7 @@ namespace SMTPRelay.WinService
                             }
                             else if (line.ToUpper() == "STARTTLS")
                             {
-                                state = SMTPStates.SendStartTLSNotAvail;
+                                state = SMTPStates.ProcessStartTLS;
                             }
                             else if (line.ToUpper().StartsWith("AUTH"))
                             {
@@ -302,6 +322,39 @@ namespace SMTPRelay.WinService
                                 lineStream.WriteLine("550 Command not Implemented");
                                 BadCommandLimit--;
                             }
+                        }
+                        else if (state == SMTPStates.ProcessStartTLS)
+                        {
+                            if (args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Disabled ||
+                                string.IsNullOrEmpty(args.EndPoint.CertFriendlyName))
+                            {
+                                state = SMTPStates.SendStartTLSNotAvail;
+                            }
+                            if (args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Enabled ||
+                                args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Enforced)
+                            {
+                                state = SMTPStates.SendStartTLSProceed;
+                            }
+                        }
+                        else if (state == SMTPStates.SendStartTLSProceed)
+                        {
+                            // see if we can actually get the cert specified.
+                            serverCert = FindSystemCert(args.EndPoint.CertFriendlyName);
+                            if (serverCert != null)
+                            {
+                                lineStream.WriteLine("220 Go ahead");
+                                state = SMTPStates.SwitchToTLS;
+                            }
+                            else
+                            {
+                                state = SMTPStates.SendStartTLSNotAvail;
+                            }
+                        }
+                        else if (state == SMTPStates.SwitchToTLS)
+                        {
+                            lineStream.Release();
+                            lineStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Server, null, serverCert);
+                            state = SMTPStates.WaitClientHello;
                         }
                         else if (state == SMTPStates.SendStartTLSNotAvail)
                         {
@@ -718,6 +771,28 @@ namespace SMTPRelay.WinService
             }
         }
 
+        private X509Certificate2 FindSystemCert(string friendlyName)
+        {
+            X509Certificate2 serverCert = null;
+            var store = GetLocalCerts();
+            foreach (var cert in store.Cast<X509Certificate2>())
+            {
+                if (cert.FriendlyName == friendlyName)
+                {
+                    serverCert = cert;
+                }
+            }
+            return serverCert;
+        }
+
+        private X509Certificate2Collection GetLocalCerts()
+        {
+            var localMachineStore = new X509Store(StoreLocation.LocalMachine);
+            localMachineStore.Open(OpenFlags.ReadOnly);
+            var certs = localMachineStore.Certificates;
+            localMachineStore.Close();
+            return certs;
+        }
         private void CleanupFailedMessageData(tblEnvelope activeEnvelope)
         {
             if (activeEnvelope == null)

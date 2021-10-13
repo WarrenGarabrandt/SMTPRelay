@@ -12,6 +12,8 @@ namespace SMTPRelay.WinService
 {
     public class SMTPTLSStreamHandler : ISMTPStream
     {
+        public string EncryptionNegotiated = "";
+
         private Stream _stream;
         private SslStream _sslStream;
 
@@ -23,26 +25,81 @@ namespace SMTPRelay.WinService
         private StringBuilder _sb;
         private bool _crSeen = false;
 
-        public SMTPTLSStreamHandler(Stream stream, string hostName)
+        public enum Mode
+        {
+            Client,
+            Server
+        }
+
+        public SMTPTLSStreamHandler(Stream stream, Mode mode, string host = null, X509Certificate serverCert = null)
         {
             _stream = stream;
             _sb = new StringBuilder();
             _crSeen = false;
-            _sslStream = new SslStream(_stream, true, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
-            try
+            switch (mode)
             {
-                _sslStream.AuthenticateAsClient(hostName);
+                case Mode.Client:
+                    _sslStream = new SslStream(_stream, true, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
+                    try
+                    {
+                        _sslStream.AuthenticateAsClient(host);
+                        UpdateEncryptionMethod();
+                    }
+                    catch (AuthenticationException ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(ex.Message);
+                        try
+                        {
+                            _sslStream.Dispose();
+                        }
+                        catch { }
+                        throw;
+                    }
+                    break;
+                case Mode.Server:
+                    _sslStream = new SslStream(stream, true);
+                    try
+                    {
+                        _sslStream.AuthenticateAsServer(serverCert, false, SslProtocols.None, true);
+                        UpdateEncryptionMethod();
+                    }
+                    catch (AuthenticationException ex)
+                    {
+                        System.Diagnostics.Debug.Write(ex.Message);
+                        try
+                        {
+
+                            _sslStream.Dispose();
+                        }
+                        catch { }
+                        throw;
+                    }
+                    break;
             }
-            catch (AuthenticationException ex)
+        }
+
+        private void UpdateEncryptionMethod()
+        {
+            string keyexch;
+            switch (_sslStream.KeyExchangeAlgorithm)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
-                try
-                {
-                    _sslStream.Dispose();
-                }
-                catch { }
-                throw;
+                case ExchangeAlgorithmType.None:
+                    keyexch = "none";
+                    break;
+                case ExchangeAlgorithmType.RsaSign:
+                    keyexch = "RSASign";
+                    break;
+                case ExchangeAlgorithmType.RsaKeyX:
+                    keyexch = "RSAKeyX";
+                    break;
+                case ExchangeAlgorithmType.DiffieHellman:
+                    keyexch = "ECDH";
+                    break;
+                default:
+                    keyexch = _sslStream.KeyExchangeAlgorithm.ToString();
+                    break;
             }
+            EncryptionNegotiated = string.Format("{0} [{1}+{2}+{3}]", _sslStream.SslProtocol, _sslStream.CipherAlgorithm, _sslStream.HashAlgorithm, keyexch);
         }
 
         public bool ValidateServerCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors sslPolicyErrors)

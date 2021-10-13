@@ -227,7 +227,7 @@ namespace SMTPRelay.WinService
                     // switch to TLS now
                     smtpStream.Release();
                     smtpStream = null;
-                    smtpStream = new SMTPTLSStreamHandler(stream, serverHostname);
+                    smtpStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Client, serverHostname, null);
                     // send the HELO message. This essentially starts the conversation over.
                     smtpStream.WriteLine(string.Format("EHLO {0}", localHostname));
                     SMTPExtensions.Clear();  // we might get different extensions now that we're in TLS mode.

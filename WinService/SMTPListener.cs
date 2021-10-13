@@ -89,7 +89,7 @@ namespace SMTPRelay.WinService
                     if (listener.Pending() && Receivers.Count < MAX_ACTIVE_RECEIVERS)
                     {
                         TcpClient newClient = listener.AcceptTcpClient();
-                        SMTPReceiver rcv = new SMTPReceiver(newClient);
+                        SMTPReceiver rcv = new SMTPReceiver(newClient, endpoint);
                         Receivers.Add(rcv);
                         busy = true;
                     }
