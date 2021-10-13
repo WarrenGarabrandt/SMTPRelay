@@ -56,6 +56,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Query\DatabaseInit.cs" />
     <Compile Include="Query\DatabaseQuery.cs" />
+    <Compile Include="Query\qryDeleteIPEndpointByID.cs" />
     <Compile Include="Query\qryDeleteMailChunkData.cs" />
     <Compile Include="Query\qryDeleteMailGatwayByID.cs" />
     <Compile Include="Query\qryDeleteSendQueueByID.cs" />
@@ -64,6 +65,7 @@
     <Compile Include="Query\qryGetAllSendQueue.cs" />
     <Compile Include="Query\qryGetEnvelopeRcptByEnvelopeID.cs" />
     <Compile Include="Query\qryGetEnvelopeRcptByID.cs" />
+    <Compile Include="Query\qryGetIPEndpointByID.cs" />
     <Compile Include="Query\qryGetMailDataSize.cs" />
     <Compile Include="Query\qryGetMailGatewayByID.cs" />
     <Compile Include="Query\qryGetMailChunkData.cs" />
@@ -83,6 +85,7 @@
     <Compile Include="Query\qrySetConfigValue.cs" />
     <Compile Include="Query\qrySetEnvelope.cs" />
     <Compile Include="Query\qrySetEnvelopeRcpt.cs" />
+    <Compile Include="Query\qrySetIPEndpoint.cs" />
     <Compile Include="Query\qrySetMailChunk.cs" />
     <Compile Include="Query\qrySetMailGateway.cs" />
     <Compile Include="Query\qrySetSendLog.cs" />

@@ -147,6 +147,18 @@ namespace SMTPRelay.Database
                                     case qrySetEnvelopeRcpt q:
                                         _envelopeRcpt_Insert(conn, q);
                                         break;
+                                    case qryGetAllIPEndpoints q:
+                                        _ipendpoint_GetAll(conn, q);
+                                        break;
+                                    case qryGetIPEndpointByID q:
+                                        _ipendpoint_GetByID(conn, q);
+                                        break;
+                                    case qrySetIPEndpoint q:
+                                        _ipendpoint_AddUpdate(conn, q);
+                                        break;
+                                    case qryDeleteIPEndpointByID q:
+                                        _ipendpoint_DeleteByID(conn, q);
+                                        break;
                                     default:
                                         throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
                                 }
@@ -716,6 +728,27 @@ namespace SMTPRelay.Database
         public static List<tblIPEndpoint> IPEndpoint_GetAll()
         {
             qryGetAllIPEndpoints q = new qryGetAllIPEndpoints();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static tblIPEndpoint IPEndpoint_GetByID(long ipendpointID)
+        {
+            qryGetIPEndpointByID q = new qryGetIPEndpointByID(ipendpointID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool IPEndpoint_AddUpdate(tblIPEndpoint ipendpoint)
+        {
+            qrySetIPEndpoint q = new qrySetIPEndpoint(ipendpoint);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool IPEndpoint_DeleteByID(long ipendpointID)
+        {
+            qryDeleteIPEndpointByID q = new qryDeleteIPEndpointByID(ipendpointID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1578,6 +1611,102 @@ namespace SMTPRelay.Database
                 }
             }
             query.SetResult(results);
+        }
+
+        private static void _ipendpoint_GetByID(SQLiteConnection conn, qryGetIPEndpointByID query)
+        {
+            tblIPEndpoint result = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.IPEndpoint_GetByID;
+                command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpointID);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        //EnvelopeRcptID, EnvelopeID, Recipient
+                        result = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5));
+                    }
+                }
+            }
+            query.SetResult(result);
+        }
+
+        private static void _ipendpoint_AddUpdate(SQLiteConnection conn, qrySetIPEndpoint query)
+        {
+            // if the IPEndpointID is populated, then we are going to try to update first. 
+            // the update might fail, in which case we insert below
+            if (query.IPEndpoint.IPEndpointID.HasValue)
+            {
+                // update. First, read the existing record by ID to make sure it exists. 
+                tblIPEndpoint dbipendpoint = null;
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.IPEndpoint_GetByID;
+                    command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpoint.IPEndpointID);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            dbipendpoint = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5));
+                        }
+                    }
+                }
+                if (dbipendpoint == null)
+                {
+                    // IPEndpoint doesn't exit, so below we will insert it.
+                    query.IPEndpoint.IPEndpointID = null;
+                }
+                else
+                {
+                    using (var command = conn.CreateCommand())
+                    {
+                        //$Address, $Port, $Protocol, $TLSMode, $CertFriendlyName
+                        command.CommandText = SQLiteStrings.IPEndpoint_Update;
+                        command.Parameters.AddWithValue("$Address", query.IPEndpoint.Address);
+                        command.Parameters.AddWithValue("$Port", query.IPEndpoint.Port);
+                        command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
+                        command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
+                        command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
+                        command.Parameters.AddWithValue("$IPEndpoint", query.IPEndpoint.IPEndpointID);
+                        command.ExecuteNonQuery();
+                    }
+                }
+
+            }
+
+            // if there is no IPEndpointID, then we insert a new record and select the ID back.
+            if (!query.IPEndpoint.IPEndpointID.HasValue)
+            {
+                // insert new record and read back the ID
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.IPEndpoint_Insert;
+                    command.Parameters.AddWithValue("$Address", query.IPEndpoint.Address);
+                    command.Parameters.AddWithValue("$Port", query.IPEndpoint.Port);
+                    command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
+                    command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
+                    command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Table_LastRowID;
+                    query.IPEndpoint.IPEndpointID = (long)command.ExecuteScalar();
+                }
+            }
+            query.SetResult(true);
+        }
+
+        private static void _ipendpoint_DeleteByID(SQLiteConnection conn, qryDeleteIPEndpointByID query)
+        {
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.IPEndpoint_DeleteByID;
+                command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpointID);
+                command.ExecuteNonQuery();
+            }
+            query.SetResult(true);
         }
 
         #endregion

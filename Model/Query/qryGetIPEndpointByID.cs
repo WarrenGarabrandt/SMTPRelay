@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SMTPRelay.Model.DB;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,25 +7,25 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryDeleteMailGatwayByID : DatabaseQuery
+    public class qryGetIPEndpointByID : DatabaseQuery
     {
-        public long MailGatewayID { get; private set; }
-        public bool ValueResult { get; private set; }
+        public long IPEndpointID { get; private set; }
+        public tblIPEndpoint ValueResult { get; private set; }
 
-        public qryDeleteMailGatwayByID(long mailGatewayID)
+        public qryGetIPEndpointByID(long ipendpointID)
         {
-            MailGatewayID = mailGatewayID;
+            IPEndpointID = ipendpointID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
 
-        public void SetResult(bool value)
+        public void SetResult(tblIPEndpoint value)
         {
             ValueResult = value;
             DoneSignal.Set();
         }
 
-        public bool GetResult()
+        public tblIPEndpoint GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();

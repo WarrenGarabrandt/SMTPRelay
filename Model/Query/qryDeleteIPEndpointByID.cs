@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryDeleteMailGatwayByID : DatabaseQuery
+    public class qryDeleteIPEndpointByID : DatabaseQuery
     {
-        public long MailGatewayID { get; private set; }
+        public long IPEndpointID { get; private set; }
         public bool ValueResult { get; private set; }
 
-        public qryDeleteMailGatwayByID(long mailGatewayID)
+        public qryDeleteIPEndpointByID(long ipendpointID)
         {
-            MailGatewayID = mailGatewayID;
+            IPEndpointID = ipendpointID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
