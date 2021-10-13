@@ -21,7 +21,7 @@ namespace SMTPRelay.WinService
         public bool Running;
         public ConcurrentQueue<WorkerReport> WorkerReports;
 
-        public SMTPListener()
+        public SMTPListener(tblIPEndpoint endpoint)
         {
             WorkerReports = new ConcurrentQueue<WorkerReport>();
             Running = true;
@@ -31,7 +31,7 @@ namespace SMTPRelay.WinService
             Worker.DoWork += Worker_DoWork;
             Worker.ProgressChanged += Worker_ProgressChanged;
             Worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
-            Worker.RunWorkerAsync();
+            Worker.RunWorkerAsync(endpoint);
         }
 
         public void Cancel()
@@ -41,39 +41,47 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            
+            tblIPEndpoint endpoint = e.Argument as tblIPEndpoint;
+            if (endpoint == null)
+            {
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogError = "SMTP Listener not provided a valid Endpoint."
+                });
+                return;
+            }
             TcpListener listener = null;
             List<SMTPReceiver> Receivers = new List<SMTPReceiver>();
             System.Diagnostics.Stopwatch cleanupSW = new System.Diagnostics.Stopwatch();
             cleanupSW.Start();
             try
             {
-                string readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenAddr");
-                IPAddress listenAddr = IPAddress.None;
-                if (readValue == "0.0.0.0")
-                {
-                    listenAddr = IPAddress.Any;
-                }
-                else
-                {
-                    if (!IPAddress.TryParse(readValue, out listenAddr))
-                    {
-                        throw new Exception("Invalid SMTPListener ListenAddr");
-                    }
-                }
-                readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenPort");
-                int listenPort = 0;
-                if (!int.TryParse(readValue, out listenPort))
-                {
-                    throw new Exception("Invalid SMTPListener ListenPort");
-                }
+                //string readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenAddr");
+                //IPAddress listenAddr = IPAddress.None;
+                //if (readValue == "0.0.0.0")
+                //{
+                //    listenAddr = IPAddress.Any;
+                //}
+                //else
+                //{
+                //    if (!IPAddress.TryParse(readValue, out listenAddr))
+                //    {
+                //        throw new Exception("Invalid SMTPListener ListenAddr");
+                //    }
+                //}
+                //readValue = SQLiteDB.System_GetValue("SMTPListener", "ListenPort");
+                //int listenPort = 0;
+                //if (!int.TryParse(readValue, out listenPort))
+                //{
+                //    throw new Exception("Invalid SMTPListener ListenPort");
+                //}
                 // create listener
-                listener = new TcpListener(listenAddr, listenPort);
-                
+                listener = new TcpListener(endpoint.IPEndPoint);
                 listener.Start();
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogMessage = "Started SMTP Listener."
+                    LogMessage = string.Format("Started {0} Listener on {1}:{2} with TLS {3} (Cert: {4}).", 
+                    endpoint.ProtocolString, endpoint.Address, endpoint.Port, endpoint.TLSModeString, endpoint.CertFriendlyName)
                 });
                 while (!Worker.CancellationPending)
                 {

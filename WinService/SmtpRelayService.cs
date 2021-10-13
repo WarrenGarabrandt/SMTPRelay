@@ -356,22 +356,34 @@ namespace SMTPRelay.WinService
                 // test all functions.
                 //TestAllSQLFunctions();
 
-                // Start SMTP listener
-                SMTPListener smtpListener = new SMTPListener();
+                // get the list of EndPoints that we will be listening on.
+                List<tblIPEndpoint> endpoints = SQLiteDB.IPEndpoint_GetAll();
+                List<SMTPListener> smtpListeneners = new List<SMTPListener>();
+                // Start SMTP listeners
+                foreach (var ep in endpoints)
+                {
+                    if (ep.Protocol != tblIPEndpoint.IPEndpointProtocols.None && ep.IPEndPoint != null)
+                    {
+                        smtpListeneners.Add(new SMTPListener(ep));
+                    }
+                }
                 // Start SMTP queue
                 SMTPSendQueue smtpQueue = new SMTPSendQueue();
 
                 System.Threading.Thread.Sleep(1000);
 
                 // Test email sending
-                EmailSendBenchmark();
+                //EmailSendBenchmark();
 
-                while (!worker.CancellationPending && smtpListener.Running)
+                while (!worker.CancellationPending)
                 {
                     WorkerReport status;
-                    if (smtpListener.WorkerReports.TryDequeue(out status))
+                    foreach (var smtpListener in smtpListeneners)
                     {
-                        worker.ReportProgress(0, status);
+                        if (smtpListener.WorkerReports.TryDequeue(out status))
+                        {
+                            worker.ReportProgress(0, status);
+                        }
                     }
                     if (smtpQueue.WorkerReports.TryDequeue(out status))
                     {
@@ -386,10 +398,19 @@ namespace SMTPRelay.WinService
                     {
                         LogMessage = "Shutting down Listeners and Senders."
                     });
-                    smtpListener.Cancel();
-                    smtpQueue.Cancel();
-                    while (smtpListener.Running || smtpQueue.Running)
+                    foreach (var smtpListener in smtpListeneners)
                     {
+                        smtpListener.Cancel();
+                    }
+                    smtpQueue.Cancel();
+                    bool stillRunning = true;
+                    while (stillRunning || smtpQueue.Running)
+                    {
+                        stillRunning = false;
+                        foreach (var smtpListener in smtpListeneners)
+                        {
+                            stillRunning |= smtpListener.Running;
+                        }
                         Thread.Sleep(100);
                     }
                 }              

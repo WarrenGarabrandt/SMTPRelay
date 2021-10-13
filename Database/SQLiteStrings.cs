@@ -59,10 +59,6 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Message", "MaxRecipients", "100"),
             // max chunk size = 64 KB
             new Tuple<string, string, string>("Message", "ChunkSize", "65536"),
-            // IP address to listen to. 0.0.0.0 will use System.Net.IPAddress.Any
-            new Tuple<string, string, string>("SMTPListener", "ListenAddr", "0.0.0.0"),
-            // Port number to listen on. Default is 25. Can be any port, but ports 1 - 1024 need admin privileges.
-            new Tuple<string, string, string>("SMTPListener", "ListenPort", "1025"),
             // SMTP server Host Name it advertises.
             new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
             // Client has 15 seconds to send HELO or EHLO or we abort the connection.
