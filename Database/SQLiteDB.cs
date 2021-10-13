@@ -713,6 +713,13 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        public static List<tblIPEndpoint> IPEndpoint_GetAll()
+        {
+            qryGetAllIPEndpoints q = new qryGetAllIPEndpoints();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
         #endregion
 
         #region Private Methods
@@ -1554,6 +1561,23 @@ namespace SMTPRelay.Database
                 query.EnvelopeRcpt.EnvelopeRcptID = (long)command.ExecuteScalar();
             }
             query.SetResult(true);
+        }
+
+        private static void _ipendpoint_GetAll(SQLiteConnection conn, qryGetAllIPEndpoints query)
+        {
+            List<tblIPEndpoint> results = new List<tblIPEndpoint>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.IPEndpoint_GetAll;
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5)));
+                    }
+                }
+            }
+            query.SetResult(results);
         }
 
         #endregion

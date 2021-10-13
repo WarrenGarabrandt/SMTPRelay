@@ -1,0 +1,20 @@
+﻿If you have Godaddy .crt, .pem, and .p7b files, do the following to get necessary x509 certificate for hosting.openssl pkcs12 can't read password
+Follow Godaddy's instructions for completing the certificate signing request. This will mean importing the intermediates, and
+running the complete certificate signing request process in IIS. 
+Then export a pfx (PKCS12) from IIS.
+Run the following commands to create the necesesary cert file.
+Extract the private key: 
+openssl pkcs12 -in certname.pfx -nocerts -out key.pem -nodes
+
+Extract the certificate: 
+openssl pkcs12 -in certname.pfx -nokeys -out cert.cer
+
+Extract the certs from the intermediate .p7b file: 
+openssl pkcs7 -print_certs -in certificate.p7b -out intermediates.cer
+
+Combine the files into a single cert file: 
+openssl pkcs12 -export -out domain.pfx -inkey key.pem -in cert.cer -in intermediates.cer
+
+I wasn't actually able to get this to work though. What I had to do was export the cert with private key from the server it was installed on,
+then use MMC, add the license snap in for local machine, import the intermediate cert, import the PFX into personal store, then the software
+can retrieve the cert from X509Store, instead of using the X509Certificate.CreateFromCertFile() constructor and loading a file.

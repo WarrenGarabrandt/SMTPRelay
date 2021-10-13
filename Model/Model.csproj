@@ -45,6 +45,7 @@
     <Compile Include="DB\SendQueueState.cs" />
     <Compile Include="DB\tblEnvelope.cs" />
     <Compile Include="DB\tblEnvelopeRcpt.cs" />
+    <Compile Include="DB\tblIPEndpoint.cs" />
     <Compile Include="DB\tblMailGateway.cs" />
     <Compile Include="DB\tblSendLog.cs" />
     <Compile Include="DB\tblSendQueue.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="Query\qryDeleteMailChunkData.cs" />
     <Compile Include="Query\qryDeleteMailGatwayByID.cs" />
     <Compile Include="Query\qryDeleteSendQueueByID.cs" />
+    <Compile Include="Query\qryGetAllIPEndpoints.cs" />
     <Compile Include="Query\qryGetAllMailGateways.cs" />
     <Compile Include="Query\qryGetAllSendQueue.cs" />
     <Compile Include="Query\qryGetEnvelopeRcptByEnvelopeID.cs" />

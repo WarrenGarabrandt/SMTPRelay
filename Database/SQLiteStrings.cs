@@ -36,8 +36,17 @@ namespace SMTPRelay.Database
             @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, State INTEGER NOT NULL, AttemptCount INTEGER NOT NULL, RetryAfter TEXT);",
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
-            @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);"
-            
+            @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);",
+
+            // IP Endpoint to listen for incoming connections.
+            // Protocol: list the Protocol that this endpoint will allow. Other protocols may be implemented in the future.
+            //          SMTP: Basic SMTP only EHLO rejected.
+            //          ESMTP: Extended SMTP, (backwards compatible to SMTP)
+            // TLSMode: 0 = No TLS available. Reject StartTLS attempts.
+            //          1 = TLS available if client asks for it.
+            //          2 = TLS Required. Client MUST Issue StartTLS before Auth
+            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, CertFriendlyName TEXT);"
+
         };
 
         public static List<Tuple<string, string, string>> DatabaseDefaults = new List<Tuple<string, string, string>>()
@@ -109,7 +118,13 @@ namespace SMTPRelay.Database
         public static string EnvelopeRcpt_GetByID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeRcptID = $EnvelopeRcptID;";
         public static string EnvelopeRcpt_GetByEnvelopeID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
         public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
-        
+
+        // IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, CertFriendlyName TEXT
+        public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint;";
+        public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
+        public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $CertFriendlyName);";
+        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, CertFriendlyName = $CertFriendlyName WHERE IPEndpoint = $IPEndpoint;";
+        public static string IPEndpoint_DeleteByID = @"DELETE FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";
 
