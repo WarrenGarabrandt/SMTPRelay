@@ -51,7 +51,7 @@ namespace SMTPRelay.WinService
                 int QueryUpdateInterval = Int32.Parse(SQLiteDB.System_GetValue("SMTPSenderQueue", "RefreshMS"));
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogMessage = "Started SMTP Queue Monitor."
+                    LogMessage = "Started Outbound Queue Monitor."
                 });
                 while (!Worker.CancellationPending)
                 {

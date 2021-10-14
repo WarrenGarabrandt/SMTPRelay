@@ -14,26 +14,28 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates new instance that has not been saved into the database yet.
         /// </summary>
-        public tblIPEndpoint(string address, int port, IPEndpointProtocols protocol, IPEndpointTLSModes tlsMode, string certFriendlyName)
+        public tblIPEndpoint(string address, int port, IPEndpointProtocols protocol, IPEndpointTLSModes tlsMode, string hostname, string certFriendlyName)
         {
             IPEndpointID = null;
             Address = address;
             Port = port;
             Protocol = protocol;
             TLSMode = tlsMode;
+            Hostname = hostname;
             CertFriendlyName = certFriendlyName;
         }
 
         /// <summary>
         /// Creates a new instance that exists in the database.
         /// </summary>
-        public tblIPEndpoint(long ipendpointID, string address, int port, string protocol, int tlsMode, string certFriendlyName)
+        public tblIPEndpoint(long ipendpointID, string address, int port, string protocol, int tlsMode, string hostname, string certFriendlyName)
         {
             IPEndpointID = ipendpointID;
             Address = address;
             Port = port;
             ProtocolString = protocol;
             TLSModeInt = tlsMode;
+            Hostname = hostname;
             CertFriendlyName = certFriendlyName;
         }
 
@@ -201,6 +203,8 @@ namespace SMTPRelay.Model.DB
         }
 
         public IPEndpointTLSModes TLSMode { get; set; }
+
+        public string Hostname { get; set; }
 
         public string CertFriendlyName { get; set; }
     }

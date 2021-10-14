@@ -37,6 +37,7 @@ namespace SMTPRelay.Configuration.Controls
                 gw.SubItems.Add(dbie.Port.ToString());
                 gw.SubItems.Add(dbie.ProtocolString);
                 gw.SubItems.Add(dbie.TLSModeString);
+                gw.SubItems.Add(dbie.Hostname);
                 gw.SubItems.Add(dbie.CertFriendlyName);
                 gw.Tag = dbie.IPEndpointID;
                 IPEndpoints.Add(gw);
@@ -48,6 +49,7 @@ namespace SMTPRelay.Configuration.Controls
                 nudPort.Enabled = false;
                 cmbProtocol.Enabled = false;
                 cmbTLSMode.Enabled = false;
+                txtHostname.Enabled = false;
                 cmbCertFriendlyName.Enabled = false;
                 cmdSaveChanges.Enabled = false;
                 cmdDelete.Enabled = false;
@@ -74,6 +76,8 @@ namespace SMTPRelay.Configuration.Controls
             nudPort.Enabled = false;
             cmbProtocol.Enabled = false;
             cmbTLSMode.Enabled = false;
+            txtHostname.Text = "";
+            txtHostname.Enabled = false;
             cmbCertFriendlyName.Enabled = false;
             cmdSaveChanges.Enabled = false;
             cmdDelete.Enabled = false;
@@ -88,12 +92,14 @@ namespace SMTPRelay.Configuration.Controls
             nudPort.Value = dbEP.Port;
             cmbProtocol.SelectedIndex = (int)dbEP.Protocol;
             cmbTLSMode.SelectedIndex = (int)dbEP.TLSMode;
+            txtHostname.Text = dbEP.Hostname;
             cmbCertFriendlyName.Text = dbEP.CertFriendlyName;
 
             cmbIPAddress.Enabled = true;
             nudPort.Enabled = true;
             cmbProtocol.Enabled = true;
             cmbTLSMode.Enabled = true;
+            txtHostname.Enabled = true;
             cmbCertFriendlyName.Enabled = true;
         }
 
@@ -127,6 +133,7 @@ namespace SMTPRelay.Configuration.Controls
             nudPort.Value = 25;
             cmbProtocol.SelectedIndex = 2;
             cmbTLSMode.SelectedIndex = 0;
+            txtHostname.Text = SQLiteDB.GetFQDN();
             cmbCertFriendlyName.Text = "";
 
             cmbIPAddress.Enabled = true;
@@ -171,13 +178,18 @@ namespace SMTPRelay.Configuration.Controls
                 MessageBox.Show("TLS is set to Enable or Enforced but no certificate is specified. Connections will fail.");
                 return;
             }
+            if (string.IsNullOrEmpty(txtHostname.Text))
+            {
+                MessageBox.Show("Enter a hostname to report to clients.");
+                return;
+            }
             if (SelectedIP != -1)
             {
                 tblIPEndpoint updateep = SQLiteDB.IPEndpoint_GetByID(SelectedIP.Value);
                 if (updateep == null)
                 {
                     if (MessageBox.Show("The Endpoint you are editing has been deleted.\r\n" +
-                        "Would you like to add this as a new Endpoin instead?",
+                        "Would you like to add this as a new Endpoint instead?",
                         "Deleted Endpoint", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
                     {
                         SelectedIP = -1;
@@ -193,6 +205,7 @@ namespace SMTPRelay.Configuration.Controls
                     updateep.Port = (int)nudPort.Value;
                     updateep.Protocol = GetProtocol();
                     updateep.TLSMode = GetTLSMode();
+                    updateep.Hostname = txtHostname.Text.Trim();
                     updateep.CertFriendlyName = cmbCertFriendlyName.Text;
                     SQLiteDB.IPEndpoint_AddUpdate(updateep);
                     RefreshUI();
@@ -200,7 +213,7 @@ namespace SMTPRelay.Configuration.Controls
             }
             if (SelectedIP == -1)
             {
-                tblIPEndpoint newEP = new tblIPEndpoint(cmbIPAddress.Text, (int)nudPort.Value, GetProtocol(), GetTLSMode(), cmbCertFriendlyName.Text);
+                tblIPEndpoint newEP = new tblIPEndpoint(cmbIPAddress.Text, (int)nudPort.Value, GetProtocol(), GetTLSMode(), txtHostname.Text.Trim(), cmbCertFriendlyName.Text);
                 SQLiteDB.IPEndpoint_AddUpdate(newEP);
                 SelectedIP = newEP.IPEndpointID;
                 RefreshUI();
@@ -374,6 +387,15 @@ namespace SMTPRelay.Configuration.Controls
             var certs = localMachineStore.Certificates;
             localMachineStore.Close();
             return certs;
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            cmdSaveChanges.Enabled = true;
         }
     }
 }

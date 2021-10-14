@@ -60,7 +60,7 @@ namespace SMTPRelay.WinService
                     _sslStream = new SslStream(stream, true);
                     try
                     {
-                        _sslStream.AuthenticateAsServer(serverCert, false, SslProtocols.None, true);
+                        _sslStream.AuthenticateAsServer(serverCert, false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true);
                         UpdateEncryptionMethod();
                     }
                     catch (AuthenticationException ex)
@@ -80,26 +80,8 @@ namespace SMTPRelay.WinService
 
         private void UpdateEncryptionMethod()
         {
-            string keyexch;
-            switch (_sslStream.KeyExchangeAlgorithm)
-            {
-                case ExchangeAlgorithmType.None:
-                    keyexch = "none";
-                    break;
-                case ExchangeAlgorithmType.RsaSign:
-                    keyexch = "RSASign";
-                    break;
-                case ExchangeAlgorithmType.RsaKeyX:
-                    keyexch = "RSAKeyX";
-                    break;
-                case ExchangeAlgorithmType.DiffieHellman:
-                    keyexch = "ECDH";
-                    break;
-                default:
-                    keyexch = _sslStream.KeyExchangeAlgorithm.ToString();
-                    break;
-            }
-            EncryptionNegotiated = string.Format("{0} [{1}+{2}+{3}]", _sslStream.SslProtocol, _sslStream.CipherAlgorithm, _sslStream.HashAlgorithm, keyexch);
+            
+            EncryptionNegotiated = string.Format("{0} [{1}+{2}]", _sslStream.SslProtocol, _sslStream.CipherAlgorithm, _sslStream.HashAlgorithm);
         }
 
         public bool ValidateServerCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors sslPolicyErrors)

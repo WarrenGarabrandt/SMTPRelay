@@ -18,3 +18,6 @@ openssl pkcs12 -export -out domain.pfx -inkey key.pem -in cert.cer -in intermedi
 I wasn't actually able to get this to work though. What I had to do was export the cert with private key from the server it was installed on,
 then use MMC, add the license snap in for local machine, import the intermediate cert, import the PFX into personal store, then the software
 can retrieve the cert from X509Store, instead of using the X509Certificate.CreateFromCertFile() constructor and loading a file.
+
+If you get the error "The credentials supplied to the package were not recognized" Then open MMC, add Certificate, local machine, find the cert,
+right click and choose Manage private keys. Make sure the user account the system is running as has access (or Everyone, if you are brave enough).

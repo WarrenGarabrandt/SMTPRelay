@@ -27,7 +27,6 @@ namespace SMTPRelay.Database
                 return;
             }
             SQLiteConnection conn = null;
-            long queryCount = 0;
             try
             {
                 while (!Worker.CancellationPending)
@@ -47,8 +46,6 @@ namespace SMTPRelay.Database
                                 {
                                     query.Abort();
                                 }
-                                queryCount++;
-                                System.Diagnostics.Debug.WriteLine(string.Format("Query Count: {0}", queryCount));
                                 switch (query)
                                 {
                                     case qryGetAllConfigValues q:
@@ -753,6 +750,20 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        public static string GetFQDN()
+        {
+            string domainName = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().DomainName;
+            string hostName = System.Net.Dns.GetHostName();
+
+            domainName = "." + domainName;
+            if (!hostName.EndsWith(domainName))  // if hostname does not already include domain name
+            {
+                hostName += domainName;   // add the domain name part
+            }
+
+            return hostName;                    // return the fully qualified name
+        }
+
         #endregion
 
         #region Private Methods
@@ -872,6 +883,11 @@ namespace SMTPRelay.Database
                 GeneratePasswordHash(newAdminUser, "password");
                 qrySetUser q = new qrySetUser(newAdminUser);
                 _user_AddUpdate(s, q);
+
+                // Create a default IP Endpoint
+                tblIPEndpoint newEndpoint = new tblIPEndpoint("0.0.0.0", 25, tblIPEndpoint.IPEndpointProtocols.ESMTP, tblIPEndpoint.IPEndpointTLSModes.Disabled, "smtprelay.local", "");
+                qrySetIPEndpoint newepq = new qrySetIPEndpoint(newEndpoint);
+                _ipendpoint_AddUpdate(s, newepq);
             }
         }
 
@@ -1606,7 +1622,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5)));
+                        results.Add(new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6)));
                     }
                 }
             }
@@ -1625,7 +1641,7 @@ namespace SMTPRelay.Database
                     if (reader.Read())
                     {
                         //EnvelopeRcptID, EnvelopeID, Recipient
-                        result = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5));
+                        result = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6));
                     }
                 }
             }
@@ -1648,7 +1664,7 @@ namespace SMTPRelay.Database
                     {
                         if (reader.Read())
                         {
-                            dbipendpoint = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5));
+                            dbipendpoint = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6));
                         }
                     }
                 }
@@ -1667,6 +1683,7 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$Port", query.IPEndpoint.Port);
                         command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
                         command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
+                        command.Parameters.AddWithValue("$Hostname", query.IPEndpoint.Hostname);
                         command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
                         command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpoint.IPEndpointID);
                         command.ExecuteNonQuery();
@@ -1686,6 +1703,7 @@ namespace SMTPRelay.Database
                     command.Parameters.AddWithValue("$Port", query.IPEndpoint.Port);
                     command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
                     command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
+                    command.Parameters.AddWithValue("$Hostname", query.IPEndpoint.Hostname);
                     command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
                     command.ExecuteNonQuery();
                 }

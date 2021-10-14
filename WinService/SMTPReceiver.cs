@@ -129,6 +129,7 @@ namespace SMTPRelay.WinService
             SMTPStates state = SMTPStates.SendHello;
             // turns on ESMTP extensions for this connection. Enabled if client sends EHLO.
             bool eSMTP = false;
+            bool EncryptedChannel = false;
             // If authentication is successful, this is the connected user loaded from the database.
             tblUser connectedUser = null;
             string ClientUsername = "";
@@ -163,7 +164,7 @@ namespace SMTPRelay.WinService
                     int MaxMessageLength = int.Parse(SQLiteDB.System_GetValue("Message", "MaxLength"));
                     int MaxRecipients = int.Parse(SQLiteDB.System_GetValue("Message", "MaxRecipients"));
                     int MaxChunkSize = int.Parse(SQLiteDB.System_GetValue("Message", "ChunkSize"));
-                    string ServerHostName = SQLiteDB.System_GetValue("SMTPServer", "Hostname");
+                    string ServerHostName = args.EndPoint.Hostname;
                     int ConnectionTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "ConnectionTimeoutMS"));
                     int CommandTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "CommandTimeoutMS"));
                     int BadCommandLimit = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "BadCommandLimit"));
@@ -181,57 +182,6 @@ namespace SMTPRelay.WinService
                     System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
                     sw.Start();
                     string line = null;
-                    while (state == SMTPStates.WaitClientHello && !CloseConnection)
-                    {
-                        line = lineStream.ReadLine();
-                        if (!string.IsNullOrEmpty(line))
-                        {
-                            // we got something.
-                            if (line.ToUpper().StartsWith("EHLO ") && line.Length > 6 && line.Length < 134)
-                            {
-                                eSMTP = true;
-                                ClientHostName = line.Substring(5).Trim();
-                                state = SMTPStates.SendServerExtensions;
-                            }
-                            else if (line.ToUpper().StartsWith("HELO ") && line.Length > 6 && line.Length < 134)
-                            {
-                                eSMTP = false;
-                                ClientHostName = line.Substring(5).Trim();
-                                state = SMTPStates.SendWelcomeClient;
-                            }
-                            else
-                            {
-                                lineStream.WriteLine("550 Command not Implemented");
-                                BadCommandLimit--;
-                            }
-                        }
-                        if (BadCommandLimit == 0 || sw.ElapsedMilliseconds > ConnectionTimeoutMS)
-                        {
-                            lineStream.WriteLine("421 Closing Connection");
-                            CloseConnection = true;
-                        }
-                        if (Worker.CancellationPending)
-                        {
-                            lineStream.WriteLine("554 SMTP Server is shutting down");
-                            CloseConnection = true;
-                        }
-                    }
-
-                    if (CloseConnection)
-                    {
-                        e.Result = new WorkerReport()
-                        {
-                            LogMessage = string.Format("Couldn't negotiate a SMTP connection with {0}. Closing.", ClientIPAddress)
-                        };
-                        return;
-                    }
-                    else
-                    {
-                        Worker.ReportProgress(0, new WorkerReport()
-                        {
-                            LogMessage = string.Format("Accepted SMTP connection from {0} [{1}].", ClientHostName, ClientIPAddress)
-                        });
-                    }
 
                     sw.Restart();
                     while (!CloseConnection)
@@ -248,22 +198,81 @@ namespace SMTPRelay.WinService
                             ActiveEnvelopeRcpts = null;
                             mailObject = null;
                         }
-                        else if (sw.ElapsedMilliseconds > CommandTimeoutMS && state != SMTPStates.ReceiveDATABlock)
+                        else if ((state == SMTPStates.WaitClientHello && sw.ElapsedMilliseconds > ConnectionTimeoutMS) ||
+                                 (state != SMTPStates.WaitClientHello && state != SMTPStates.ReceiveDATABlock && sw.ElapsedMilliseconds > CommandTimeoutMS))
                         {
-                            lineStream.WriteLine("421 Timout, Closing Connection");
+                            lineStream.WriteLine("421 Timout, closing connection");
                             CloseConnection = true;
                         }
                         else if (BadCommandLimit == 0)
                         {
-                            lineStream.WriteLine("421 Closing Connection");
+                            lineStream.WriteLine("421 Too many bad commands, closing connection");
                             CloseConnection = true;
+                        }
+                        else if (state == SMTPStates.WaitClientHello)
+                        {
+                            line = lineStream.ReadLine();
+                            if (!string.IsNullOrEmpty(line))
+                            {
+                                // we got something.
+                                if (line.ToUpper().StartsWith("EHLO ") && line.Length > 6 && line.Length < 134)
+                                {
+                                    eSMTP = true;
+                                    ClientHostName = line.Substring(5).Trim();
+                                    state = SMTPStates.SendServerExtensions;
+                                    sw.Restart();
+                                }
+                                else if (line.ToUpper().StartsWith("HELO ") && line.Length > 6 && line.Length < 134)
+                                {
+                                    eSMTP = false;
+                                    ClientHostName = line.Substring(5).Trim();
+                                    state = SMTPStates.SendWelcomeClient;
+                                    sw.Restart();
+                                }
+                                else
+                                {
+                                    lineStream.WriteLine("550 Command not Implemented");
+                                    BadCommandLimit--;
+                                }
+                                if (state != SMTPStates.WaitClientHello)
+                                {
+                                    if (EncryptedChannel)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogMessage = string.Format("Upgraded encryption for {0} connection from {1} [{2}] to {3}.", 
+                                            eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, ((SMTPTLSStreamHandler)lineStream).EncryptionNegotiated)
+                                        }) ;
+                                    }
+                                    else
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogMessage = string.Format("Accepted {0} connection from {1} [{2}].", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress)
+                                        });
+                                    }
+                                }
+                            }
                         }
                         else if (state == SMTPStates.SendServerExtensions)
                         {
                             lineStream.WriteLine(string.Format("250-{0}", ServerHostName));
                             lineStream.WriteLine(string.Format("250-SIZE {0}", MaxMessageLength));
-                            lineStream.WriteLine("250-AUTH LOGIN PLAIN CRAM-MD5");
-                            //lineStream.WriteLine("250-AUTH=PLAIN LOGIN");
+                            if (EncryptedChannel)
+                            {
+                                lineStream.WriteLine("250-AUTH LOGIN");
+                            }
+                            else
+                            {
+                                if (args.EndPoint.TLSMode != tblIPEndpoint.IPEndpointTLSModes.Disabled)
+                                {
+                                    lineStream.WriteLine("250-STARTTLS");
+                                }
+                                if (args.EndPoint.TLSMode != tblIPEndpoint.IPEndpointTLSModes.Enforced)
+                                {
+                                    lineStream.WriteLine("250-AUTH LOGIN");
+                                }
+                            }
                             state = SMTPStates.SendWelcomeClient;
                         }
                         else if (state == SMTPStates.SendWelcomeClient)
@@ -355,6 +364,7 @@ namespace SMTPRelay.WinService
                             lineStream.Release();
                             lineStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Server, null, serverCert);
                             state = SMTPStates.WaitClientHello;
+                            EncryptedChannel = true;
                         }
                         else if (state == SMTPStates.SendStartTLSNotAvail)
                         {
@@ -378,28 +388,34 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessAUTHLOGINMessage)
                         {
-
                             connectedUser = null;
                             ClientUsername = "";
                             ClientPassword = "";
                             // Encrypted channels aren't suported yet, so just proceed.
                             if (line.ToUpper().StartsWith("AUTH LOGIN") && line.Length > 10)
                             {
-                                try
+                                if (args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Enforced && !EncryptedChannel)
                                 {
-                                    ClientUsername = BASE64Decode(line.Substring(10).Trim());
-                                }
-                                catch
-                                {
-                                    ClientUsername = null;
-                                }
-                                if (string.IsNullOrEmpty(ClientUsername))
-                                {
-                                    state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                                    state = SMTPStates.SendStartTLSReq;
                                 }
                                 else
                                 {
-                                    state = SMTPStates.SendAUTHLOGINPasswordChallenge;
+                                    try
+                                    {
+                                        ClientUsername = BASE64Decode(line.Substring(10).Trim());
+                                    }
+                                    catch
+                                    {
+                                        ClientUsername = null;
+                                    }
+                                    if (string.IsNullOrEmpty(ClientUsername))
+                                    {
+                                        state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                                    }
+                                    else
+                                    {
+                                        state = SMTPStates.SendAUTHLOGINPasswordChallenge;
+                                    }
                                 }
                             }
                             else

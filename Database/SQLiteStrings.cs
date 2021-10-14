@@ -45,7 +45,7 @@ namespace SMTPRelay.Database
             // TLSMode: 0 = No TLS available. Reject StartTLS attempts.
             //          1 = TLS available if client asks for it.
             //          2 = TLS Required. Client MUST Issue StartTLS before Auth
-            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, CertFriendlyName TEXT);"
+            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, Hostname TEXT, CertFriendlyName TEXT);"
 
         };
 
@@ -116,10 +116,10 @@ namespace SMTPRelay.Database
         public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
 
         // IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, CertFriendlyName TEXT
-        public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint;";
-        public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
-        public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $CertFriendlyName);";
-        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, CertFriendlyName = $CertFriendlyName WHERE IPEndpointID = $IPEndpointID;";
+        public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint;";
+        public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
+        public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $Hostname, $CertFriendlyName);";
+        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, Hostname = $Hostname, CertFriendlyName = $CertFriendlyName WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_DeleteByID = @"DELETE FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";

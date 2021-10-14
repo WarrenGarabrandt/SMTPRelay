@@ -80,8 +80,8 @@ namespace SMTPRelay.WinService
                 listener.Start();
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogMessage = string.Format("Started {0} Listener on {1}:{2} with TLS {3} (Cert: {4}).", 
-                    endpoint.ProtocolString, endpoint.Address, endpoint.Port, endpoint.TLSModeString, endpoint.CertFriendlyName)
+                    LogMessage = string.Format("Started {0} Listener on {1}:{2} [{3}] with TLS {4} (Cert: {5}).", 
+                    endpoint.ProtocolString, endpoint.Address, endpoint.Port, endpoint.Hostname, endpoint.TLSModeString, endpoint.CertFriendlyName)
                 });
                 while (!Worker.CancellationPending)
                 {
