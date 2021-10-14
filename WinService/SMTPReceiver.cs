@@ -184,6 +184,7 @@ namespace SMTPRelay.WinService
                     string line = null;
 
                     sw.Restart();
+                    sw.Stop();
                     while (!CloseConnection)
                     {
                         if (Worker.CancellationPending)
@@ -287,49 +288,49 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientVerb)
                         {
-                            line = lineStream.ReadLine(30000);
-                            if (string.IsNullOrEmpty(line))
+                            line = lineStream.ReadLine(10);
+                            if (!string.IsNullOrEmpty(line))
                             {
-                                throw new TimeoutException();
-                            }
-                            // figure out what they said.
-                            if (line.ToUpper() == "RSET")
-                            {
-                                mailObject = null;
-                                state = SMTPStates.SendSuccessAck;
-                            }
-                            else if (line.ToUpper() == "NOOP")
-                            {
-                                state = SMTPStates.SendSuccessAck;
-                            }
-                            else if (line.ToUpper() == "STARTTLS")
-                            {
-                                state = SMTPStates.ProcessStartTLS;
-                            }
-                            else if (line.ToUpper().StartsWith("AUTH"))
-                            {
-                                state = SMTPStates.ProcessAUTHLOGINMessage;
-                            }
-                            else if (line.ToUpper().StartsWith("MAIL FROM:"))
-                            {
-                                state = SMTPStates.ProcessMAILFROM;
-                            }
-                            else if (line.ToUpper().StartsWith("RCPT TO:"))
-                            {
-                                state = SMTPStates.ProcessRCPTTOMessage;
-                            }
-                            else if (line.ToUpper() == "DATA")
-                            {
-                                state = SMTPStates.ProcessDATAMessage;
-                            }
-                            else if (line.ToUpper() == "QUIT")
-                            {
-                                state = SMTPStates.ProcessQUITMessage;
-                            }
-                            else
-                            {
-                                lineStream.WriteLine("550 Command not Implemented");
-                                BadCommandLimit--;
+                                sw.Restart();
+                                // figure out what they said.
+                                if (line.ToUpper() == "RSET")
+                                {
+                                    mailObject = null;
+                                    state = SMTPStates.SendSuccessAck;
+                                }
+                                else if (line.ToUpper() == "NOOP")
+                                {
+                                    state = SMTPStates.SendSuccessAck;
+                                }
+                                else if (line.ToUpper() == "STARTTLS")
+                                {
+                                    state = SMTPStates.ProcessStartTLS;
+                                }
+                                else if (line.ToUpper().StartsWith("AUTH"))
+                                {
+                                    state = SMTPStates.ProcessAUTHLOGINMessage;
+                                }
+                                else if (line.ToUpper().StartsWith("MAIL FROM:"))
+                                {
+                                    state = SMTPStates.ProcessMAILFROM;
+                                }
+                                else if (line.ToUpper().StartsWith("RCPT TO:"))
+                                {
+                                    state = SMTPStates.ProcessRCPTTOMessage;
+                                }
+                                else if (line.ToUpper() == "DATA")
+                                {
+                                    state = SMTPStates.ProcessDATAMessage;
+                                }
+                                else if (line.ToUpper() == "QUIT")
+                                {
+                                    state = SMTPStates.ProcessQUITMessage;
+                                }
+                                else
+                                {
+                                    lineStream.WriteLine("550 Command not Implemented");
+                                    BadCommandLimit--;
+                                }
                             }
                         }
                         else if (state == SMTPStates.ProcessStartTLS)
@@ -433,6 +434,7 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine();
                             if (!string.IsNullOrEmpty(line))
                             {
+                                sw.Restart();
                                 ClientUsername = BASE64Decode(line);
                                 state = SMTPStates.SendAUTHLOGINPasswordChallenge;
                             }
@@ -447,6 +449,7 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine();
                             if (!string.IsNullOrEmpty(line))
                             {
+                                sw.Restart();
                                 ClientPassword = BASE64Decode(line);
                                 state = SMTPStates.ProcessAUTHLOGINCredentials;
                             }
@@ -494,8 +497,12 @@ namespace SMTPRelay.WinService
                                     mailObject = new MailObject(test.Address);
                                     state = SMTPStates.SendMAILFROMSuccess;
                                 }
-                                catch
+                                catch (Exception ex)
                                 {
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
+                                    });
                                     line = addrString;
                                     state = SMTPStates.SendMAILFROMFailure;
                                 }
@@ -533,8 +540,12 @@ namespace SMTPRelay.WinService
                                     line = test.Address;
                                     state = SMTPStates.SendRCPTTOOk;
                                 }
-                                catch
+                                catch (Exception ex)
                                 {
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogError = string.Format("Error processing RCPT TO: \"{0}\": {1}.", addrString, ex.Message)
+                                    });
                                     line = addrString;
                                     state = SMTPStates.SendRCPTTOBadAddress;
                                 }
