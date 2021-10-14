@@ -80,7 +80,6 @@ namespace SMTPRelay.WinService
 
         private void UpdateEncryptionMethod()
         {
-            
             EncryptionNegotiated = string.Format("{0} [{1}+{2}]", _sslStream.SslProtocol, _sslStream.CipherAlgorithm, _sslStream.HashAlgorithm);
         }
 
