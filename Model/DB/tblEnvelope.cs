@@ -8,15 +8,16 @@ namespace SMTPRelay.Model.DB
 {
     public class tblEnvelope
     {
-        //CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER NOT NULL, WhenReceived TEXT, Sender TEXT, ChunkCount INTEGER);
 
         /// <summary>
         /// Creates a new instance that has not been saved into the database yet.
+        /// UserID, DeviceID, WhenReceived, Sender, Recipients, ChunkCount, MsgID
         /// </summary>
-        public tblEnvelope(long userID, DateTime whenReceived, string sender, string recipients, int chunkCount, string msgId)
+        public tblEnvelope(long? userID, long? deviceID, DateTime whenReceived, string sender, string recipients, int chunkCount, string msgId)
         {
             EnvelopeID = null;
             UserID = userID;
+            DeviceID = deviceID;
             WhenReceived = whenReceived;
             Sender = sender;
             Recipients = recipients;
@@ -27,10 +28,11 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance that existes in the database.
         /// </summary>
-        public tblEnvelope(long envelopeID, long userID, string whenReceived, string sender, string recipients, int chunkCount, string msgId)
+        public tblEnvelope(long envelopeID, long? userID, long? deviceID, string whenReceived, string sender, string recipients, int chunkCount, string msgId)
         {
             EnvelopeID = envelopeID;
             UserID = userID;
+            DeviceID = deviceID;
             DateTime.UtcNow.ToString();
             WhenReceived = DateTime.Parse(whenReceived);
             Sender = sender;
@@ -41,7 +43,9 @@ namespace SMTPRelay.Model.DB
 
         public long? EnvelopeID { get; set; }
 
-        public long UserID { get; set; }
+        public long? UserID { get; set; }
+
+        public long? DeviceID { get; set; }
 
         public DateTime WhenReceived { get; set; }
 

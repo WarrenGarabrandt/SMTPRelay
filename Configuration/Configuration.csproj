@@ -47,6 +47,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controls\ucDeviceEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ucDeviceEditor.Designer.cs">
+      <DependentUpon>ucDeviceEditor.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ucEndpointEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -79,6 +85,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Controls\ucDeviceEditor.resx">
+      <DependentUpon>ucDeviceEditor.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\ucEndpointEditor.resx">
       <DependentUpon>ucEndpointEditor.cs</DependentUpon>
     </EmbeddedResource>

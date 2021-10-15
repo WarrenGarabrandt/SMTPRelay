@@ -72,11 +72,23 @@ namespace SMTPRelay.Database
                                     case qrySetUser q:
                                         _user_AddUpdate(conn, q);
                                         break;
-                                    case qryClearUserGatewayByID q:
-                                        _user_ClearGatewayByID(conn, q);
-                                        break;
                                     case qryDeleteUserByID q:
                                         _user_DeleteByID(conn, q);
+                                        break;
+                                    case qryGetAllDevices q:
+                                        _device_GetAll(conn, q);
+                                        break;
+                                    case qryGetDeviceByID q:
+                                        _device_GetByID(conn, q);
+                                        break;
+                                    case qryGetDevicesByAddress q:
+                                        _device_GetByAddress(conn, q);
+                                        break;
+                                    case qrySetDevice q:
+                                        _device_AddUpdate(conn, q);
+                                        break;
+                                    case qryDeleteDeviceByID q:
+                                        _device_DeleteByID(conn, q);
                                         break;
                                     case qryGetAllEnvelopes q:
                                         _envelope_GetAll(conn, q);
@@ -98,6 +110,9 @@ namespace SMTPRelay.Database
                                         break;
                                     case qrySetMailGateway q:
                                         _mailGateway_AddUpdate(conn, q);
+                                        break;
+                                    case qryClearUserDeviceGatewayByID q:
+                                        _mailGateway_ClearUserDeviceByID(conn, q);
                                         break;
                                     case qryDeleteMailGatwayByID q:
                                         _mailGateway_DeleteByID(conn, q);
@@ -208,7 +223,7 @@ namespace SMTPRelay.Database
             }
         }
 
-        private const string COMPATIBLE_DATABASE_VERSION = "1.1";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.2";
 
         private static string DBPathOverride = null;
 
@@ -442,18 +457,6 @@ namespace SMTPRelay.Database
         }
         
         /// <summary>
-        /// Clear the gateway ID for all users that have the specified gateway ID assigned.
-        /// </summary>
-        /// <param name="gatewayID"></param>
-        /// <returns></returns>
-        public static bool User_ClearGatewayByID(long gatewayID)
-        {
-            qryClearUserGatewayByID q = new qryClearUserGatewayByID(gatewayID);
-            QueryQueue.Add(q);
-            return q.GetResult();
-        }
-
-        /// <summary>
         /// Deletes a user from the database specified by UserID
         /// </summary>
         /// <param name="userID"></param>
@@ -461,6 +464,64 @@ namespace SMTPRelay.Database
         public static bool User_DeleteByID(long userID)
         {
             qryDeleteUserByID q = new qryDeleteUserByID(userID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a list of all device accounts
+        /// </summary>
+        /// <returns></returns>
+        public static List<tblDevice> Device_GetAll()
+        {
+            qryGetAllDevices q = new qryGetAllDevices();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a device by DeviceID
+        /// </summary>
+        /// <param name="deviceID"></param>
+        /// <returns></returns>
+        public static tblDevice Device_GetByID(long deviceID)
+        {
+            qryGetDeviceByID q = new qryGetDeviceByID(deviceID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets devices by address
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        public static List<tblDevice> Device_GetByAddress(string address)
+        {
+            qryGetDevicesByAddress q = new qryGetDevicesByAddress(address);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Adds or updates a device in the database.
+        /// </summary>
+        /// <param name="device"></param>
+        public static bool Device_AddUpdate(tblDevice device)
+        {
+            qrySetDevice q = new qrySetDevice(device);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Deletes a user from the database specified by UserID
+        /// </summary>
+        /// <param name="deviceID"></param>
+        /// <returns></returns>
+        public static bool Device_DeleteByID(long deviceID)
+        {
+            qryDeleteDeviceByID q = new qryDeleteDeviceByID(deviceID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -555,6 +616,18 @@ namespace SMTPRelay.Database
         public static bool MailGateway_DeleteByID(long mailGatewayID)
         {
             qryDeleteMailGatwayByID q = new qryDeleteMailGatwayByID(mailGatewayID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Clear the mail gateway ID for all users and devices that have the specified gateway ID assigned.
+        /// </summary>
+        /// <param name="mailGatewayID"></param>
+        /// <returns></returns>
+        public static bool MailGateway_ClearUserDeviceByID(long mailGatewayID)
+        {
+            qryClearUserDeviceGatewayByID q = new qryClearUserDeviceGatewayByID(mailGatewayID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1134,23 +1207,166 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _user_ClearGatewayByID(SQLiteConnection conn, qryClearUserGatewayByID query)
-        {
-            using (var command = conn.CreateCommand())
-            {
-                command.CommandText = SQLiteStrings.User_ClearGatewayByID;
-                command.Parameters.AddWithValue("$MailGatewayID", query.GatewayID);
-                command.ExecuteNonQuery();
-            }
-            query.SetResult(true);
-        }
-
         private static void _user_DeleteByID(SQLiteConnection conn, qryDeleteUserByID query)
         {
             using (var command = conn.CreateCommand())
             {
                 command.CommandText = SQLiteStrings.User_DeleteByID;
                 command.Parameters.AddWithValue("$UserID", query.UserID);
+                command.ExecuteNonQuery();
+            }
+            query.SetResult(true);
+        }
+
+        private static void _device_GetAll(SQLiteConnection conn, qryGetAllDevices query)
+        {
+            List<tblDevice> results = new List<tblDevice>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Device_GetAll;
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        //long deviceID, string displayName, string address, string hostname, int enabled, long? mailGateway
+                        results.Add(new tblDevice(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.IsDBNull(5) ? (int?)null : reader.GetInt32(5)));
+                    }
+                }
+            }
+            query.SetResult(results);
+        }
+
+        private static void _device_GetByID(SQLiteConnection conn, qryGetDeviceByID query)
+        {
+            tblDevice dbDevice = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Device_GetByID;
+                command.Parameters.AddWithValue("$DeviceID", query.DeviceID);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        dbDevice = new tblDevice(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.IsDBNull(5) ? (int?)null : reader.GetInt32(5));
+                    }
+                }
+            }
+            query.SetResult(dbDevice);
+        }
+
+        private static void _device_GetByAddress(SQLiteConnection conn, qryGetDevicesByAddress query)
+        {
+            List<tblDevice> results = new List<tblDevice>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.User_GetByEmail;
+                command.Parameters.AddWithValue("$Address", query.Address);
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        //long deviceID, string displayName, string address, string hostname, int enabled, long? mailGateway
+                        results.Add(new tblDevice(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.IsDBNull(5) ? (int?)null : reader.GetInt32(5)));
+                    }
+                }
+            }
+            query.SetResult(results);
+        }
+
+        private static void _device_AddUpdate(SQLiteConnection conn, qrySetDevice query)
+        {
+            try
+            {
+                // if the DeviceID is populated, then we are going to try to update first. 
+                // the update might fail, in which case we insert below
+                if (query.Device.DeviceID.HasValue)
+                {
+                    // update
+                    tblDevice dbDevice = null;
+                    using (var command = conn.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Device_GetByID;
+                        command.Parameters.AddWithValue("$DeviceID", query.Device.DeviceID);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                dbDevice = new tblDevice(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.IsDBNull(5) ? (int?)null : reader.GetInt32(5));
+                            }
+                        }
+                    }
+                    if (dbDevice == null)
+                    {
+                        // user doesn't exit afterall
+                        query.Device.DeviceID = null;
+                    }
+                    else
+                    {
+                        using (var command = conn.CreateCommand())
+                        {
+                            command.CommandText = SQLiteStrings.Device_Update;
+                            //@"UPDATE Device SET DisplayName = $DisplayName, Address = $Address, Hostname = $Hostname, Enabled = $Enabled, MailGatewayID = $MailGatewayID WHERE DeviceID = $DeviceID;";
+                            command.Parameters.AddWithValue("$DisplayName", query.Device.DisplayName);
+                            command.Parameters.AddWithValue("$Address", query.Device.Address);
+                            command.Parameters.AddWithValue("$Hostname", query.Device.Hostname);
+                            command.Parameters.AddWithValue("$Enabled", query.Device.EnabledInt);
+                            if (query.Device.MailGateway.HasValue)
+                            {
+                                command.Parameters.AddWithValue("$MailGatewayID", query.Device.MailGateway);
+                            }
+                            else
+                            {
+                                command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                            }
+                            command.Parameters.AddWithValue("$DeviceID", query.Device.DeviceID);
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+
+                // if there is no DeviceID, then we insert a new record and select the ID back.
+                if (!query.Device.DeviceID.HasValue)
+                {
+                    // insert new record and read back the ID
+                    using (var command = conn.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Device_Insert;
+                        //@"INSERT INTO Device (DisplayName, Address, Hostname, Enabled, MailGatewayID) VALUES ($DisplayName, $Address, $Hostname, $Enabled, $MailGatewayID);";
+                        command.Parameters.AddWithValue("$DisplayName", query.Device.DisplayName);
+                        command.Parameters.AddWithValue("$Address", query.Device.Address);
+                        command.Parameters.AddWithValue("$Hostname", query.Device.Hostname);
+                        command.Parameters.AddWithValue("$Enabled", query.Device.EnabledInt);
+                        if (query.Device.MailGateway.HasValue)
+                        {
+                            command.Parameters.AddWithValue("$MailGatewayID", query.Device.MailGateway);
+                        }
+                        else
+                        {
+                            command.Parameters.AddWithValue("$MailGatewayID", DBNull.Value);
+                        }
+                        command.ExecuteNonQuery();
+                    }
+                    using (var command = conn.CreateCommand())
+                    {
+                        command.CommandText = SQLiteStrings.Table_LastRowID;
+                        query.Device.DeviceID = (long)command.ExecuteScalar();
+                    }
+                }
+                query.SetResult(true);
+            }
+            catch (Exception ex)
+            {
+                query.SetResult(false);
+                throw ex;
+            }
+        }
+
+        private static void _device_DeleteByID(SQLiteConnection conn, qryDeleteDeviceByID query)
+        {
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Device_DeleteByID;
+                command.Parameters.AddWithValue("$DeviceID", query.DeviceID);
                 command.ExecuteNonQuery();
             }
             query.SetResult(true);
@@ -1166,7 +1382,15 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetString(6)));
+                        results.Add(new tblEnvelope(
+                            reader.GetInt64(0), // EnvelopeID
+                            reader.IsDBNull(1) ? (long?)null : reader.GetInt64(1), // UserID
+                            reader.IsDBNull(2) ? (long?)null : reader.GetInt64(2), // DeviceID
+                            reader.GetString(3), //WhenReceived
+                            reader.GetString(4), // Sender
+                            reader.GetString(5), // Recipients
+                            reader.GetInt32(6), // ChunkCount
+                            reader.GetString(7))); // MsgId
                     }
                 }
             }
@@ -1184,7 +1408,15 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        result = new tblEnvelope(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetString(6));
+                        result = new tblEnvelope(
+                            reader.GetInt64(0), // EnvelopeID
+                            reader.IsDBNull(1) ? (long?)null : reader.GetInt64(1), // UserID
+                            reader.IsDBNull(2) ? (long?)null : reader.GetInt64(2), // DeviceID
+                            reader.GetString(3), //WhenReceived
+                            reader.GetString(4), // Sender
+                            reader.GetString(5), // Recipients
+                            reader.GetInt32(6), // ChunkCount
+                            reader.GetString(7)); // MsgId
                     }
                 }
             }
@@ -1196,7 +1428,22 @@ namespace SMTPRelay.Database
             using (var command = conn.CreateCommand())
             {
                 command.CommandText = SQLiteStrings.Envelope_Insert;
-                command.Parameters.AddWithValue("$UserID", query.Envelope.UserID);
+                if (query.Envelope.UserID.HasValue)
+                {
+                    command.Parameters.AddWithValue("$UserID", query.Envelope.UserID);
+                }
+                else
+                {
+                    command.Parameters.AddWithValue("$UserID", DBNull.Value);
+                }
+                if (query.Envelope.DeviceID.HasValue)
+                {
+                    command.Parameters.AddWithValue("$DeviceID", query.Envelope.DeviceID);
+                }
+                else
+                {
+                    command.Parameters.AddWithValue("$DeviceID", DBNull.Value);
+                }
                 command.Parameters.AddWithValue("$WhenReceived", query.Envelope.WhenReceivedString);
                 command.Parameters.AddWithValue("$Sender", query.Envelope.Sender);
                 command.Parameters.AddWithValue("$Recipients", query.Envelope.Recipients);
@@ -1335,6 +1582,23 @@ namespace SMTPRelay.Database
             {
                 command.CommandText = SQLiteStrings.MailGateway_DeleteByID;
                 command.Parameters.AddWithValue("$MailGatewayID", query.MailGatewayID);
+                command.ExecuteNonQuery();
+            }
+            query.SetResult(true);
+        }
+
+        private static void _mailGateway_ClearUserDeviceByID(SQLiteConnection conn, qryClearUserDeviceGatewayByID query)
+        {
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.User_ClearGatewayByID;
+                command.Parameters.AddWithValue("$MailGatewayID", query.GatewayID);
+                command.ExecuteNonQuery();
+            }
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Device_ClearGatewayByID;
+                command.Parameters.AddWithValue("$MailGatewayID", query.GatewayID);
                 command.ExecuteNonQuery();
             }
             query.SetResult(true);

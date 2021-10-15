@@ -5,7 +5,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.1";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.2";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.
@@ -17,11 +17,14 @@ namespace SMTPRelay.Database
             // User table
             @"CREATE TABLE User (UserID INTEGER PRIMARY KEY, DisplayName TEXT, Email TEXT, Salt TEXT NOT NULL, PassHash TEXT NOT NULL, Enabled INTEGER NOT NULL, Admin INTEGER NOT NULL, MailGatewayID INTEGER);",
 
+            // Device table
+            @"CREATE TABLE Device (DeviceID INTEGER PRIMARY KEY, DisplayName TEXT, Address TEXT, Hostname TEXT, Enabled INTEGER NOT NULL, MailGatewayID INTEGER);",
+
             // Mail Gateway Table
             @"CREATE TABLE MailGateway (MailGatewayID INTEGER PRIMARY KEY, SMTPServer TEXT NOT NULL, Port INTEGER NOT NULL, EnableSSL INTEGER NOT NULL, Authenticate INTEGER NOT NULL, Username TEXT, Password TEXT, SenderOverride TEXT);",
 
             // Basic email header info.
-            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER NOT NULL, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER, MsgID TEXT);",
+            @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER, DeviceID INTEGER, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER, MsgID TEXT);",
 
             // Envelope Recipients
             @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, Recipient TEXT);",
@@ -85,9 +88,17 @@ namespace SMTPRelay.Database
         public static string User_ClearGatewayByID = @"UPDATE User SET MailGatewayID = NULL WHERE MailGatewayID = $MailGatewayID;";
         public static string User_DeleteByID = @"DELETE FROM User WHERE UserID = $UserID;";
 
-        public static string Envelope_GetAll = @"SELECT EnvelopeID, UserID, WhenReceived, Sender, Recipients, ChunkCount, MsgID FROM Envelope;";
-        public static string Envelope_GetByID = @"SELECT EnvelopeID, UserID, WhenReceived, Sender, Recipients, ChunkCount, MsgID FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
-        public static string Envelope_Insert = @"INSERT INTO Envelope(UserID, WhenReceived, Sender, Recipients, ChunkCount, MsgID) VALUES ($UserID, $WhenReceived, $Sender, $Recipients, $ChunkCount, $MsgID);";
+        public static string Device_GetAll = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device;";
+        public static string Device_GetByID = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device WHERE DeviceID = $DeviceID;";
+        public static string Device_GetByAddress = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device WHERE Address = $Address;";
+        public static string Device_Insert = @"INSERT INTO Device (DisplayName, Address, Hostname, Enabled, MailGatewayID) VALUES ($DisplayName, $Address, $Hostname, $Enabled, $MailGatewayID);";
+        public static string Device_Update = @"UPDATE Device SET DisplayName = $DisplayName, Address = $Address, Hostname = $Hostname, Enabled = $Enabled, MailGatewayID = $MailGatewayID WHERE DeviceID = $DeviceID;";
+        public static string Device_ClearGatewayByID = @"UPDATE Device SET MailGatewayID = NULL WHERE MailGatewayID = $MailGatewayID;";
+        public static string Device_DeleteByID = @"DELETE FROM Device WHERE DeviceID = $DeviceID;";
+
+        public static string Envelope_GetAll = @"SELECT EnvelopeID, UserID, DeviceID, WhenReceived, Sender, Recipients, ChunkCount, MsgID FROM Envelope;";
+        public static string Envelope_GetByID = @"SELECT EnvelopeID, UserID, DeviceID, WhenReceived, Sender, Recipients, ChunkCount, MsgID FROM Envelope WHERE EnvelopeID = $EnvelopeID;";
+        public static string Envelope_Insert = @"INSERT INTO Envelope(UserID, DeviceID, WhenReceived, Sender, Recipients, ChunkCount, MsgID) VALUES ($UserID, $DeviceID, $WhenReceived, $Sender, $Recipients, $ChunkCount, $MsgID);";
         public static string Envelope_UpdateChunkCount = @"UPDATE Envelope SET ChunkCount = $ChunkCount WHERE EnvelopeID = $EnvelopeID;";
 
         public static string MailGateway_GetAll = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway;";

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SMTPRelay.Model.DB;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,27 +7,23 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryClearUserGatewayByID : DatabaseQuery
+    public class qryGetAllDevices : DatabaseQuery
     {
-
-        public bool SuccessResult { get; private set; }
-
-        public long GatewayID { get; private set; }
-
-        public qryClearUserGatewayByID(long gatewayID)
+        public List<tblDevice> Results;
+        public qryGetAllDevices()
         {
-            GatewayID = gatewayID;
+            Results = null;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
 
-        public void SetResult(bool result)
+        public void SetResult(List<tblDevice> value)
         {
-            SuccessResult = result;
+            Results = value;
             DoneSignal.Set();
         }
 
-        public bool GetResult()
+        public List<tblDevice> GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();
@@ -34,8 +31,7 @@ namespace SMTPRelay.Model.Query
             {
                 throw new OperationCanceledException();
             }
-            return SuccessResult;
+            return Results;
         }
-
     }
 }

@@ -47,12 +47,15 @@ namespace Configuration
             this.label2 = new System.Windows.Forms.Label();
             this.txtServerURL = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.tpDevices = new System.Windows.Forms.TabPage();
+            this.ucDeviceEditor1 = new SMTPRelay.Configuration.Controls.ucDeviceEditor();
             this.tcMain.SuspendLayout();
             this.tpSendQueue.SuspendLayout();
             this.tpEndpoints.SuspendLayout();
             this.tpUsers.SuspendLayout();
             this.tpMailGateway.SuspendLayout();
             this.groupBox1.SuspendLayout();
+            this.tpDevices.SuspendLayout();
             this.SuspendLayout();
             // 
             // tcMain
@@ -63,8 +66,9 @@ namespace Configuration
             this.tcMain.Controls.Add(this.tpSendQueue);
             this.tcMain.Controls.Add(this.tpEndpoints);
             this.tcMain.Controls.Add(this.tpUsers);
+            this.tcMain.Controls.Add(this.tpDevices);
             this.tcMain.Controls.Add(this.tpMailGateway);
-            this.tcMain.Location = new System.Drawing.Point(12, 12);
+            this.tcMain.Location = new System.Drawing.Point(0, 0);
             this.tcMain.Name = "tcMain";
             this.tcMain.SelectedIndex = 0;
             this.tcMain.Size = new System.Drawing.Size(810, 552);
@@ -152,6 +156,7 @@ namespace Configuration
             this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.groupBox1.Controls.Add(this.tcMain);
             this.groupBox1.Controls.Add(this.cmdStartConsole);
             this.groupBox1.Controls.Add(this.cmdLogin);
             this.groupBox1.Controls.Add(this.txtUserPassword);
@@ -246,12 +251,30 @@ namespace Configuration
             this.label1.TabIndex = 0;
             this.label1.Text = "Server URL";
             // 
+            // tpDevices
+            // 
+            this.tpDevices.Controls.Add(this.ucDeviceEditor1);
+            this.tpDevices.Location = new System.Drawing.Point(4, 22);
+            this.tpDevices.Name = "tpDevices";
+            this.tpDevices.Padding = new System.Windows.Forms.Padding(3);
+            this.tpDevices.Size = new System.Drawing.Size(802, 526);
+            this.tpDevices.TabIndex = 4;
+            this.tpDevices.Text = "Devices";
+            this.tpDevices.UseVisualStyleBackColor = true;
+            // 
+            // ucDeviceEditor1
+            // 
+            this.ucDeviceEditor1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucDeviceEditor1.Location = new System.Drawing.Point(3, 3);
+            this.ucDeviceEditor1.Name = "ucDeviceEditor1";
+            this.ucDeviceEditor1.Size = new System.Drawing.Size(796, 520);
+            this.ucDeviceEditor1.TabIndex = 0;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(834, 576);
-            this.Controls.Add(this.tcMain);
             this.Controls.Add(this.groupBox1);
             this.Name = "Form1";
             this.Text = "SMTP Relay Configuration";
@@ -264,6 +287,7 @@ namespace Configuration
             this.tpMailGateway.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.tpDevices.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -288,6 +312,8 @@ namespace Configuration
         private SMTPRelay.Configuration.Controls.ucSendQueueEditor ucSendQueueEditor;
         private System.Windows.Forms.TabPage tpEndpoints;
         private SMTPRelay.Configuration.Controls.ucEndpointEditor ucEndpointEditor;
+        private System.Windows.Forms.TabPage tpDevices;
+        private SMTPRelay.Configuration.Controls.ucDeviceEditor ucDeviceEditor1;
     }
 }
 

@@ -80,13 +80,26 @@ namespace SMTPRelay.WinService
                 // retrieve necessary message info (sender, recipient, gateway, message size)
                 tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sendQueueItem.EnvelopeID);
                 tblEnvelopeRcpt envelopeRcpt = SQLiteDB.EnvelopeRcpt_GetByID(sendQueueItem.EnvelopeRcptID);
-                tblUser user = SQLiteDB.User_GetByID(envelope.UserID);
+                tblUser user = null;
+                tblDevice device = null;
+                if (envelope.UserID.HasValue)
+                {
+                    user = SQLiteDB.User_GetByID(envelope.UserID.Value);
+                }
+                if (envelope.DeviceID.HasValue)
+                {
+                    device = SQLiteDB.Device_GetByID(envelope.DeviceID.Value);
+                }
                 tblMailGateway gateway = null;
-                if (user.MailGateway.HasValue)
+                if (user != null && user.MailGateway.HasValue)
                 {
                     gateway = SQLiteDB.MailGateway_GetByID(user.MailGateway.Value);
                 }
-
+                if (gateway == null && device != null)
+                {
+                    gateway = SQLiteDB.MailGateway_GetByID(device.MailGateway.Value);
+                }
+                
                 // Sender
                 string MailFromAddress = envelope.Sender;
                 // Recipient

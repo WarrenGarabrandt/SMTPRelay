@@ -132,6 +132,7 @@ namespace SMTPRelay.WinService
             bool EncryptedChannel = false;
             // If authentication is successful, this is the connected user loaded from the database.
             tblUser connectedUser = null;
+            tblDevice connectedDevice = null;
             string ClientUsername = "";
             string ClientPassword = "";
 
@@ -237,6 +238,31 @@ namespace SMTPRelay.WinService
                                 }
                                 if (state != SMTPStates.WaitClientHello)
                                 {
+                                    if (connectedDevice == null)
+                                    {
+                                        List<tblDevice> devices = SQLiteDB.Device_GetByAddress(ClientIPAddress);
+                                        // try to find an exact ClientHostname match.
+                                        for (int i = 0; i < devices.Count; i++)
+                                        {
+                                            if (devices[i].Hostname == ClientHostName)
+                                            {
+                                                connectedDevice = devices[i];
+                                                break;
+                                            }
+                                        }
+                                        if (connectedDevice == null)
+                                        {
+                                            // try to find a device with an empty hostname, and match to that.
+                                            for (int i = 0; i < devices.Count; i++)
+                                            {
+                                                if (string.IsNullOrEmpty(devices[i].Hostname))
+                                                {
+                                                    connectedDevice = devices[i];
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
                                     if (EncryptedChannel)
                                     {
                                         Worker.ReportProgress(0, new WorkerReport()
@@ -483,7 +509,7 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessMAILFROM)
                         {
-                            if (connectedUser == null)
+                            if (connectedUser == null && connectedDevice == null)
                             {
                                 state = SMTPStates.SendAuthReq;
                             }
@@ -582,12 +608,10 @@ namespace SMTPRelay.WinService
                                 try
                                 {
                                     // create entries in the database
-                                    long userid = -1;
-                                    if (connectedUser != null && connectedUser.UserID.HasValue)
-                                    {
-                                        userid = connectedUser.UserID.Value;
-                                    }
-                                    ActiveEnvelope = new tblEnvelope(userid, DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0, SQLiteDB.GenerateNonce(16));
+                                    long? userid = connectedUser?.UserID;
+                                    long? deviceid = connectedDevice?.DeviceID;
+
+                                    ActiveEnvelope = new tblEnvelope(userid, deviceid, DateTime.Now, mailObject.Sender, FormatRecipients(mailObject.Recipients), 0, SQLiteDB.GenerateNonce(16));
                                     SQLiteDB.Envelope_Add(ActiveEnvelope);
                                     ActiveEnvelopeRcpts = new List<tblEnvelopeRcpt>();
                                     foreach (var rcp in mailObject.Recipients)

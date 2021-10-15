@@ -161,7 +161,7 @@ namespace SMTPRelay.Configuration.Controls
                                     "Any users assigned to this gateway will have their gateway cleared.",
                                     "Delete Gateway?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
-                    SQLiteDB.User_ClearGatewayByID(SelectedGW.Value);
+                    SQLiteDB.MailGateway_ClearUserDeviceByID(SelectedGW.Value);
                     SQLiteDB.MailGateway_DeleteByID(SelectedGW.Value);
                     SelectedGW = null;
                     ClearEditors();

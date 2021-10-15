@@ -8,7 +8,6 @@ namespace SMTPRelay.Model.DB
 {
     public class tblUser
     {
-        //CREATE TABLE User (UserID INTEGER PRIMARY KEY, DisplayName TEXT, Email TEXT, Salt TEXT, PassHash TEXT, Enabled INTEGER, Admin INTEGER);
 
         /// <summary>
         /// Creates a new instance that has not been saved in the database.
