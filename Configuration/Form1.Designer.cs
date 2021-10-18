@@ -36,6 +36,8 @@ namespace Configuration
             this.ucEndpointEditor = new SMTPRelay.Configuration.Controls.ucEndpointEditor();
             this.tpUsers = new System.Windows.Forms.TabPage();
             this.ucUserEditor = new SMTPRelay.Configuration.Controls.ucUserEditor();
+            this.tpDevices = new System.Windows.Forms.TabPage();
+            this.ucDeviceEditor1 = new SMTPRelay.Configuration.Controls.ucDeviceEditor();
             this.tpMailGateway = new System.Windows.Forms.TabPage();
             this.ucMailGatewayEditor = new SMTPRelay.Configuration.Controls.ucMailGatewayEditor();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
@@ -47,15 +49,13 @@ namespace Configuration
             this.label2 = new System.Windows.Forms.Label();
             this.txtServerURL = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
-            this.tpDevices = new System.Windows.Forms.TabPage();
-            this.ucDeviceEditor1 = new SMTPRelay.Configuration.Controls.ucDeviceEditor();
             this.tcMain.SuspendLayout();
             this.tpSendQueue.SuspendLayout();
             this.tpEndpoints.SuspendLayout();
             this.tpUsers.SuspendLayout();
+            this.tpDevices.SuspendLayout();
             this.tpMailGateway.SuspendLayout();
             this.groupBox1.SuspendLayout();
-            this.tpDevices.SuspendLayout();
             this.SuspendLayout();
             // 
             // tcMain
@@ -132,6 +132,25 @@ namespace Configuration
             this.ucUserEditor.Size = new System.Drawing.Size(796, 520);
             this.ucUserEditor.TabIndex = 0;
             // 
+            // tpDevices
+            // 
+            this.tpDevices.Controls.Add(this.ucDeviceEditor1);
+            this.tpDevices.Location = new System.Drawing.Point(4, 22);
+            this.tpDevices.Name = "tpDevices";
+            this.tpDevices.Padding = new System.Windows.Forms.Padding(3);
+            this.tpDevices.Size = new System.Drawing.Size(802, 526);
+            this.tpDevices.TabIndex = 4;
+            this.tpDevices.Text = "Devices";
+            this.tpDevices.UseVisualStyleBackColor = true;
+            // 
+            // ucDeviceEditor1
+            // 
+            this.ucDeviceEditor1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucDeviceEditor1.Location = new System.Drawing.Point(3, 3);
+            this.ucDeviceEditor1.Name = "ucDeviceEditor1";
+            this.ucDeviceEditor1.Size = new System.Drawing.Size(796, 520);
+            this.ucDeviceEditor1.TabIndex = 0;
+            // 
             // tpMailGateway
             // 
             this.tpMailGateway.Controls.Add(this.ucMailGatewayEditor);
@@ -170,7 +189,6 @@ namespace Configuration
             this.groupBox1.Size = new System.Drawing.Size(810, 552);
             this.groupBox1.TabIndex = 1;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Visible = false;
             // 
             // cmdStartConsole
             // 
@@ -251,25 +269,6 @@ namespace Configuration
             this.label1.TabIndex = 0;
             this.label1.Text = "Server URL";
             // 
-            // tpDevices
-            // 
-            this.tpDevices.Controls.Add(this.ucDeviceEditor1);
-            this.tpDevices.Location = new System.Drawing.Point(4, 22);
-            this.tpDevices.Name = "tpDevices";
-            this.tpDevices.Padding = new System.Windows.Forms.Padding(3);
-            this.tpDevices.Size = new System.Drawing.Size(802, 526);
-            this.tpDevices.TabIndex = 4;
-            this.tpDevices.Text = "Devices";
-            this.tpDevices.UseVisualStyleBackColor = true;
-            // 
-            // ucDeviceEditor1
-            // 
-            this.ucDeviceEditor1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucDeviceEditor1.Location = new System.Drawing.Point(3, 3);
-            this.ucDeviceEditor1.Name = "ucDeviceEditor1";
-            this.ucDeviceEditor1.Size = new System.Drawing.Size(796, 520);
-            this.ucDeviceEditor1.TabIndex = 0;
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -284,10 +283,10 @@ namespace Configuration
             this.tpSendQueue.ResumeLayout(false);
             this.tpEndpoints.ResumeLayout(false);
             this.tpUsers.ResumeLayout(false);
+            this.tpDevices.ResumeLayout(false);
             this.tpMailGateway.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
-            this.tpDevices.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
