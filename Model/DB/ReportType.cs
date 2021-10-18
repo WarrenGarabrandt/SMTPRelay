@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.DB
 {
-    public enum SendQueueState
+    public enum ReportType
     {
-        Disabled = -1,
-        Ready = 0,
-        InProgress = 1
+        Success = 0,
+        Warning = 1,
+        Error = 2
     }
 }

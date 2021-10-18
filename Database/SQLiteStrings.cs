@@ -39,7 +39,7 @@ namespace SMTPRelay.Database
             @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, State INTEGER NOT NULL, AttemptCount INTEGER NOT NULL, RetryAfter TEXT);",
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
-            @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER);",
+            @"CREATE TABLE SendLog (EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, WhenAttempted TEXT, Results TEXT, AttemptCount INTEGER, Successful INTEGER);",
 
             // IP Endpoint to listen for incoming connections.
             // Protocol: list the Protocol that this endpoint will allow. Other protocols may be implemented in the future.
@@ -48,8 +48,19 @@ namespace SMTPRelay.Database
             // TLSMode: 0 = No TLS available. Reject StartTLS attempts.
             //          1 = TLS available if client asks for it.
             //          2 = TLS Required. Client MUST Issue StartTLS before Auth
-            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, Hostname TEXT, CertFriendlyName TEXT);"
+            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, Hostname TEXT, CertFriendlyName TEXT);",
 
+            // Delivery Reports
+            // Generated when an email can't be sent to a recipient. It send the message to the original sender as well as the admin contact.
+            // A new envelope is generated when this NDR is processed, then the email gets sent out via the standard process.
+            // ReportType: 0 - Notice of successful relay
+            //             1 - Warning of message delay
+            //             2 - Permanent failure to relay.
+            // Status: 0 - Ready to generate a delivery report
+            //         1 - Delivery report picked up
+            //         2 - Delivery report generated.
+            //        -1 - Something went wrong and the delivery report failed to generate.
+            @"CREATE TABLE DeliveryReport (DeliveryReportID INTEGER PRIMARY KEY, WhenScheduled TEXT, WhenGenerated TEXT, OriginalEnvelopeRcptID INTEGER, EnvelopeID INTEGER, ReportType INTEGER, Reason TEXT, Status INTEGER);"
         };
 
         public static List<Tuple<string, string, string>> DatabaseDefaults = new List<Tuple<string, string, string>>()
@@ -119,19 +130,24 @@ namespace SMTPRelay.Database
         public static string SendQueue_Update = @"UPDATE SendQueue SET State = $State, AttemptCount = $AttemptCount, RetryAfter = $RetryAfter WHERE SendQueueID = $SendQueueID;";
         public static string SendQueue_DeleteByID = @"DELETE FROM SendQueue WHERE SendQueueID = $SendQueueID";
 
-        public static string SendLog_GetPage = @"SELCT EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount FROM SendLog LIMIT $RowCount OFFSET $RowStart ORDER BY WhenAttempted DESC;";
-        public static string SendLog_Insert = @"INSERT INTO SendLog (EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount) VALUES ($EnvelopeID, $EnvelopeRcptID, $WhenAttempted, $Results, $AttemptCount);";
+        public static string SendLog_GetPage = @"SELCT EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount, Successful FROM SendLog LIMIT $RowCount OFFSET $RowStart ORDER BY WhenAttempted DESC;";
+        public static string SendLog_Insert = @"INSERT INTO SendLog (EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount, Successful) VALUES ($EnvelopeID, $EnvelopeRcptID, $WhenAttempted, $Results, $AttemptCount, $Successful);";
 
         public static string EnvelopeRcpt_GetByID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeRcptID = $EnvelopeRcptID;";
         public static string EnvelopeRcpt_GetByEnvelopeID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
         public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
 
-        // IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, CertFriendlyName TEXT
         public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint;";
         public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $Hostname, $CertFriendlyName);";
         public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, Hostname = $Hostname, CertFriendlyName = $CertFriendlyName WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_DeleteByID = @"DELETE FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
+
+        //@"CREATE TABLE DeliveryReport (DeliveryReportID INTEGER PRIMARY KEY, WhenScheduled TEXT, WhenGenerated TEXT, OriginalEnvelopeRcptID INTEGER, EnvelopeID INTEGER, ReportType INTEGER, Reason TEXT, Status INTEGER);"
+        public static string DeliveryReport_GetReady = @"SELECT DeliveryReportID, WhenScheduled, WhenGenerated, OriginalEnvelopeRcptID, EnvelopeID, ReportType, Reason, Status FROM DeliveryReport WHERE Status = 0";
+        public static string DeliveryReport_InsertEnque = @"INSERT INTO DeliveryReport (WhenScheduled, WhenGenerated, OriginalEnvelopeRcptID, EnvelopeID, ReportType, Reason, Status) VALUES ($WhenScheduled, NULL, $OriginalEnvelopeRcptID, NULL, $ReportType, $Reason, 0);";
+        public static string DeliveryReport_MarkRunning = @"UPDATE DeliveryReport SET Status = 1 WHERE DeliveryReportID = $DeliveryReportID;";
+        public static string DeliveryReport_UpdateDone = @"UPDATE DeliveryReport SET WhenGenerated = $WhenGenerated, EnvelopeID = $EnvelopeID, Status = $Status WHERE DeliveryReportID = $DeliveryReportID;";
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, SendQueue.RetryAfter, SendQueue.AttemptCount FROM SendQueue INNER JOIN Envelope ON SendQueue.EnvelopeID = Envelope.EnvelopeID WHERE SendQueue.State = 0 ORDER BY SendQueue.RetryAfter ASC;";
 

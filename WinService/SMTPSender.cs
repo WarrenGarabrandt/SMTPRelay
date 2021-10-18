@@ -71,12 +71,13 @@ namespace SMTPRelay.WinService
             NetworkStream stream = null;
             ISMTPStream smtpStream = null;
             string finalResults = null;
+            string MsgIdentifier = string.Empty;
             try
             {
                 // queue item is already marked as dispatched before SMTPSender is instantiated to prevent duplicate pickups.
                 // retrieve settings
                 string localHostname = SQLiteDB.System_GetValue("SMTPServer", "Hostname");
-                
+
                 // retrieve necessary message info (sender, recipient, gateway, message size)
                 tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sendQueueItem.EnvelopeID);
                 tblEnvelopeRcpt envelopeRcpt = SQLiteDB.EnvelopeRcpt_GetByID(sendQueueItem.EnvelopeRcptID);
@@ -111,6 +112,7 @@ namespace SMTPRelay.WinService
                     HeaderReplaceSender = true;
                     MailFromAddress = gateway.SenderOverride;
                 }
+                MsgIdentifier = string.Format("Msg [{0}] from <{1}> to <{2}>. ", envelope.MsgID, envelope.Sender, envelopeRcpt.Recipient);
 
                 // figure out how to contact the server.
                 // if there's a gateway specified, look that up and connect.
@@ -146,10 +148,17 @@ namespace SMTPRelay.WinService
                 else
                 {
                     // try a DNS lookup.
-                    IPHostEntry entry = Dns.GetHostEntry(serverHostname);
-                    foreach (IPAddress addr in entry.AddressList)
+                    try
                     {
-                        serverEPs.Add(new IPEndPoint(addr, serverPort));
+                        IPHostEntry entry = Dns.GetHostEntry(serverHostname);
+                        foreach (IPAddress addr in entry.AddressList)
+                        {
+                            serverEPs.Add(new IPEndPoint(addr, serverPort));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(string.Format("Querying DNS failed for [{0}]. {1}", serverHostname, ex.Message));
                     }
                 }
 
@@ -351,7 +360,7 @@ namespace SMTPRelay.WinService
                 }
                 else if (!line.StartsWith("250 ") && !line.StartsWith("354 "))
                 {
-                    throw new Exception(string.Format("Can't send mail. {0}", RcptToAddress, line));
+                    throw new Exception(string.Format("Can't send email to {0}. {1}", RcptToAddress, line));
                 }
 
                 // send the data
@@ -388,13 +397,13 @@ namespace SMTPRelay.WinService
                 }
                 else if (!line.StartsWith("250 "))
                 {
-                    throw new Exception(string.Format("Can't send mail. {0}", RcptToAddress, line));
+                    throw new Exception(string.Format("Can't send email to {0}. {1}", RcptToAddress, line));
                 }
-                finalResults = line;
+                finalResults = string.Format("{0}{1}", MsgIdentifier, line);
 
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogMessage = string.Format("Email sent. {0}", line)
+                    LogMessage = string.Format("{0}Email sent. {1}", MsgIdentifier, line)
                 });
 
                 // close the tcp connection
@@ -408,11 +417,11 @@ namespace SMTPRelay.WinService
                 {
                     Worker.ReportProgress(0, new WorkerReport()
                     {
-                        LogMessage = string.Format("Unexpected response to QUIT. {0}", line)
+                        LogMessage = string.Format("{0}Unexpected response to QUIT. {1}", MsgIdentifier, line)
                     }); ;
                 }
                 // store the ack as a SendLog and delete the SendQueue
-                tblSendLog log = new tblSendLog(envelope.EnvelopeID.Value, envelopeRcpt.EnvelopeRcptID.Value, DateTime.Now, finalResults, sendQueueItem.AttemptCount);
+                tblSendLog log = new tblSendLog(envelope.EnvelopeID.Value, envelopeRcpt.EnvelopeRcptID.Value, DateTime.Now, finalResults, sendQueueItem.AttemptCount, true);
                 SQLiteDB.SendLog_Insert(log);
                 SQLiteDB.SendQueue_DeleteByID(sendQueueItem.SendQueueID.Value);
             }
@@ -420,11 +429,11 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = ex.Message
+                    LogError = string.Format("{0}{1}", MsgIdentifier, ex.Message)
                 });
                 try
                 {
-                    tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, ex.Message, sendQueueItem.AttemptCount);
+                    tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, ex.Message, sendQueueItem.AttemptCount, false);
                     SQLiteDB.SendLog_Insert(log);
                     SQLiteDB.SendQueue_DeleteByID(sendQueueItem.SendQueueID.Value);
                     DateTime nextRun;
@@ -445,7 +454,7 @@ namespace SMTPRelay.WinService
                         return;
                     }
 
-                    tblSendQueue newq = new tblSendQueue(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, SendQueueState.Ready, sendQueueItem.AttemptCount, nextRun);
+                    tblSendQueue newq = new tblSendQueue(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, QueueState.Ready, sendQueueItem.AttemptCount, nextRun);
                     SQLiteDB.SendQueue_AddUpdate(newq);
                 }
                 catch { }

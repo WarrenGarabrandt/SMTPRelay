@@ -25,7 +25,7 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance for an item that does not yet exist in the databse.
         /// </summary>
-        public tblSendQueue(long envelopeID, long envelopeRcptID, SendQueueState state, int attemptCount, DateTime? retryAfter)
+        public tblSendQueue(long envelopeID, long envelopeRcptID, QueueState state, int attemptCount, DateTime? retryAfter)
         {
             SendQueueID = null;
             EnvelopeID = envelopeID;
@@ -43,7 +43,7 @@ namespace SMTPRelay.Model.DB
         // private set because there isn't a SQL UPDATE statement for this field.
         public long EnvelopeRcptID { get; private set; }
 
-        public SendQueueState State { get; set; }
+        public QueueState State { get; set; }
 
         public int StateInt
         {
@@ -53,7 +53,7 @@ namespace SMTPRelay.Model.DB
             }
             set
             {
-                State = (SendQueueState)value;
+                State = (QueueState)value;
             }
         }
 

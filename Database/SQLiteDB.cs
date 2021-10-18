@@ -171,6 +171,18 @@ namespace SMTPRelay.Database
                                     case qryDeleteIPEndpointByID q:
                                         _ipendpoint_DeleteByID(conn, q);
                                         break;
+                                    case qryGetReadyDeliveryReports q:
+                                        _deliveryReport_GetReady(conn, q);
+                                        break;
+                                    case qrySetDeliveryReportEnque q:
+                                        _deliveryReport_Insert(conn, q);
+                                        break;
+                                    case qrySetDeliveryReportRunning q:
+                                        _deliveryReport_UpdateRunning(conn, q);
+                                        break;
+                                    case qrySetDeliveryQueueDone q:
+                                        _deliveryReport_UpdateDone(conn, q);
+                                        break;
                                     default:
                                         throw new Exception(string.Format("Unsupported object type: {0}", query.GetType().ToString()));
                                 }
@@ -835,6 +847,34 @@ namespace SMTPRelay.Database
             }
 
             return hostName;                    // return the fully qualified name
+        }
+
+        public static List<tblDeliveryReport> DeliveryReport_GetReady()
+        {
+            qryGetReadyDeliveryReports q = new qryGetReadyDeliveryReports();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool DeliveryReport_Enqueue(tblDeliveryReport deliveryReport)
+        {
+            qrySetDeliveryReportEnque q = new qrySetDeliveryReportEnque(deliveryReport);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool DeliveryReport_MarkRunning(long deliveryReportID)
+        {
+            qrySetDeliveryReportRunning q = new qrySetDeliveryReportRunning(deliveryReportID);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool DeliveryReport_UpdateDone(tblDeliveryReport deliveryReport)
+        {
+            qrySetDeliveryQueueDone q = new qrySetDeliveryQueueDone(deliveryReport);
+            QueryQueue.Add(q);
+            return q.GetResult();
         }
 
         #endregion
@@ -1799,7 +1839,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblSendLog(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
+                        results.Add(new tblSendLog(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.GetInt32(4)));
                     }
                 }
             }
@@ -1816,6 +1856,7 @@ namespace SMTPRelay.Database
                 command.Parameters.AddWithValue("$WhenAttempted", query.SendLog.WhenAttemptedStr);
                 command.Parameters.AddWithValue("$Results", query.SendLog.Results);
                 command.Parameters.AddWithValue("$AttemptCount", query.SendLog.AttemptCount);
+                command.Parameters.AddWithValue("$Successful", query.SendLog.SuccessfulInt);
                 command.ExecuteNonQuery();
             }
             query.SetResult(true);
@@ -1991,6 +2032,25 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
+        private static void _deliveryReport_GetReady(SQLiteConnection conn, qryGetReadyDeliveryReports query)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static void _deliveryReport_Insert(SQLiteConnection conn, qrySetDeliveryReportEnque query)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static void _deliveryReport_UpdateRunning(SQLiteConnection conn, qrySetDeliveryReportRunning query)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static void _deliveryReport_UpdateDone(SQLiteConnection conn, qrySetDeliveryQueueDone query)
+        {
+            throw new NotImplementedException();
+        }
         #endregion
 
     }

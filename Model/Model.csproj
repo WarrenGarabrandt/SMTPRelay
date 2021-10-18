@@ -42,7 +42,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DB\SendQueueState.cs" />
+    <Compile Include="DB\QueueState.cs" />
+    <Compile Include="DB\ReportType.cs" />
+    <Compile Include="DB\tblDeliveryReport.cs" />
     <Compile Include="DB\tblDevice.cs" />
     <Compile Include="DB\tblEnvelope.cs" />
     <Compile Include="DB\tblEnvelopeRcpt.cs" />
@@ -74,8 +76,12 @@
     <Compile Include="Query\qryGetMailDataSize.cs" />
     <Compile Include="Query\qryGetMailGatewayByID.cs" />
     <Compile Include="Query\qryGetMailChunkData.cs" />
+    <Compile Include="Query\qryGetReadyDeliveryReports.cs" />
     <Compile Include="Query\qryGetReadySendQueue.cs" />
     <Compile Include="Query\qryGetSendLogPage.cs" />
+    <Compile Include="Query\qrySetDeliveryQueueDone.cs" />
+    <Compile Include="Query\qrySetDeliveryReportEnque.cs" />
+    <Compile Include="Query\qrySetDeliveryReportRunning.cs" />
     <Compile Include="Query\qrySetDevice.cs" />
     <Compile Include="Query\qrySetEnvelopeChunkCount.cs" />
     <Compile Include="Query\qryClearUserDeviceGatewayByID.cs" />
