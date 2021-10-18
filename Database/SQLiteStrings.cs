@@ -90,7 +90,7 @@ namespace SMTPRelay.Database
 
         public static string Device_GetAll = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device;";
         public static string Device_GetByID = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device WHERE DeviceID = $DeviceID;";
-        public static string Device_GetByAddress = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device WHERE Address = $Address;";
+        public static string Device_GetByAddress = @"SELECT DeviceID, DisplayName, Address, Hostname, Enabled, MailGatewayID FROM Device WHERE Address = $Address AND Enabled = 1;";
         public static string Device_Insert = @"INSERT INTO Device (DisplayName, Address, Hostname, Enabled, MailGatewayID) VALUES ($DisplayName, $Address, $Hostname, $Enabled, $MailGatewayID);";
         public static string Device_Update = @"UPDATE Device SET DisplayName = $DisplayName, Address = $Address, Hostname = $Hostname, Enabled = $Enabled, MailGatewayID = $MailGatewayID WHERE DeviceID = $DeviceID;";
         public static string Device_ClearGatewayByID = @"UPDATE Device SET MailGatewayID = NULL WHERE MailGatewayID = $MailGatewayID;";

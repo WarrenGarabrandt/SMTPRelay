@@ -1259,7 +1259,7 @@ namespace SMTPRelay.Database
             List<tblDevice> results = new List<tblDevice>();
             using (var command = conn.CreateCommand())
             {
-                command.CommandText = SQLiteStrings.User_GetByEmail;
+                command.CommandText = SQLiteStrings.Device_GetByAddress;
                 command.Parameters.AddWithValue("$Address", query.Address);
                 using (var reader = command.ExecuteReader())
                 {
