@@ -71,6 +71,12 @@
     <Compile Include="Controls\ucSendQueueEditor.Designer.cs">
       <DependentUpon>ucSendQueueEditor.cs</DependentUpon>
     </Compile>
+    <Compile Include="Controls\ucSettings.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\ucSettings.Designer.cs">
+      <DependentUpon>ucSettings.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ucUserEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -96,6 +102,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Controls\ucSendQueueEditor.resx">
       <DependentUpon>ucSendQueueEditor.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Controls\ucSettings.resx">
+      <DependentUpon>ucSettings.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Controls\ucUserEditor.resx">
       <DependentUpon>ucUserEditor.cs</DependentUpon>

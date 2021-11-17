@@ -135,6 +135,9 @@ namespace SMTPRelay.Database
                                     case qryGetAllSendQueue q:
                                         _sendQueue_GetAll(conn, q);
                                         break;
+                                    case qryGetBusySendQueue q:
+                                        _sendQueue_GetBusy(conn, q);
+                                        break;
                                     case qryGetReadySendQueue q:
                                         _sendQueue_GetReady(conn, q);
                                         break;
@@ -713,6 +716,16 @@ namespace SMTPRelay.Database
         public static List<tblSendQueue> SendQueue_GetAll()
         {
             qryGetAllSendQueue q = new qryGetAllSendQueue();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+        /// <summary>
+        /// Gets a list of all mail items that are marked as running
+        /// </summary>
+        /// <returns></returns>
+        public static List<tblSendQueue> SendQueue_GetBusy()
+        {
+            qryGetBusySendQueue q = new qryGetBusySendQueue();
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1733,6 +1746,23 @@ namespace SMTPRelay.Database
             query.SetResult(results);
         }
 
+        private static void _sendQueue_GetBusy(SQLiteConnection conn, qryGetBusySendQueue query)
+        {
+            List<tblSendQueue> results = new List<tblSendQueue>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.SendQueue_GetBusy;
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                    }
+                }
+            }
+            query.SetResult(results);
+        }
+
         private static void _sendQueue_GetReady(SQLiteConnection conn, qryGetReadySendQueue query)
         {
             List<tblSendQueue> results = new List<tblSendQueue>();
@@ -1902,11 +1932,36 @@ namespace SMTPRelay.Database
 
         private static void _envelopeRcpt_Insert(SQLiteConnection conn, qrySetEnvelopeRcpt query)
         {
+            long? RecipientID = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Recipient_GetByAddress;
+                command.Parameters.AddWithValue("$Address", query.EnvelopeRcpt.Recipient);
+                RecipientID = (long?)command.ExecuteScalar();
+            }
+            if (!RecipientID.HasValue)
+            {
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Recipeint_Insert;
+                    command.Parameters.AddWithValue("$Address", query.EnvelopeRcpt.Recipient);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Table_LastRowID;
+                    RecipientID = (long)command.ExecuteScalar();
+                }
+            }
+            if (!RecipientID.HasValue)
+            {
+                RecipientID = -1;
+            }
             using (var command = conn.CreateCommand())
             {
                 command.CommandText = SQLiteStrings.EnvelopeRcpt_Insert;
                 command.Parameters.AddWithValue("$EnvelopeID", query.EnvelopeRcpt.EnvelopeID);
-                command.Parameters.AddWithValue("$Recipient", query.EnvelopeRcpt.Recipient);
+                command.Parameters.AddWithValue("$RecipientID", RecipientID);
                 command.ExecuteNonQuery();
             }
             using (var command = conn.CreateCommand())

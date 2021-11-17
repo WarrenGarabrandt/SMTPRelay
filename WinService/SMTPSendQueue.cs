@@ -14,6 +14,7 @@ namespace SMTPRelay.WinService
     public class SMTPSendQueue
     {
         private const int MAX_ACTIVE_SENDERS = 10;
+        private const int PURGE_CHECK_INTERVAL = 60000;
 
         private BackgroundWorker Worker;
         public bool Running = false;
@@ -38,14 +39,15 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            
             List<SMTPSender> Senders = new List<SMTPSender>();
             System.Diagnostics.Stopwatch cleanupSW = new System.Diagnostics.Stopwatch();
             cleanupSW.Start();
             System.Diagnostics.Stopwatch dbquerySW = new System.Diagnostics.Stopwatch();
             dbquerySW.Start();
             List<tblSendQueue> pendingQueue = new List<tblSendQueue>();
-
+            System.Diagnostics.Stopwatch purgeSW = new System.Diagnostics.Stopwatch();
+            purgeSW.Start();
+            
             try
             {
                 int QueryUpdateInterval = Int32.Parse(SQLiteDB.System_GetValue("SMTPSenderQueue", "RefreshMS"));
@@ -53,6 +55,7 @@ namespace SMTPRelay.WinService
                 {
                     LogMessage = "Started Outbound Queue Monitor."
                 });
+                ResetPendingSendQueue();
                 while (!Worker.CancellationPending)
                 {
                     if (dbquerySW.ElapsedMilliseconds >= QueryUpdateInterval)
@@ -60,6 +63,11 @@ namespace SMTPRelay.WinService
                         pendingQueue.Clear();
                         pendingQueue = SQLiteDB.SendQueue_GetReady();
                         dbquerySW.Restart();
+                    }
+                    if (purgeSW.ElapsedMilliseconds >= PURGE_CHECK_INTERVAL)
+                    {
+                        PurgeOldMail();
+                        purgeSW.Restart();
                     }
                     bool busy = false;
                     if (pendingQueue.Count() > 0 && Senders.Count < MAX_ACTIVE_SENDERS)
@@ -120,6 +128,69 @@ namespace SMTPRelay.WinService
                 {
                     LogMessage = "SMTP Send Queue shut down."
                 };
+            }
+        }
+
+        private void ResetPendingSendQueue()
+        {
+            // Get a list of mail queue items that are busy. Since we're starting up, these were interrupted and need to be retried.
+            List<tblSendQueue> redoQueue = SQLiteDB.SendQueue_GetBusy();
+            foreach (tblSendQueue redoItem in redoQueue)
+            {
+                redoItem.State = QueueState.Ready;
+                SQLiteDB.SendQueue_AddUpdate(redoItem);
+            }
+        }
+
+        private void PurgeOldMail()
+        {
+            if (!TimeToPurge())
+            {
+                return; 
+            }
+            long retainMins = long.Parse(SQLiteDB.System_GetValue("Message", "DataRetainMins"));
+            long purgeFailedMins = long.Parse(SQLiteDB.System_GetValue("Message", "PurgeFailedMins"));
+
+            DateTime CompleteCutoff = DateTime.Now.AddMinutes(retainMins);
+            DateTime FailedCutoff = DateTime.Now.AddMinutes(purgeFailedMins);
+
+            string CompleteCutoffStr = CompleteCutoff.ToUniversalTime().ToString("O");
+            string FailedCutoffStr = FailedCutoff.ToUniversalTime().ToString("O");
+
+
+            /* Query We need to implement to select envelopes that are ready to be deleted.
+SELECT *
+FROM Envelope
+WHERE (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
+AND (SendQueue.State = 0 OR SendQueue.State = 1)) = 0 
+AND  (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
+AND SendQueue.State = -1 AND SendQueue.RetryAfter > $FailedCutoff) = 0 
+AND  (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
+AND SendQueue.State = 2 AND SendQueue.RetryAfter > $CompleteCutoff) = 0 
+             */
+            SQLiteDB.System_AddUpdateValue("Purge", "LastRun", DateTime.Now.ToUniversalTime().ToString("O"));
+        }
+
+        private bool TimeToPurge()
+        {
+            string LastRunStr = SQLiteDB.System_GetValue("Purge", "LastRun");
+            if (string.IsNullOrWhiteSpace(LastRunStr))
+            {
+                return true;    // never run
+            }
+            DateTime parse;
+            if (DateTime.TryParse(LastRunStr, out parse))
+            {
+                long PurgeFrequency = long.Parse(SQLiteDB.System_GetValue("Purge", "FrequencyMins"));
+                if (parse.AddMinutes(PurgeFrequency) < DateTime.Now)
+                {
+                    return true;
+                }
+                return false;
+            }
+            else
+            {
+                return true;
             }
         }
 

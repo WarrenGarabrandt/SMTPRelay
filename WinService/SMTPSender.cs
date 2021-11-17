@@ -405,7 +405,7 @@ namespace SMTPRelay.WinService
                 {
                     LogMessage = string.Format("{0}Email sent. {1}", MsgIdentifier, line)
                 });
-
+                
                 // close the tcp connection
                 smtpStream.WriteLine("QUIT");
                 line = smtpStream.ReadLine(10000);
@@ -423,7 +423,9 @@ namespace SMTPRelay.WinService
                 // store the ack as a SendLog and delete the SendQueue
                 tblSendLog log = new tblSendLog(envelope.EnvelopeID.Value, envelopeRcpt.EnvelopeRcptID.Value, DateTime.Now, finalResults, sendQueueItem.AttemptCount, true);
                 SQLiteDB.SendLog_Insert(log);
-                SQLiteDB.SendQueue_DeleteByID(sendQueueItem.SendQueueID.Value);
+                sendQueueItem.State = QueueState.Done;
+                sendQueueItem.RetryAfter = DateTime.Now;
+                SQLiteDB.SendQueue_AddUpdate(sendQueueItem);
             }
             catch (Exception ex)
             {
@@ -435,27 +437,25 @@ namespace SMTPRelay.WinService
                 {
                     tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, ex.Message, sendQueueItem.AttemptCount, false);
                     SQLiteDB.SendLog_Insert(log);
-                    SQLiteDB.SendQueue_DeleteByID(sendQueueItem.SendQueueID.Value);
-                    DateTime nextRun;
+                    sendQueueItem.State = QueueState.Ready;
                     if (sendQueueItem.AttemptCount < 3)
                     {
-                        nextRun = DateTime.Now.AddMinutes(30);
+                        sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(30);
                     }
                     else if (sendQueueItem.AttemptCount < 6)
                     {
-                        nextRun = DateTime.Now.AddHours(6);
+                        sendQueueItem.RetryAfter = DateTime.Now.AddHours(6);
                     }
                     else if (sendQueueItem.AttemptCount < 10)
                     {
-                        nextRun = DateTime.Now.AddDays(1);
+                        sendQueueItem.RetryAfter = DateTime.Now.AddDays(1);
                     }
                     else
                     {
-                        return;
+                        sendQueueItem.State = QueueState.Disabled;
+                        sendQueueItem.RetryAfter = DateTime.Now;
                     }
-
-                    tblSendQueue newq = new tblSendQueue(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, QueueState.Ready, sendQueueItem.AttemptCount, nextRun);
-                    SQLiteDB.SendQueue_AddUpdate(newq);
+                    SQLiteDB.SendQueue_AddUpdate(sendQueueItem);
                 }
                 catch { }
             }

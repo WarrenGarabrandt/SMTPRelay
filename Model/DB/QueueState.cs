@@ -11,6 +11,6 @@ namespace SMTPRelay.Model.DB
         Disabled = -1,
         Ready = 0,
         InProgress = 1,
-
+        Done = 2
     }
 }

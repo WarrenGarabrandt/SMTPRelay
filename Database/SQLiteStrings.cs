@@ -25,9 +25,12 @@ namespace SMTPRelay.Database
 
             // Basic email header info.
             @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER, DeviceID INTEGER, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER, MsgID TEXT);",
+            
+            // Recipient email addresses
+            @"CREATE TABLE Recipient (RecipientID INTEGER PRIMARY KEY, Address TEXT);",
 
             // Envelope Recipients
-            @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, Recipient TEXT);",
+            @"CREATE TABLE EnvelopeRcpt(EnvelopeRcptID INTEGER PRIMARY KEY, EnvelopeID INTEGER, RecipientID INTEGER NOT NULL);",
 
             // Stores email body in chunks.
             @"CREATE TABLE MailChunk (EnvelopeID INTEGER NOT NULL, ChunkID INTEGER NOT NULL, Chunk BLOB);",
@@ -36,6 +39,7 @@ namespace SMTPRelay.Database
             // State: -1 = disable
             //         0 = Wait for RetryAfter Timer
             //         1 = Currently Running
+            //         2 = Done. Ready for Cleanup.
             @"CREATE TABLE SendQueue (SendQueueID INTEGER PRIMARY KEY, EnvelopeID INTEGER NOT NULL, EnvelopeRcptID INTEGER NOT NULL, State INTEGER NOT NULL, AttemptCount INTEGER NOT NULL, RetryAfter TEXT);",
             
             // Process log. Each attempt to process an email will result in a row being generated with the result of that attempt
@@ -60,7 +64,7 @@ namespace SMTPRelay.Database
             //         1 - Delivery report picked up
             //         2 - Delivery report generated.
             //        -1 - Something went wrong and the delivery report failed to generate.
-            @"CREATE TABLE DeliveryReport (DeliveryReportID INTEGER PRIMARY KEY, WhenScheduled TEXT, WhenGenerated TEXT, OriginalEnvelopeRcptID INTEGER, EnvelopeID INTEGER, ReportType INTEGER, Reason TEXT, Status INTEGER);"
+            @"CREATE TABLE DeliveryReport (DeliveryReportID INTEGER PRIMARY KEY, WhenScheduled TEXT, WhenGenerated TEXT, OriginalEnvelopeRcptID INTEGER, EnvelopeID INTEGER, ReportType INTEGER, Reason TEXT, Status INTEGER);",
         };
 
         public static List<Tuple<string, string, string>> DatabaseDefaults = new List<Tuple<string, string, string>>()
@@ -73,6 +77,14 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Message", "MaxRecipients", "100"),
             // max chunk size = 64 KB
             new Tuple<string, string, string>("Message", "ChunkSize", "65536"),
+            // How long to retain data after all recipients have been sent, in minutes. (default 3 days = 4320 minutes)
+            new Tuple<string, string, string>("Message", "DataRetainMins", "4320"),
+            // How long to retain failed items before diving up and deleting them entirely. (default 30 days = 43200 minutes)
+            new Tuple<string, string, string>("Message", "PurgeFailedMins", "43200"),
+            // When the last data purge was run.
+            new Tuple<string, string, string>("Purge", "LastRun", ""),
+            // How often to perform the purge, in minutes
+            new Tuple<string, string, string>("Purge", "FrequencyMins", "360"),
             // SMTP server Host Name it advertises.
             new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
             // Client has 15 seconds to send HELO or EHLO or we abort the connection.
@@ -125,6 +137,7 @@ namespace SMTPRelay.Database
 
         public static string SendQueue_GetAll = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue;";
         public static string SendQueue_GetReady = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue WHERE RetryAfter < $RetryAfter AND SendQueue.State = 0 ORDER BY RetryAfter;";
+        public static string SendQueue_GetBusy = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue WHERE SendQueue.State = 1;";
         public static string SendQueue_GetByID = @"SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue WHERE SendQueueID = $SendQueueID;";
         public static string SendQueue_Insert = @"INSERT INTO SendQueue(EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter) VALUES ($EnvelopeID, $EnvelopeRcptID, $State, $AttemptCount, $RetryAfter);";
         public static string SendQueue_Update = @"UPDATE SendQueue SET State = $State, AttemptCount = $AttemptCount, RetryAfter = $RetryAfter WHERE SendQueueID = $SendQueueID;";
@@ -133,9 +146,12 @@ namespace SMTPRelay.Database
         public static string SendLog_GetPage = @"SELCT EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount, Successful FROM SendLog LIMIT $RowCount OFFSET $RowStart ORDER BY WhenAttempted DESC;";
         public static string SendLog_Insert = @"INSERT INTO SendLog (EnvelopeID, EnvelopeRcptID, WhenAttempted, Results, AttemptCount, Successful) VALUES ($EnvelopeID, $EnvelopeRcptID, $WhenAttempted, $Results, $AttemptCount, $Successful);";
 
-        public static string EnvelopeRcpt_GetByID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeRcptID = $EnvelopeRcptID;";
-        public static string EnvelopeRcpt_GetByEnvelopeID = @"SELECT EnvelopeRcptID, EnvelopeID, Recipient FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
-        public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, Recipient) VALUES ($EnvelopeID, $Recipient);";
+        public static string Recipient_GetByAddress = @"SELECT RecipientID FROM Recipient WHERE Address = $Address;";
+        public static string Recipeint_Insert = @"INSERT INTO Recipient (Address) VALUES ($Address);";
+
+        public static string EnvelopeRcpt_GetByID = @"SELECT EnvelopeRcpt.EnvelopeRcptID, EnvelopeRcpt.EnvelopeID, Recipient.Address FROM EnvelopeRcpt INNER JOIN Recipient ON EnvelopeRcpt.RecipientID = Recipient.RecipientID WHERE EnvelopeRcpt.EnvelopeRcptID = $EnvelopeRcptID;";
+        public static string EnvelopeRcpt_GetByEnvelopeID = "SELECT EnvelopeRcpt.EnvelopeRcptID, EnvelopeRcpt.EnvelopeID, Recipient.Address FROM EnvelopeRcpt INNER JOIN Recipient ON EnvelopeRcpt.RecipientID = Recipient.RecipientID WHERE EnvelopeRcpt.EnvelopeID = $EnvelopeID;";
+        public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, RecipientID) VALUES ($EnvelopeID, $RecipientID);";
 
         public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint;";
         public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";

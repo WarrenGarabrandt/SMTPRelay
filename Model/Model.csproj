@@ -107,6 +107,8 @@
     <Compile Include="ServiceControl.cs" />
     <Compile Include="WorkerReport.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Compile Include="Query\qryGetBusySendQueue.cs" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
