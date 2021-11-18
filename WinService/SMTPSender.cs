@@ -72,6 +72,8 @@ namespace SMTPRelay.WinService
             ISMTPStream smtpStream = null;
             string finalResults = null;
             string MsgIdentifier = string.Empty;
+            bool PermanentFailure = false;
+
             try
             {
                 // queue item is already marked as dispatched before SMTPSender is instantiated to prevent duplicate pickups.
@@ -101,8 +103,6 @@ namespace SMTPRelay.WinService
                     gateway = SQLiteDB.MailGateway_GetByID(device.MailGateway.Value);
                 }
                 
-
-
                 // Sender
                 string MailFromAddress = envelope.Sender;
                 // Recipient
@@ -133,6 +133,7 @@ namespace SMTPRelay.WinService
                 }
                 else
                 {
+                    PermanentFailure = true;
                     throw new NotImplementedException("Looking up domain MX recoreds is not implemented.");
                 }
 
@@ -401,6 +402,11 @@ namespace SMTPRelay.WinService
                 }
                 else if (!line.StartsWith("250 "))
                 {
+                    if (line.StartsWith("554"))
+                    {
+                        // SendAsDenied
+                        PermanentFailure = true;
+                    }
                     throw new Exception(string.Format("Can't send email to {0}. {1}", RcptToAddress, line));
                 }
                 finalResults = string.Format("{0}{1}", MsgIdentifier, line);
@@ -435,29 +441,36 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = string.Format("{0}{1}", MsgIdentifier, ex.Message)
+                    LogError = string.Format("{0}{1}{2}", PermanentFailure ? "Permanent Failure: " : "", MsgIdentifier, ex.Message)
                 });
                 try
                 {
                     tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, ex.Message, sendQueueItem.AttemptCount, false);
                     SQLiteDB.SendLog_Insert(log);
-                    sendQueueItem.State = QueueState.Ready;
-                    if (sendQueueItem.AttemptCount < 3)
+                    if (PermanentFailure)
                     {
-                        sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(30);
-                    }
-                    else if (sendQueueItem.AttemptCount < 6)
-                    {
-                        sendQueueItem.RetryAfter = DateTime.Now.AddHours(6);
-                    }
-                    else if (sendQueueItem.AttemptCount < 10)
-                    {
-                        sendQueueItem.RetryAfter = DateTime.Now.AddDays(1);
+                        sendQueueItem.State = QueueState.Disabled;
                     }
                     else
                     {
-                        sendQueueItem.State = QueueState.Disabled;
-                        sendQueueItem.RetryAfter = DateTime.Now;
+                        sendQueueItem.State = QueueState.Ready;
+                        if (sendQueueItem.AttemptCount < 3)
+                        {
+                            sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(30);
+                        }
+                        else if (sendQueueItem.AttemptCount < 6)
+                        {
+                            sendQueueItem.RetryAfter = DateTime.Now.AddHours(6);
+                        }
+                        else if (sendQueueItem.AttemptCount < 10)
+                        {
+                            sendQueueItem.RetryAfter = DateTime.Now.AddDays(1);
+                        }
+                        else
+                        {
+                            sendQueueItem.State = QueueState.Disabled;
+                            sendQueueItem.RetryAfter = DateTime.Now;
+                        }
                     }
                     SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
                 }
