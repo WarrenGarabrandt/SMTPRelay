@@ -7,23 +7,23 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryGetAllSendQueue : DatabaseQuery
+    public class qryGetAllProcessQueue : DatabaseQuery
     {
-        public List<tblSendQueue> Results;
-        public qryGetAllSendQueue()
+        public List<tblProcessQueue> Results;
+        public qryGetAllProcessQueue()
         {
             Results = null;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
 
-        public void SetResult(List<tblSendQueue> value)
+        public void SetResult(List<tblProcessQueue> value)
         {
             Results = value;
             DoneSignal.Set();
         }
 
-        public List<tblSendQueue> GetResult()
+        public List<tblProcessQueue> GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();

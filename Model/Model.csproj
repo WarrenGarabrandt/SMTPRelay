@@ -51,7 +51,7 @@
     <Compile Include="DB\tblIPEndpoint.cs" />
     <Compile Include="DB\tblMailGateway.cs" />
     <Compile Include="DB\tblSendLog.cs" />
-    <Compile Include="DB\tblSendQueue.cs" />
+    <Compile Include="DB\tblProcessQueue.cs" />
     <Compile Include="DB\tblSystem.cs" />
     <Compile Include="DB\tblUser.cs" />
     <Compile Include="DB\vwMailQueue.cs" />
@@ -60,14 +60,15 @@
     <Compile Include="Query\DatabaseInit.cs" />
     <Compile Include="Query\DatabaseQuery.cs" />
     <Compile Include="Query\qryDeleteDeviceByID.cs" />
+    <Compile Include="Query\qryDeleteEnvelopePurgeOld.cs" />
     <Compile Include="Query\qryDeleteIPEndpointByID.cs" />
     <Compile Include="Query\qryDeleteMailChunkData.cs" />
     <Compile Include="Query\qryDeleteMailGatwayByID.cs" />
-    <Compile Include="Query\qryDeleteSendQueueByID.cs" />
+    <Compile Include="Query\qryDeleteProcessQueueByID.cs" />
     <Compile Include="Query\qryGetAllDevices.cs" />
     <Compile Include="Query\qryGetAllIPEndpoints.cs" />
     <Compile Include="Query\qryGetAllMailGateways.cs" />
-    <Compile Include="Query\qryGetAllSendQueue.cs" />
+    <Compile Include="Query\qryGetAllProcessQueue.cs" />
     <Compile Include="Query\qryGetDeviceByID.cs" />
     <Compile Include="Query\qryGetDevicesByAddress.cs" />
     <Compile Include="Query\qryGetEnvelopeRcptByEnvelopeID.cs" />
@@ -77,7 +78,7 @@
     <Compile Include="Query\qryGetMailGatewayByID.cs" />
     <Compile Include="Query\qryGetMailChunkData.cs" />
     <Compile Include="Query\qryGetReadyDeliveryReports.cs" />
-    <Compile Include="Query\qryGetReadySendQueue.cs" />
+    <Compile Include="Query\qryGetReadyProcessQueue.cs" />
     <Compile Include="Query\qryGetSendLogPage.cs" />
     <Compile Include="Query\qrySetDeliveryQueueDone.cs" />
     <Compile Include="Query\qrySetDeliveryReportEnque.cs" />
@@ -101,14 +102,14 @@
     <Compile Include="Query\qrySetMailChunk.cs" />
     <Compile Include="Query\qrySetMailGateway.cs" />
     <Compile Include="Query\qrySetSendLog.cs" />
-    <Compile Include="Query\qrySetSendQueue.cs" />
+    <Compile Include="Query\qrySetProcessQueue.cs" />
     <Compile Include="Query\qrySetUser.cs" />
     <Compile Include="Query\qryViewMailQueue.cs" />
     <Compile Include="ServiceControl.cs" />
     <Compile Include="WorkerReport.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Query\qryGetBusySendQueue.cs" />
+    <Compile Include="Query\qryGetBusyProcessQueue.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

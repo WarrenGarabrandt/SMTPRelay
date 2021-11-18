@@ -102,6 +102,9 @@ namespace SMTPRelay.Database
                                     case qrySetEnvelopeChunkCount q:
                                         _envelope_UpdateChunkCount(conn, q);
                                         break;
+                                    case qryDeleteEnvelopePurgeOld q:
+                                        _envelope_PurgeOld(conn, q);
+                                        break;
                                     case qryGetAllMailGateways q:
                                         _mailGateway_GetAll(conn, q);
                                         break;
@@ -132,19 +135,19 @@ namespace SMTPRelay.Database
                                     case qryGetMailDataSize q:
                                         _mailChunk_GetMailSize(conn, q);
                                         break;
-                                    case qryGetAllSendQueue q:
+                                    case qryGetAllProcessQueue q:
                                         _sendQueue_GetAll(conn, q);
                                         break;
-                                    case qryGetBusySendQueue q:
+                                    case qryGetBusyProcessQueue q:
                                         _sendQueue_GetBusy(conn, q);
                                         break;
-                                    case qryGetReadySendQueue q:
+                                    case qryGetReadyProcessQueue q:
                                         _sendQueue_GetReady(conn, q);
                                         break;
-                                    case qrySetSendQueue q:
+                                    case qrySetProcessQueue q:
                                         _sendQueue_AddUpdate(conn, q);
                                         break;
-                                    case qryDeleteSendQueueByID q:
+                                    case qryDeleteProcessQueueByID q:
                                         _sendQueue_DeleteByID(conn, q);
                                         break;
                                     case qryGetSendLogPage q:
@@ -589,6 +592,19 @@ namespace SMTPRelay.Database
         }
 
         /// <summary>
+        /// Deleted all mail data for old items. This query can be quite expensive, and should only be run periodically.
+        /// </summary>
+        /// <param name="successCutOff">Cutoff date for successfully sent items</param>
+        /// <param name="failCutOFf">Cutoff date for failed to send items</param>
+        /// <returns></returns>
+        public static long Envelope_PurgeOldItems(DateTime successCutOff, DateTime failedCutOFf)
+        {
+            qryDeleteEnvelopePurgeOld q = new qryDeleteEnvelopePurgeOld(successCutOff, failedCutOFf);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
         /// Gets a list of all the mail gateways
         /// </summary>
         /// <returns></returns>
@@ -713,9 +729,9 @@ namespace SMTPRelay.Database
         /// Gets a list of all queued mail items.
         /// </summary>
         /// <returns></returns>
-        public static List<tblSendQueue> SendQueue_GetAll()
+        public static List<tblProcessQueue> ProcessQueue_GetAll()
         {
-            qryGetAllSendQueue q = new qryGetAllSendQueue();
+            qryGetAllProcessQueue q = new qryGetAllProcessQueue();
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -723,9 +739,9 @@ namespace SMTPRelay.Database
         /// Gets a list of all mail items that are marked as running
         /// </summary>
         /// <returns></returns>
-        public static List<tblSendQueue> SendQueue_GetBusy()
+        public static List<tblProcessQueue> ProcessQueue_GetBusy()
         {
-            qryGetBusySendQueue q = new qryGetBusySendQueue();
+            qryGetBusyProcessQueue q = new qryGetBusyProcessQueue();
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -734,9 +750,9 @@ namespace SMTPRelay.Database
         /// Gets a list of all ready queued mail items.
         /// </summary>
         /// <returns></returns>
-        public static List<tblSendQueue> SendQueue_GetReady()
+        public static List<tblProcessQueue> ProcessQueue_GetReady()
         {
-            qryGetReadySendQueue q = new qryGetReadySendQueue();
+            qryGetReadyProcessQueue q = new qryGetReadyProcessQueue();
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -745,9 +761,9 @@ namespace SMTPRelay.Database
         /// Adds an item to the send queue.
         /// </summary>
         /// <param name="sendqueue"></param>
-        public static bool SendQueue_AddUpdate(tblSendQueue sendqueue)
+        public static bool ProcessQueue_AddUpdate(tblProcessQueue sendqueue)
         {
-            qrySetSendQueue q = new qrySetSendQueue(sendqueue);
+            qrySetProcessQueue q = new qrySetProcessQueue(sendqueue);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -756,9 +772,9 @@ namespace SMTPRelay.Database
         /// Deletes a send queue by ID
         /// </summary>
         /// <param name="sendQueueID"></param>
-        public static bool SendQueue_DeleteByID(long sendQueueID)
+        public static bool ProcessQueue_DeleteByID(long sendQueueID)
         {
-            qryDeleteSendQueueByID q = new qryDeleteSendQueueByID(sendQueueID);
+            qryDeleteProcessQueueByID q = new qryDeleteProcessQueueByID(sendQueueID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1524,6 +1540,61 @@ namespace SMTPRelay.Database
             query.SetResult(true);
         }
 
+        private static void _envelope_PurgeOld(SQLiteConnection conn, qryDeleteEnvelopePurgeOld query)
+        {
+            string SuccStr = query.SuccessCutOff.ToUniversalTime().ToString("O");
+            string FailStr = query.FailedCutOFf.ToUniversalTime().ToString("O");
+            List<long> envIds = new List<long>();
+            long processed = 0;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Envelope_GetAllOld;
+                command.Parameters.AddWithValue("$FailedCutoff", FailStr);
+                command.Parameters.AddWithValue("$CompleteCutoff", SuccStr);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        envIds.Add(reader.GetInt64(0));
+                    }
+                }
+            }
+            foreach (long envID in envIds)
+            {
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.MailChunk_DeleteMailData;
+                    command.Parameters.AddWithValue("$EnvelopeID", envID);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.SendLog_DeleteByEnvelopeID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envID);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.EnvelopeRcpt_DeleteByEnvelopeID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envID);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.ProcessQueue_DeleteByEnvelopeID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envID);
+                    command.ExecuteNonQuery();
+                }
+                using (var command = conn.CreateCommand())
+                {
+                    command.CommandText = SQLiteStrings.Envelope_DeleteByID;
+                    command.Parameters.AddWithValue("$EnvelopeID", envID);
+                    command.ExecuteNonQuery();
+                }
+                processed++;
+            }
+            query.SetResult(processed);
+        }
         private static void _mailGateway_GetAll(SQLiteConnection conn, qryGetAllMailGateways query)
         {
             List<tblMailGateway> results = new List<tblMailGateway>();
@@ -1729,128 +1800,128 @@ namespace SMTPRelay.Database
             }
         }
 
-        private static void _sendQueue_GetAll(SQLiteConnection conn, qryGetAllSendQueue query)
+        private static void _sendQueue_GetAll(SQLiteConnection conn, qryGetAllProcessQueue query)
         {
-            List<tblSendQueue> results = new List<tblSendQueue>();
+            List<tblProcessQueue> results = new List<tblProcessQueue>();
             using (var command = conn.CreateCommand())
             {
-                command.CommandText = SQLiteStrings.SendQueue_GetAll;
+                command.CommandText = SQLiteStrings.ProcessQueue_GetAll;
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                        results.Add(new tblProcessQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
                     }
                 }
             }
             query.SetResult(results);
         }
 
-        private static void _sendQueue_GetBusy(SQLiteConnection conn, qryGetBusySendQueue query)
+        private static void _sendQueue_GetBusy(SQLiteConnection conn, qryGetBusyProcessQueue query)
         {
-            List<tblSendQueue> results = new List<tblSendQueue>();
+            List<tblProcessQueue> results = new List<tblProcessQueue>();
             using (var command = conn.CreateCommand())
             {
-                command.CommandText = SQLiteStrings.SendQueue_GetBusy;
+                command.CommandText = SQLiteStrings.ProcessQueue_GetBusy;
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                        results.Add(new tblProcessQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
                     }
                 }
             }
             query.SetResult(results);
         }
 
-        private static void _sendQueue_GetReady(SQLiteConnection conn, qryGetReadySendQueue query)
+        private static void _sendQueue_GetReady(SQLiteConnection conn, qryGetReadyProcessQueue query)
         {
-            List<tblSendQueue> results = new List<tblSendQueue>();
+            List<tblProcessQueue> results = new List<tblProcessQueue>();
             using (var command = conn.CreateCommand())
             {
-                command.CommandText = SQLiteStrings.SendQueue_GetReady;
+                command.CommandText = SQLiteStrings.ProcessQueue_GetReady;
                 command.Parameters.AddWithValue("$RetryAfter", DateTime.UtcNow.ToString("O"));
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        //SELECT SendQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM SendQueue;
-                        results.Add(new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+                        //SELECT ProcessQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM ProcessQueue;
+                        results.Add(new tblProcessQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
                     }
                 }
             }
             query.SetResult(results);
         }
 
-        private static void _sendQueue_AddUpdate(SQLiteConnection conn, qrySetSendQueue query)
+        private static void _sendQueue_AddUpdate(SQLiteConnection conn, qrySetProcessQueue query)
         {
             // if the SendQueuID is populated, then we are going to try to update first. 
             // the update might fail, in which case we insert below
-            if (query.SendQueue.SendQueueID.HasValue)
+            if (query.ProcessQueue.ProcessQueueID.HasValue)
             {
                 // update. First, read the existing record by ID to make sure it exists. 
-                tblSendQueue dbsendqueue = null;
+                tblProcessQueue dbsendqueue = null;
                 using (var command = conn.CreateCommand())
                 {
-                    command.CommandText = SQLiteStrings.SendQueue_GetByID;
-                    command.Parameters.AddWithValue("$SendQueueID", query.SendQueue.SendQueueID);
+                    command.CommandText = SQLiteStrings.ProcessQueue_GetByID;
+                    command.Parameters.AddWithValue("$ProcessQueueID", query.ProcessQueue.ProcessQueueID);
                     using (var reader = command.ExecuteReader())
                     {
                         if (reader.Read())
                         {
-                            dbsendqueue = new tblSendQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5));
+                            dbsendqueue = new tblProcessQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5));
                         }
                     }
                 }
                 if (dbsendqueue == null)
                 {
-                    // SendQueue doesn't exit, so below we will insert it.
-                    query.SendQueue.SendQueueID = null;
+                    // ProcessQueue doesn't exit, so below we will insert it.
+                    query.ProcessQueue.ProcessQueueID = null;
                 }
                 else
                 {
                     using (var command = conn.CreateCommand())
                     {
-                        command.CommandText = SQLiteStrings.SendQueue_Update;
-                        command.Parameters.AddWithValue("$State", query.SendQueue.StateInt);
-                        command.Parameters.AddWithValue("$AttemptCount", query.SendQueue.AttemptCount);
-                        command.Parameters.AddWithValue("$RetryAfter", query.SendQueue.RetryAfterStr);
-                        command.Parameters.AddWithValue("$SendQueueID", query.SendQueue.SendQueueID);
+                        command.CommandText = SQLiteStrings.ProcessQueue_Update;
+                        command.Parameters.AddWithValue("$State", query.ProcessQueue.StateInt);
+                        command.Parameters.AddWithValue("$AttemptCount", query.ProcessQueue.AttemptCount);
+                        command.Parameters.AddWithValue("$RetryAfter", query.ProcessQueue.RetryAfterStr);
+                        command.Parameters.AddWithValue("$ProcessQueueID", query.ProcessQueue.ProcessQueueID);
                         command.ExecuteNonQuery();
                     }
                 }
                 
             }
 
-            // if there is no SendQueueID, then we insert a new record and select the ID back.
-            if (!query.SendQueue.SendQueueID.HasValue)
+            // if there is no ProcessQueueID, then we insert a new record and select the ID back.
+            if (!query.ProcessQueue.ProcessQueueID.HasValue)
             {
                 // insert new record and read back the ID
                 using (var command = conn.CreateCommand())
                 {
-                    command.CommandText = SQLiteStrings.SendQueue_Insert;
-                    command.Parameters.AddWithValue("$EnvelopeID", query.SendQueue.EnvelopeID);
-                    command.Parameters.AddWithValue("$EnvelopeRcptID", query.SendQueue.EnvelopeRcptID);
-                    command.Parameters.AddWithValue("$State", query.SendQueue.StateInt);
-                    command.Parameters.AddWithValue("$AttemptCount", query.SendQueue.AttemptCount);
-                    command.Parameters.AddWithValue("$RetryAfter", query.SendQueue.RetryAfterStr);
+                    command.CommandText = SQLiteStrings.ProcessQueue_Insert;
+                    command.Parameters.AddWithValue("$EnvelopeID", query.ProcessQueue.EnvelopeID);
+                    command.Parameters.AddWithValue("$EnvelopeRcptID", query.ProcessQueue.EnvelopeRcptID);
+                    command.Parameters.AddWithValue("$State", query.ProcessQueue.StateInt);
+                    command.Parameters.AddWithValue("$AttemptCount", query.ProcessQueue.AttemptCount);
+                    command.Parameters.AddWithValue("$RetryAfter", query.ProcessQueue.RetryAfterStr);
                     command.ExecuteNonQuery();
                 }
                 using (var command = conn.CreateCommand())
                 {
                     command.CommandText = SQLiteStrings.Table_LastRowID;
-                    query.SendQueue.SendQueueID = (long)command.ExecuteScalar();
+                    query.ProcessQueue.ProcessQueueID = (long)command.ExecuteScalar();
                 }
             }
             query.SetResult(true);
         }
 
-        private static void _sendQueue_DeleteByID(SQLiteConnection conn, qryDeleteSendQueueByID query)
+        private static void _sendQueue_DeleteByID(SQLiteConnection conn, qryDeleteProcessQueueByID query)
         {
             using (var command = conn.CreateCommand())
             {
-                command.CommandText = SQLiteStrings.SendQueue_DeleteByID;
-                command.Parameters.AddWithValue("$SendQueueID", query.SendQueueID);
+                command.CommandText = SQLiteStrings.ProcessQueue_DeleteByID;
+                command.Parameters.AddWithValue("$ProcessQueueID", query.ProcessQueueID);
                 command.ExecuteNonQuery();
             }
             query.SetResult(true);

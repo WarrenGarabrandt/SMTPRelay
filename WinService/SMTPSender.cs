@@ -19,7 +19,7 @@ namespace SMTPRelay.WinService
         public bool Running;
         public ConcurrentQueue<WorkerReport> WorkerReports;
 
-        public SMTPSender(tblSendQueue sendQueueItem )
+        public SMTPSender(tblProcessQueue sendQueueItem )
         {
             WorkerReports = new ConcurrentQueue<WorkerReport>();
             Running = true;
@@ -56,12 +56,12 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            tblSendQueue sendQueueItem = e.Argument as tblSendQueue;
+            tblProcessQueue sendQueueItem = e.Argument as tblProcessQueue;
             if (sendQueueItem == null)
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = "No SendQueue Item specified to SMTPSender."
+                    LogError = "No ProcessQueue Item specified to SMTPSender."
                 });
                 return;
             }
@@ -420,12 +420,12 @@ namespace SMTPRelay.WinService
                         LogMessage = string.Format("{0}Unexpected response to QUIT. {1}", MsgIdentifier, line)
                     }); ;
                 }
-                // store the ack as a SendLog and delete the SendQueue
+                // store the ack as a SendLog and update the ProcessQueue.
                 tblSendLog log = new tblSendLog(envelope.EnvelopeID.Value, envelopeRcpt.EnvelopeRcptID.Value, DateTime.Now, finalResults, sendQueueItem.AttemptCount, true);
                 SQLiteDB.SendLog_Insert(log);
                 sendQueueItem.State = QueueState.Done;
                 sendQueueItem.RetryAfter = DateTime.Now;
-                SQLiteDB.SendQueue_AddUpdate(sendQueueItem);
+                SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
             }
             catch (Exception ex)
             {
@@ -455,7 +455,7 @@ namespace SMTPRelay.WinService
                         sendQueueItem.State = QueueState.Disabled;
                         sendQueueItem.RetryAfter = DateTime.Now;
                     }
-                    SQLiteDB.SendQueue_AddUpdate(sendQueueItem);
+                    SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
                 }
                 catch { }
             }

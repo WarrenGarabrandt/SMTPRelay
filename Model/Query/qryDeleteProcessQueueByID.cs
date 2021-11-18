@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryDeleteSendQueueByID : DatabaseQuery
+    public class qryDeleteProcessQueueByID : DatabaseQuery
     {
-        public long SendQueueID { get; private set; }
+        public long ProcessQueueID { get; private set; }
         public bool ValueResult { get; set; }
 
-        public qryDeleteSendQueueByID(long sendQueueID)
+        public qryDeleteProcessQueueByID(long processQueueID)
         {
-            SendQueueID = sendQueueID;
+            ProcessQueueID = processQueueID;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }

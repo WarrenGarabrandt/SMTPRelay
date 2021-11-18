@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.DB
 {
-    public class tblSendQueue
+    public class tblProcessQueue
     {
         
         /// <summary>
         /// Creates a new instance for an item that already exists in the database.
         /// </summary>
-        public tblSendQueue(long sendQueueID, long envelopeID, long envelopeRcptID, int state, int attemptCount, string retryAfter)
+        public tblProcessQueue(long processQueueID, long envelopeID, long envelopeRcptID, int state, int attemptCount, string retryAfter)
         {
-            SendQueueID = sendQueueID;
+            ProcessQueueID = processQueueID;
             EnvelopeID = envelopeID;
             EnvelopeRcptID = envelopeRcptID;
             StateInt = state;
@@ -25,9 +25,9 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new instance for an item that does not yet exist in the databse.
         /// </summary>
-        public tblSendQueue(long envelopeID, long envelopeRcptID, QueueState state, int attemptCount, DateTime? retryAfter)
+        public tblProcessQueue(long envelopeID, long envelopeRcptID, QueueState state, int attemptCount, DateTime? retryAfter)
         {
-            SendQueueID = null;
+            ProcessQueueID = null;
             EnvelopeID = envelopeID;
             EnvelopeRcptID = envelopeRcptID;
             State = state;
@@ -35,7 +35,7 @@ namespace SMTPRelay.Model.DB
             RetryAfter = retryAfter;
         }
 
-        public long? SendQueueID { get; set; }
+        public long? ProcessQueueID { get; set; }
 
         // private set because there isn't a SQL UPDATE statement for this field.
         public long EnvelopeID { get; private set; }

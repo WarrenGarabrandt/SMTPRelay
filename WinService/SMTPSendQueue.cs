@@ -44,7 +44,7 @@ namespace SMTPRelay.WinService
             cleanupSW.Start();
             System.Diagnostics.Stopwatch dbquerySW = new System.Diagnostics.Stopwatch();
             dbquerySW.Start();
-            List<tblSendQueue> pendingQueue = new List<tblSendQueue>();
+            List<tblProcessQueue> pendingQueue = new List<tblProcessQueue>();
             System.Diagnostics.Stopwatch purgeSW = new System.Diagnostics.Stopwatch();
             purgeSW.Start();
             
@@ -61,7 +61,7 @@ namespace SMTPRelay.WinService
                     if (dbquerySW.ElapsedMilliseconds >= QueryUpdateInterval)
                     {
                         pendingQueue.Clear();
-                        pendingQueue = SQLiteDB.SendQueue_GetReady();
+                        pendingQueue = SQLiteDB.ProcessQueue_GetReady();
                         dbquerySW.Restart();
                     }
                     if (purgeSW.ElapsedMilliseconds >= PURGE_CHECK_INTERVAL)
@@ -72,10 +72,10 @@ namespace SMTPRelay.WinService
                     bool busy = false;
                     if (pendingQueue.Count() > 0 && Senders.Count < MAX_ACTIVE_SENDERS)
                     {
-                        tblSendQueue sq = pendingQueue.First();
+                        tblProcessQueue sq = pendingQueue.First();
                         pendingQueue.RemoveAt(0);
                         sq.State = QueueState.InProgress;
-                        SQLiteDB.SendQueue_AddUpdate(sq);
+                        SQLiteDB.ProcessQueue_AddUpdate(sq);
                         SMTPSender snd = new SMTPSender(sq);
                         Senders.Add(snd);
                         if (pendingQueue.Count() > 0)
@@ -134,11 +134,11 @@ namespace SMTPRelay.WinService
         private void ResetPendingSendQueue()
         {
             // Get a list of mail queue items that are busy. Since we're starting up, these were interrupted and need to be retried.
-            List<tblSendQueue> redoQueue = SQLiteDB.SendQueue_GetBusy();
-            foreach (tblSendQueue redoItem in redoQueue)
+            List<tblProcessQueue> redoQueue = SQLiteDB.ProcessQueue_GetBusy();
+            foreach (tblProcessQueue redoItem in redoQueue)
             {
                 redoItem.State = QueueState.Ready;
-                SQLiteDB.SendQueue_AddUpdate(redoItem);
+                SQLiteDB.ProcessQueue_AddUpdate(redoItem);
             }
         }
 
@@ -148,26 +148,34 @@ namespace SMTPRelay.WinService
             {
                 return; 
             }
+            Worker.ReportProgress(0, new WorkerReport()
+            {
+                LogMessage = "Running old email purge."
+            });
             long retainMins = long.Parse(SQLiteDB.System_GetValue("Message", "DataRetainMins"));
             long purgeFailedMins = long.Parse(SQLiteDB.System_GetValue("Message", "PurgeFailedMins"));
 
             DateTime CompleteCutoff = DateTime.Now.AddMinutes(retainMins);
             DateTime FailedCutoff = DateTime.Now.AddMinutes(purgeFailedMins);
 
-            string CompleteCutoffStr = CompleteCutoff.ToUniversalTime().ToString("O");
-            string FailedCutoffStr = FailedCutoff.ToUniversalTime().ToString("O");
+            //string CompleteCutoffStr = CompleteCutoff.ToUniversalTime().ToString("O");
+            //string FailedCutoffStr = FailedCutoff.ToUniversalTime().ToString("O");
 
-
-            /* Query We need to implement to select envelopes that are ready to be deleted.
-SELECT *
-FROM Envelope
-WHERE (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
-AND (SendQueue.State = 0 OR SendQueue.State = 1)) = 0 
-AND  (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
-AND SendQueue.State = -1 AND SendQueue.RetryAfter > $FailedCutoff) = 0 
-AND  (SELECT COUNT(*) FROM SendQueue WHERE SendQueue.EnvelopeID = Envelope.EnvelopeID
-AND SendQueue.State = 2 AND SendQueue.RetryAfter > $CompleteCutoff) = 0 
-             */
+            try
+            {
+                long itemCount = SQLiteDB.Envelope_PurgeOldItems(CompleteCutoff, FailedCutoff);
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogMessage = string.Format("Email purge complete: {0} items.", itemCount)
+                });
+            }
+            catch (Exception ex)
+            {
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogMessage = string.Format("Email purge failed: {0}", ex.Message)
+                });
+            }
             SQLiteDB.System_AddUpdateValue("Purge", "LastRun", DateTime.Now.ToUniversalTime().ToString("O"));
         }
 

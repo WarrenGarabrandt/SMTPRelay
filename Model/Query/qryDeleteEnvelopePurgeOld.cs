@@ -1,5 +1,4 @@
-﻿using SMTPRelay.Model.DB;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,24 +6,28 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qrySetSendQueue : DatabaseQuery
+    public class qryDeleteEnvelopePurgeOld : DatabaseQuery
     {
-        public tblSendQueue SendQueue { get; private set; }
-        public bool ValueResult { get; private set; }
-        public qrySetSendQueue(tblSendQueue sendQueue)
+        public DateTime SuccessCutOff { get; private set; }
+        public DateTime FailedCutOFf { get; private set; }
+
+        public long ValueResult { get; set; }
+
+        public qryDeleteEnvelopePurgeOld(DateTime successCutOff, DateTime failedCutOFf)
         {
-            SendQueue = sendQueue;
+            SuccessCutOff = successCutOff;
+            FailedCutOFf = failedCutOFf;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
 
-        public void SetResult(bool value)
+        public void SetResult(long value)
         {
             ValueResult = value;
             DoneSignal.Set();
         }
 
-        public bool GetResult()
+        public long GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();

@@ -7,23 +7,24 @@ using System.Threading.Tasks;
 
 namespace SMTPRelay.Model.Query
 {
-    public class qryGetBusySendQueue : DatabaseQuery
+    public class qrySetProcessQueue : DatabaseQuery
     {
-        public List<tblSendQueue> Results;
-        public qryGetBusySendQueue()
+        public tblProcessQueue ProcessQueue { get; private set; }
+        public bool ValueResult { get; private set; }
+        public qrySetProcessQueue(tblProcessQueue processQueue)
         {
-            Results = null;
+            ProcessQueue = processQueue;
             DoneSignal = new System.Threading.ManualResetEventSlim();
             Aborted = false;
         }
 
-        public void SetResult(List<tblSendQueue> value)
+        public void SetResult(bool value)
         {
-            Results = value;
+            ValueResult = value;
             DoneSignal.Set();
         }
 
-        public List<tblSendQueue> GetResult()
+        public bool GetResult()
         {
             DoneSignal.Wait();
             DoneSignal.Dispose();
@@ -31,7 +32,7 @@ namespace SMTPRelay.Model.Query
             {
                 throw new OperationCanceledException();
             }
-            return Results;
+            return ValueResult;
         }
     }
 }

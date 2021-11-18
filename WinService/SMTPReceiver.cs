@@ -761,8 +761,8 @@ namespace SMTPRelay.WinService
                             {
                                 foreach (var envrcp in ActiveEnvelopeRcpts)
                                 {
-                                    tblSendQueue snd = new tblSendQueue(ActiveEnvelope.EnvelopeID.Value, envrcp.EnvelopeRcptID.Value, 0, 0, DateTime.Now);
-                                    SQLiteDB.SendQueue_AddUpdate(snd);
+                                    tblProcessQueue snd = new tblProcessQueue(ActiveEnvelope.EnvelopeID.Value, envrcp.EnvelopeRcptID.Value, 0, 0, DateTime.Now);
+                                    SQLiteDB.ProcessQueue_AddUpdate(snd);
                                 }
                                 state = SMTPStates.SendDATAAck;
                             }
