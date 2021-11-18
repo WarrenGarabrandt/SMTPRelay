@@ -96,22 +96,20 @@ namespace SMTPRelay.WinService
                 {
                     gateway = SQLiteDB.MailGateway_GetByID(user.MailGateway.Value);
                 }
-                if (gateway == null && device != null)
+                if (gateway == null && device != null && device.MailGateway.HasValue)
                 {
                     gateway = SQLiteDB.MailGateway_GetByID(device.MailGateway.Value);
                 }
                 
+
+
                 // Sender
                 string MailFromAddress = envelope.Sender;
                 // Recipient
                 string RcptToAddress = envelopeRcpt.Recipient;
                 bool HeaderReplaceSender = false;
                 List<string> SMTPExtensions = new List<string>();
-                if (!string.IsNullOrEmpty(gateway.SenderOverride))
-                {
-                    HeaderReplaceSender = true;
-                    MailFromAddress = gateway.SenderOverride;
-                }
+
                 MsgIdentifier = string.Format("Msg [{0}] from <{1}> to <{2}>. ", envelope.MsgID, envelope.Sender, envelopeRcpt.Recipient);
 
                 // figure out how to contact the server.
@@ -136,6 +134,12 @@ namespace SMTPRelay.WinService
                 else
                 {
                     throw new NotImplementedException("Looking up domain MX recoreds is not implemented.");
+                }
+
+                if (!string.IsNullOrEmpty(gateway.SenderOverride))
+                {
+                    HeaderReplaceSender = true;
+                    MailFromAddress = gateway.SenderOverride;
                 }
 
                 // at this point, we should have either a domain name or an IP address in serverAddress.

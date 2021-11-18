@@ -155,8 +155,8 @@ namespace SMTPRelay.WinService
             long retainMins = long.Parse(SQLiteDB.System_GetValue("Message", "DataRetainMins"));
             long purgeFailedMins = long.Parse(SQLiteDB.System_GetValue("Message", "PurgeFailedMins"));
 
-            DateTime CompleteCutoff = DateTime.Now.AddMinutes(retainMins);
-            DateTime FailedCutoff = DateTime.Now.AddMinutes(purgeFailedMins);
+            DateTime CompleteCutoff = DateTime.Now.AddMinutes(-retainMins);
+            DateTime FailedCutoff = DateTime.Now.AddMinutes(-purgeFailedMins);
 
             //string CompleteCutoffStr = CompleteCutoff.ToUniversalTime().ToString("O");
             //string FailedCutoffStr = FailedCutoff.ToUniversalTime().ToString("O");
