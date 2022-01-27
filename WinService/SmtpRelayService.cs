@@ -305,7 +305,7 @@ namespace SMTPRelay.WinService
             List<tblEnvelope> envs = SQLiteDB.Envelope_GetAll();
             env = SQLiteDB.Envelope_GetByID(envID);
 
-            tblMailGateway mailgateway = new tblMailGateway("mail.outlook.com", 25, true, true, "admin@test.com", "Ps9idfIdisfd", "sender@example.com");
+            tblMailGateway mailgateway = new tblMailGateway("mail.outlook.com", 25, true, true, "admin@test.com", "Ps9idfIdisfd", "sender@example.com", 3);
 
             SQLiteDB.MailGateway_AddUpdate(mailgateway);
             mailgateway.Password = "TESTPASS!";

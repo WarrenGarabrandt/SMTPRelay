@@ -8,7 +8,8 @@ namespace SMTPRelay.Model.DB
 {
     public enum QueueState
     {
-        Disabled = -1,
+        Disabled = -2,
+        SendAdminFailure = -1,
         Ready = 0,
         InProgress = 1,
         Done = 2

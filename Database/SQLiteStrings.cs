@@ -5,7 +5,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.3";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.4";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.
@@ -21,7 +21,7 @@ namespace SMTPRelay.Database
             @"CREATE TABLE Device (DeviceID INTEGER PRIMARY KEY, DisplayName TEXT, Address TEXT, Hostname TEXT, Enabled INTEGER NOT NULL, MailGatewayID INTEGER);",
 
             // Mail Gateway Table
-            @"CREATE TABLE MailGateway (MailGatewayID INTEGER PRIMARY KEY, SMTPServer TEXT NOT NULL, Port INTEGER NOT NULL, EnableSSL INTEGER NOT NULL, Authenticate INTEGER NOT NULL, Username TEXT, Password TEXT, SenderOverride TEXT);",
+            @"CREATE TABLE MailGateway (MailGatewayID INTEGER PRIMARY KEY, SMTPServer TEXT NOT NULL, Port INTEGER NOT NULL, EnableSSL INTEGER NOT NULL, Authenticate INTEGER NOT NULL, Username TEXT, Password TEXT, SenderOverride TEXT, ConnectionLimit INTEGER);",
 
             // Basic email header info.
             @"CREATE TABLE Envelope (EnvelopeID INTEGER PRIMARY KEY, UserID INTEGER, DeviceID INTEGER, WhenReceived TEXT, Sender TEXT, Recipients TEXT, ChunkCount INTEGER, MsgID TEXT);",
@@ -128,10 +128,10 @@ namespace SMTPRelay.Database
             "(SELECT COUNT(*) FROM ProcessQueue WHERE ProcessQueue.EnvelopeID = Envelope.EnvelopeID AND ProcessQueue.State = -1 AND ProcessQueue.RetryAfter > $FailedCutoff) = 0 AND " + 
             "(SELECT COUNT(*) FROM ProcessQueue WHERE ProcessQueue.EnvelopeID = Envelope.EnvelopeID AND ProcessQueue.State = 2 AND ProcessQueue.RetryAfter > $CompleteCutoff) = 0;";
 
-        public static string MailGateway_GetAll = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway;";
-        public static string MailGateway_GetByID = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride FROM MailGateway WHERE MailGatewayID = $MailGatewayID;";
-        public static string MailGateway_Insert = @"INSERT INTO MailGateway (SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride) VALUES ($SMTPServer, $Port, $EnableSSL, $Authenticate, $Username, $Password, $SenderOverride);";
-        public static string MailGateway_Update = @"UPDATE MailGateway SET SMTPServer = $SMTPServer, Port = $Port, EnableSSL = $EnableSSL, Authenticate = $Authenticate, Username = $Username, Password = $Password, SenderOverride = $SenderOverride WHERE MailGatewayID = $MailGatewayID;";
+        public static string MailGateway_GetAll = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride, ConnectionLimit FROM MailGateway;";
+        public static string MailGateway_GetByID = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride, ConnectionLimit FROM MailGateway WHERE MailGatewayID = $MailGatewayID;";
+        public static string MailGateway_Insert = @"INSERT INTO MailGateway (SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride, ConnectionLimit) VALUES ($SMTPServer, $Port, $EnableSSL, $Authenticate, $Username, $Password, $SenderOverride, $ConnectionLimit);";
+        public static string MailGateway_Update = @"UPDATE MailGateway SET SMTPServer = $SMTPServer, Port = $Port, EnableSSL = $EnableSSL, Authenticate = $Authenticate, Username = $Username, Password = $Password, SenderOverride = $SenderOverride, ConnectionLimit = $ConnectionLimit WHERE MailGatewayID = $MailGatewayID;";
         public static string MailGateway_DeleteByID = @"DELETE FROM MailGateway WHERE MailGatewayID = $MailGatewayID;";
 
         public static string MailChunk_GetChunk = @"SELECT LENGTH(Chunk), Chunk FROM MailChunk WHERE EnvelopeID = $EnvelopeID AND ChunkID = $ChunkID;";

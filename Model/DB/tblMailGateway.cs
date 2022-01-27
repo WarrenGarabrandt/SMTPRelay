@@ -12,7 +12,7 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates a new object that doesn't exist in the database yet.
         /// </summary>
-        public tblMailGateway(string smtpServer, int port, bool enableSSL, bool authenticate, string username, string password, string senderOverride)
+        public tblMailGateway(string smtpServer, int port, bool enableSSL, bool authenticate, string username, string password, string senderOverride, int? connectionLimit)
         {
             MailGatewayID = null;
             SMTPServer = smtpServer;
@@ -22,12 +22,13 @@ namespace SMTPRelay.Model.DB
             Username = username;
             Password = password;
             SenderOverride = senderOverride;
+            ConnectionLimit = connectionLimit;
         }
 
         /// <summary>
         /// Creates a new object that already exists in the database.
         /// </summary>
-        public tblMailGateway(long mailRouteID, string smtpServer, int port, int enableSSLint, int authenticateInt, string username, string password, string senderOverride)
+        public tblMailGateway(long mailRouteID, string smtpServer, int port, int enableSSLint, int authenticateInt, string username, string password, string senderOverride, int? connectionLimit)
         {
             MailGatewayID = mailRouteID;
             SMTPServer = smtpServer;
@@ -37,6 +38,7 @@ namespace SMTPRelay.Model.DB
             Username = username;
             Password = password;
             SenderOverride = senderOverride;
+            ConnectionLimit = connectionLimit;
         }
 
         public override string ToString()
@@ -98,7 +100,7 @@ namespace SMTPRelay.Model.DB
         public string Username { get; set; }
         public string Password { get; set; }
         public string SenderOverride { get; set; }
-
+        public int? ConnectionLimit { get; set; }
 
     }
 }

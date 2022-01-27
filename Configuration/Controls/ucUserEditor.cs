@@ -145,7 +145,7 @@ namespace SMTPRelay.Configuration.Controls
             cmbGateways.Enabled = true;
             List<tblMailGateway>  MailGateways = SQLiteDB.MailGateway_GetAll();
             cmbGateways.Items.Clear();
-            tblMailGateway unassign = new tblMailGateway(null, -1, false, false, null, null, null);
+            tblMailGateway unassign = new tblMailGateway(null, -1, false, false, null, null, null, null);
             cmbGateways.Items.Add(unassign);
             cmbGateways.Items.AddRange(MailGateways.ToArray());
             cmbGateways.SelectedItem = unassign;

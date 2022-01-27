@@ -52,6 +52,10 @@ namespace SMTPRelay.Configuration.Controls
                 txtPassword.Enabled = false;
                 cmdSaveChanges.Enabled = false;
                 cmdDelete.Enabled = false;
+                chkAuthenticate.Enabled = false;
+                chkConnectionLimit.Enabled = false;
+                nudConnectionLimit.Enabled = false;
+                nudConnectionLimit.Value = 3;
             }
             else
             {
@@ -84,6 +88,10 @@ namespace SMTPRelay.Configuration.Controls
             txtUsername.Enabled = false;
             txtPassword.Text = "";
             txtPassword.Enabled = false;
+            chkConnectionLimit.Checked = false;
+            chkConnectionLimit.Enabled = false;
+            nudConnectionLimit.Value = 3;
+            nudConnectionLimit.Enabled = false;
             cmdSaveChanges.Enabled = false;
             cmdDelete.Enabled = false;
         }
@@ -98,6 +106,8 @@ namespace SMTPRelay.Configuration.Controls
             chkAuthenticate.Checked = dbGW.Authenticate;
             txtUsername.Text = dbGW.Username;
             txtPassword.Text = dbGW.Password;
+            chkConnectionLimit.Checked = dbGW.ConnectionLimit.HasValue;
+            nudConnectionLimit.Value = dbGW.ConnectionLimit.HasValue ? dbGW.ConnectionLimit.Value : 3;
 
             txtSMTPServer.Enabled = true;
             nudPort.Enabled = true;
@@ -106,6 +116,8 @@ namespace SMTPRelay.Configuration.Controls
             chkAuthenticate.Enabled = true;
             txtUsername.Enabled = chkAuthenticate.Checked;
             txtPassword.Enabled = chkAuthenticate.Checked;
+            chkConnectionLimit.Enabled = true;
+            nudConnectionLimit.Enabled = dbGW.ConnectionLimit.HasValue;
         }
 
         private void lstMailGateways_SelectedIndexChanged(object sender, EventArgs e)
@@ -149,6 +161,10 @@ namespace SMTPRelay.Configuration.Controls
             chkAuthenticate.Enabled = true;
             txtUsername.Enabled = chkAuthenticate.Checked;
             txtPassword.Enabled = chkAuthenticate.Checked;
+            chkConnectionLimit.Checked = false;
+            chkConnectionLimit.Enabled = true;
+            nudConnectionLimit.Value = 3;
+            nudConnectionLimit.Enabled = false;
             cmdDelete.Enabled = true;
             Refreshing = false;
         }
@@ -207,6 +223,7 @@ namespace SMTPRelay.Configuration.Controls
                     updategw.Authenticate = chkAuthenticate.Checked;
                     updategw.Username = updategw.Authenticate ? txtUsername.Text : "";
                     updategw.Password = updategw.Authenticate ? txtPassword.Text : "";
+                    updategw.ConnectionLimit = chkConnectionLimit.Checked ? (int?)nudConnectionLimit.Value : (int?)null;
                     SQLiteDB.MailGateway_AddUpdate(updategw);
                     RefreshUI();
                 }
@@ -214,7 +231,8 @@ namespace SMTPRelay.Configuration.Controls
             if (SelectedGW == -1)
             {
                 tblMailGateway newGW = new tblMailGateway(txtSMTPServer.Text, (int)nudPort.Value, chkEnableSSL.Checked, chkAuthenticate.Checked,
-                    chkAuthenticate.Checked ? txtUsername.Text : "", chkAuthenticate.Checked ? txtPassword.Text : "", txtSenderOverride.Text);
+                    chkAuthenticate.Checked ? txtUsername.Text : "", chkAuthenticate.Checked ? txtPassword.Text : "", txtSenderOverride.Text,
+                    chkConnectionLimit.Checked ? (int?)nudConnectionLimit.Value : (int?)null);
                 SQLiteDB.MailGateway_AddUpdate(newGW);
                 SelectedGW = newGW.MailGatewayID;
                 RefreshUI();
@@ -278,6 +296,25 @@ namespace SMTPRelay.Configuration.Controls
         }
 
         private void txtPassword_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            cmdSaveChanges.Enabled = true;
+        }
+
+        private void chkConnectionLimit_CheckedChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            nudConnectionLimit.Enabled = chkConnectionLimit.Checked;
+            cmdSaveChanges.Enabled = true;
+        }
+
+        private void nudConnectionLimit_ValueChanged(object sender, EventArgs e)
         {
             if (Refreshing)
             {

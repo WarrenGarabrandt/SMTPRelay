@@ -13,7 +13,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteDB
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.3";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.4";
         private static BackgroundWorker Worker = null;
         public static bool ConnectionInitialized = false;
 
@@ -1606,7 +1606,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7)));
+                        results.Add(new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8)));
                     }
                 }
             }
@@ -1624,7 +1624,7 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        results = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
+                        results = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8));
                     }
                 }
             }
@@ -1648,7 +1648,7 @@ namespace SMTPRelay.Database
                     {
                         if (reader.Read())
                         {
-                            dbMailGateway = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
+                            dbMailGateway = new tblMailGateway(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8));
                         }
                     }
                 }
@@ -1670,6 +1670,14 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$Password", query.MailGateway.Password);
                         command.Parameters.AddWithValue("$SenderOverride", query.MailGateway.SenderOverride);
                         command.Parameters.AddWithValue("$MailGatewayID", query.MailGateway.MailGatewayID);
+                        if (query.MailGateway.ConnectionLimit.HasValue)
+                        {
+                            command.Parameters.AddWithValue("ConnectionLimit", query.MailGateway.ConnectionLimit.Value);
+                        }
+                        else
+                        {
+                            command.Parameters.AddWithValue("ConnectionLimit", DBNull.Value);
+                        }
                         command.ExecuteNonQuery();
                     }
                 }
@@ -1690,6 +1698,14 @@ namespace SMTPRelay.Database
                     command.Parameters.AddWithValue("$Username", query.MailGateway.Username);
                     command.Parameters.AddWithValue("$Password", query.MailGateway.Password);
                     command.Parameters.AddWithValue("$SenderOverride", query.MailGateway.SenderOverride);
+                    if (query.MailGateway.ConnectionLimit.HasValue)
+                    {
+                        command.Parameters.AddWithValue("ConnectionLimit", query.MailGateway.ConnectionLimit.Value);
+                    }
+                    else
+                    {
+                        command.Parameters.AddWithValue("ConnectionLimit", DBNull.Value);
+                    }
                     command.ExecuteNonQuery();
                 }
                 using (var command = conn.CreateCommand())

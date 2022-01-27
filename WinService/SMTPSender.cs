@@ -15,12 +15,16 @@ namespace SMTPRelay.WinService
 {
     public class SMTPSender
     {
+        // hard programmed limit of 20 minutes
+        private const int CONNECTIONTIMEOUT = 1200000;
         private BackgroundWorker Worker;
         public bool Running;
         public ConcurrentQueue<WorkerReport> WorkerReports;
+        public long? GatewayIdInUse = null;
 
-        public SMTPSender(tblProcessQueue sendQueueItem )
+        public SMTPSender(tblProcessQueue sendQueueItem, long? trackGateway)
         {
+            GatewayIdInUse = trackGateway;
             WorkerReports = new ConcurrentQueue<WorkerReport>();
             Running = true;
             Worker = new BackgroundWorker();
@@ -56,6 +60,8 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            System.Diagnostics.Stopwatch swTimeout = new System.Diagnostics.Stopwatch();
+            swTimeout.Start();
             tblProcessQueue sendQueueItem = e.Argument as tblProcessQueue;
             if (sendQueueItem == null)
             {
@@ -73,6 +79,7 @@ namespace SMTPRelay.WinService
             string finalResults = null;
             string MsgIdentifier = string.Empty;
             bool PermanentFailure = false;
+
 
             try
             {
@@ -210,11 +217,16 @@ namespace SMTPRelay.WinService
                 // we got a 220 hello message.
                 // send the HELO message
                 smtpStream.WriteLine(string.Format("EHLO {0}", localHostname));
+                
 
                 // Get the server extensions (250-) and the OK message (250)
                 while ((line = smtpStream.ReadLine(30000)).StartsWith("250-"))
                 {
                     SMTPExtensions.Add(line);
+                    if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    {
+                        throw new Exception("Timeout Exceeded for the connection.");
+                    }
                 }
                 if (string.IsNullOrEmpty(line))
                 {
@@ -261,6 +273,10 @@ namespace SMTPRelay.WinService
                     while ((line = smtpStream.ReadLine(30000)).StartsWith("250-"))
                     {
                         SMTPExtensions.Add(line);
+                        if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                        {
+                            throw new Exception("Timeout Exceeded for the connection.");
+                        }
                     }
                     if (string.IsNullOrEmpty(line))
                     {
@@ -370,7 +386,7 @@ namespace SMTPRelay.WinService
 
                 // send the data
                 bool FromDone = false;
-                bool MIMEFormat = false;
+                //bool MIMEFormat = false;
                 for (int i = 0; i < envelope.ChunkCount; i++)
                 {
                     byte[] datablock = SQLiteDB.MailChunk_GetChunk(envelope.EnvelopeID.Value, i);
@@ -389,6 +405,10 @@ namespace SMTPRelay.WinService
                             outputLine = string.Format(".{0}", outputLine);
                         }
                         smtpStream.WriteLine(outputLine);
+                        if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                        {
+                            throw new Exception("Timeout Exceeded for the connection.");
+                        }
                     }
                 }
                 // end the message with /r/n./r/n
@@ -449,26 +469,22 @@ namespace SMTPRelay.WinService
                     SQLiteDB.SendLog_Insert(log);
                     if (PermanentFailure)
                     {
-                        sendQueueItem.State = QueueState.Disabled;
+                        sendQueueItem.State = QueueState.SendAdminFailure;
                     }
                     else
                     {
                         sendQueueItem.State = QueueState.Ready;
-                        if (sendQueueItem.AttemptCount < 3)
+                        if (sendQueueItem.AttemptCount < 4)
                         {
-                            sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(30);
+                            sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(10);
                         }
-                        else if (sendQueueItem.AttemptCount < 6)
+                        else if (sendQueueItem.AttemptCount < 25)
                         {
                             sendQueueItem.RetryAfter = DateTime.Now.AddHours(6);
                         }
-                        else if (sendQueueItem.AttemptCount < 10)
-                        {
-                            sendQueueItem.RetryAfter = DateTime.Now.AddDays(1);
-                        }
                         else
                         {
-                            sendQueueItem.State = QueueState.Disabled;
+                            sendQueueItem.State = QueueState.SendAdminFailure;
                             sendQueueItem.RetryAfter = DateTime.Now;
                         }
                     }
@@ -506,6 +522,11 @@ namespace SMTPRelay.WinService
                     client = null;
                 }
             }
+        }
+
+        private void UpdateQueueState()
+        { 
+
         }
 
         private string BASE64Encode(string cleartext)

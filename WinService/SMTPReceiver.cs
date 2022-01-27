@@ -855,7 +855,7 @@ namespace SMTPRelay.WinService
                 // message too long. delete the message.
                 SQLiteDB.MailChunk_DeleteMailData(activeEnvelope.EnvelopeID.Value);
             }
-            catch (TimeoutException ext)
+            catch (TimeoutException)
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
