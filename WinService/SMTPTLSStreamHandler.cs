@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Security;
@@ -40,6 +41,7 @@ namespace SMTPRelay.WinService
             {
                 case Mode.Client:
                     _sslStream = new SslStream(_stream, true, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
+                    _sslStream.WriteTimeout = 30000;
                     try
                     {
                         _sslStream.AuthenticateAsClient(host);
@@ -93,13 +95,17 @@ namespace SMTPRelay.WinService
             return false;
         }
 
-        public string ReadLine(int waitms = 10)
+        public string ReadLine(int waitms = 10, BackgroundWorker bwCanceller = null)
         {
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
             bool GetingChars = true;
             while (GetingChars || sw.ElapsedMilliseconds < waitms || waitms == -1)
             {
+                if (bwCanceller != null && bwCanceller.CancellationPending)
+                {
+                    throw new OperationCanceledException();
+                }
                 byte[] buff = new byte[1];
                 int read = _sslStream.Read(buff, 0, 1);
                 if (read == 1)

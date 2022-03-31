@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.ComponentModel;
 
 namespace SMTPRelay.WinService
 {
@@ -20,6 +21,7 @@ namespace SMTPRelay.WinService
         {
             _sb = new StringBuilder();
             _stream = stream;
+            _stream.WriteTimeout = 30000;
         }
 
         private StringBuilder _sb;
@@ -32,13 +34,17 @@ namespace SMTPRelay.WinService
         /// </summary>
         /// <param name="waitms">How long to wait in milliseconds before giving up and returning nothing</param>
         /// <returns>A full line of text </returns>
-        public string ReadLine(int waitms = 10)
+        public string ReadLine(int waitms = 10, BackgroundWorker bwCanceller = null)
         {
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
             bool GetingChars = true;
             while (GetingChars || sw.ElapsedMilliseconds < waitms || waitms == -1)
             {
+                if (bwCanceller != null && bwCanceller.CancellationPending)
+                {
+                    throw new OperationCanceledException();
+                }
                 byte[] buff = new byte[1];
                 int read = _stream.Read(buff, 0, 1);
                 if (read == 1)

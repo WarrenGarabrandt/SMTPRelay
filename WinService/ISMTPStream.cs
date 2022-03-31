@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +14,7 @@ namespace SMTPRelay.WinService
         /// </summary>
         /// <param name="waitms"></param>
         /// <returns></returns>
-        string ReadLine(int waitms = 10);
+        string ReadLine(int waitms = 10, BackgroundWorker bwCanceller = null);
 
         /// <summary>
         /// Writes a line of text to the underlying stream. Buffers will be flushed to ensure delivery immediately. 

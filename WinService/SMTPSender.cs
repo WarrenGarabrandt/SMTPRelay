@@ -60,6 +60,8 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            System.Diagnostics.Stopwatch HardTimeLimit = new System.Diagnostics.Stopwatch();
+            HardTimeLimit.Start();
             System.Diagnostics.Stopwatch swTimeout = new System.Diagnostics.Stopwatch();
             swTimeout.Start();
             tblProcessQueue sendQueueItem = e.Argument as tblProcessQueue;
@@ -204,7 +206,7 @@ namespace SMTPRelay.WinService
                 smtpStream = new SMTPStreamHandler(stream);
 
                 // negotiate the connection and switch to TLS if the gateway specifies requirements to do so.
-                string line = smtpStream.ReadLine(30000);
+                string line = smtpStream.ReadLine(30000, Worker);
                 if (string.IsNullOrEmpty(line))
                 {
                     throw new Exception("Timeout initiating connection to SMTP server.");
@@ -220,8 +222,16 @@ namespace SMTPRelay.WinService
                 
 
                 // Get the server extensions (250-) and the OK message (250)
-                while ((line = smtpStream.ReadLine(30000)).StartsWith("250-"))
+                while ((line = smtpStream.ReadLine(30000, Worker)).StartsWith("250-"))
                 {
+                    if (Worker.CancellationPending)
+                    {
+                        throw new OperationCanceledException();
+                    }
+                    if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    {
+                        throw new Exception("Total Process Timeout Exceeded for the connection.");
+                    }
                     SMTPExtensions.Add(line);
                     if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
@@ -246,7 +256,7 @@ namespace SMTPRelay.WinService
                     // 220 Ready to start TLS
                     // 501 Syntax error (no parameters allowed)
                     // 454 TLS not available due to temporary reason
-                    line = smtpStream.ReadLine(30000);
+                    line = smtpStream.ReadLine(30000, Worker);
                     if (string.IsNullOrEmpty(line))
                     {
                         throw new Exception("Timeout enabling TLS.");
@@ -270,8 +280,16 @@ namespace SMTPRelay.WinService
                     // send the HELO message. This essentially starts the conversation over.
                     smtpStream.WriteLine(string.Format("EHLO {0}", localHostname));
                     SMTPExtensions.Clear();  // we might get different extensions now that we're in TLS mode.
-                    while ((line = smtpStream.ReadLine(30000)).StartsWith("250-"))
+                    while ((line = smtpStream.ReadLine(30000, Worker)).StartsWith("250-"))
                     {
+                        if (Worker.CancellationPending)
+                        {
+                            throw new OperationCanceledException();
+                        }
+                        if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                        {
+                            throw new Exception("Total Process Timeout Exceeded for the connection.");
+                        }
                         SMTPExtensions.Add(line);
                         if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                         {
@@ -297,7 +315,11 @@ namespace SMTPRelay.WinService
                 if (login)
                 {
                     smtpStream.WriteLine("AUTH LOGIN");
-                    line = smtpStream.ReadLine(30000);
+                    line = smtpStream.ReadLine(30000, Worker);
+                    if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    {
+                        throw new Exception("Total Process Timeout Exceeded for the connection.");
+                    }
                     if (string.IsNullOrEmpty(line))
                     {
                         throw new Exception("Timeout authenticating to SMTP server.");
@@ -311,7 +333,11 @@ namespace SMTPRelay.WinService
                         throw new Exception(string.Format("Authentication not supported. {0}", line));
                     }
                     smtpStream.WriteLine(BASE64Encode(gateway.Username));
-                    line = smtpStream.ReadLine(30000);
+                    line = smtpStream.ReadLine(30000, Worker);
+                    if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    {
+                        throw new Exception("Total Process Timeout Exceeded for the connection.");
+                    }
                     if (string.IsNullOrEmpty(line))
                     {
                         throw new Exception("Timeout authenticating to SMTP server.");
@@ -325,7 +351,11 @@ namespace SMTPRelay.WinService
                         throw new Exception(string.Format("Authentication not supported. {0}", line));
                     }
                     smtpStream.WriteLine(BASE64Encode(gateway.Password));
-                    line = smtpStream.ReadLine(30000);
+                    line = smtpStream.ReadLine(30000, Worker);
+                    if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    {
+                        throw new Exception("Total Process Timeout Exceeded for the connection.");
+                    }
                     if (string.IsNullOrEmpty(line))
                     {
                         throw new Exception("Timeout authenticating to SMTP server.");
@@ -346,7 +376,11 @@ namespace SMTPRelay.WinService
 
                 // negotiate the MAIL FROM
                 smtpStream.WriteLine(string.Format("MAIL FROM: {0}", EscapeEmailAddress(MailFromAddress)));
-                line = smtpStream.ReadLine(30000);
+                line = smtpStream.ReadLine(30000, Worker);
+                if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                {
+                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                }
                 if (string.IsNullOrEmpty(line))
                 {
                     throw new Exception("Timeout negotiating MAIL FROM.");
@@ -362,7 +396,11 @@ namespace SMTPRelay.WinService
 
                 // and now the RCPT TO
                 smtpStream.WriteLine(string.Format("RCPT TO: {0}", EscapeEmailAddress(RcptToAddress)));
-                line = smtpStream.ReadLine(30000);
+                line = smtpStream.ReadLine(30000, Worker);
+                if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                {
+                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                }
                 if (string.IsNullOrEmpty(line))
                 {
                     throw new Exception("Timeout negotiating RCPT TO.");
@@ -374,7 +412,11 @@ namespace SMTPRelay.WinService
 
                 // Signal that we are done with the envelope and ready to send the message
                 smtpStream.WriteLine("DATA");
-                line = smtpStream.ReadLine(30000);
+                line = smtpStream.ReadLine(30000, Worker);
+                if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                {
+                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                }
                 if (string.IsNullOrEmpty(line))
                 {
                     throw new Exception("Timeout negotiating DATA stream.");
@@ -389,6 +431,10 @@ namespace SMTPRelay.WinService
                 //bool MIMEFormat = false;
                 for (int i = 0; i < envelope.ChunkCount; i++)
                 {
+                    if (Worker.CancellationPending)
+                    {
+                        throw new OperationCanceledException();
+                    }
                     byte[] datablock = SQLiteDB.MailChunk_GetChunk(envelope.EnvelopeID.Value, i);
                     string datastring = ASCIIEncoding.ASCII.GetString(datablock);
                     List<string> datalines = datastring.Split(new string[] { "\r\n" }, StringSplitOptions.None).ToList();
@@ -405,6 +451,10 @@ namespace SMTPRelay.WinService
                             outputLine = string.Format(".{0}", outputLine);
                         }
                         smtpStream.WriteLine(outputLine);
+                        if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                        {
+                            throw new Exception("Total Process Timeout Exceeded for the connection.");
+                        }
                         if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                         {
                             throw new Exception("Timeout Exceeded for the connection.");
@@ -415,7 +465,11 @@ namespace SMTPRelay.WinService
                 smtpStream.WriteLine(".");
 
                 // get a final ack
-                line = smtpStream.ReadLine(30000);
+                line = smtpStream.ReadLine(30000, Worker);
+                if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                {
+                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                }
                 if (string.IsNullOrEmpty(line))
                 {
                     throw new Exception("Timeout finalizing message. No ACK received.");
@@ -438,7 +492,11 @@ namespace SMTPRelay.WinService
                 
                 // close the tcp connection
                 smtpStream.WriteLine("QUIT");
-                line = smtpStream.ReadLine(10000);
+                line = smtpStream.ReadLine(10000, Worker);
+                if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                {
+                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                }
                 if (string.IsNullOrEmpty(line))
                 {
                     //we don't actually need to wait for a reply to a QUIT. We can hang up.
@@ -455,6 +513,21 @@ namespace SMTPRelay.WinService
                 SQLiteDB.SendLog_Insert(log);
                 sendQueueItem.State = QueueState.Done;
                 sendQueueItem.RetryAfter = DateTime.Now;
+                SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
+            }
+            catch (OperationCanceledException opex)
+            {
+                // this might be because of a cancel, or a global timeout, or any number of underlying exceptions.
+                Worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogError = string.Format("Operation Cancelled: {0}. Will retry after a minimum of 10 minutes.", MsgIdentifier)
+                });
+                tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, "Operation cancelled", sendQueueItem.AttemptCount, false);
+                SQLiteDB.SendLog_Insert(log);
+                // roll back this aborted attempt.
+                sendQueueItem.AttemptCount--;
+                sendQueueItem.State = QueueState.Ready;
+                sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(10);
                 SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
             }
             catch (Exception ex)
@@ -522,11 +595,6 @@ namespace SMTPRelay.WinService
                     client = null;
                 }
             }
-        }
-
-        private void UpdateQueueState()
-        { 
-
         }
 
         private string BASE64Encode(string cleartext)
