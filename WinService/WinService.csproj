@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ISMTPStream.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SMTPListener.cs" />
     <Compile Include="SMTPReceiver.cs" />
     <Compile Include="SmtpRelayService.cs">
