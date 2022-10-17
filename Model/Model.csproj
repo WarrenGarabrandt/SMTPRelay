@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SMTPRelay.Model</RootNamespace>
     <AssemblyName>Model</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
@@ -50,10 +50,12 @@
     <Compile Include="DB\tblEnvelopeRcpt.cs" />
     <Compile Include="DB\tblIPEndpoint.cs" />
     <Compile Include="DB\tblMailGateway.cs" />
+    <Compile Include="DB\tblMailItem.cs" />
     <Compile Include="DB\tblSendLog.cs" />
     <Compile Include="DB\tblProcessQueue.cs" />
     <Compile Include="DB\tblSystem.cs" />
     <Compile Include="DB\tblUser.cs" />
+    <Compile Include="DB\vwMailInbox.cs" />
     <Compile Include="DB\vwMailQueue.cs" />
     <Compile Include="MailObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -65,6 +67,7 @@
     <Compile Include="Query\qryDeleteMailChunkData.cs" />
     <Compile Include="Query\qryDeleteMailGatwayByID.cs" />
     <Compile Include="Query\qryDeleteProcessQueueByID.cs" />
+    <Compile Include="Query\qryGetAllMailItemsByUserID.cs" />
     <Compile Include="Query\qryGetAllDevices.cs" />
     <Compile Include="Query\qryGetAllIPEndpoints.cs" />
     <Compile Include="Query\qryGetAllMailGateways.cs" />
@@ -77,6 +80,7 @@
     <Compile Include="Query\qryGetMailDataSize.cs" />
     <Compile Include="Query\qryGetMailGatewayByID.cs" />
     <Compile Include="Query\qryGetMailChunkData.cs" />
+    <Compile Include="Query\qryGetMailItemByID.cs" />
     <Compile Include="Query\qryGetReadyDeliveryReports.cs" />
     <Compile Include="Query\qryGetReadyProcessQueue.cs" />
     <Compile Include="Query\qryGetSendLogPage.cs" />
@@ -101,9 +105,12 @@
     <Compile Include="Query\qrySetIPEndpoint.cs" />
     <Compile Include="Query\qrySetMailChunk.cs" />
     <Compile Include="Query\qrySetMailGateway.cs" />
+    <Compile Include="Query\qrySetMailitem.cs" />
+    <Compile Include="Query\qrySetMailItemUnread.cs" />
     <Compile Include="Query\qrySetSendLog.cs" />
     <Compile Include="Query\qrySetProcessQueue.cs" />
     <Compile Include="Query\qrySetUser.cs" />
+    <Compile Include="Query\qryViewGetInbox.cs" />
     <Compile Include="Query\qryViewMailQueue.cs" />
     <Compile Include="ServiceControl.cs" />
     <Compile Include="WorkerReport.cs" />

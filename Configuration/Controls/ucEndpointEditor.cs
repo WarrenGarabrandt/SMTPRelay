@@ -39,6 +39,7 @@ namespace SMTPRelay.Configuration.Controls
                 gw.SubItems.Add(dbie.TLSModeString);
                 gw.SubItems.Add(dbie.Hostname);
                 gw.SubItems.Add(dbie.CertFriendlyName);
+                gw.SubItems.Add(dbie.Maildrop ? "Maildrop" : "");
                 gw.Tag = dbie.IPEndpointID;
                 IPEndpoints.Add(gw);
             }
@@ -53,6 +54,7 @@ namespace SMTPRelay.Configuration.Controls
                 cmbCertFriendlyName.Enabled = false;
                 cmdSaveChanges.Enabled = false;
                 cmdDelete.Enabled = false;
+                chkMaildrop.Enabled = false;
             }
             else
             {
@@ -78,6 +80,8 @@ namespace SMTPRelay.Configuration.Controls
             cmbTLSMode.Enabled = false;
             txtHostname.Text = "";
             txtHostname.Enabled = false;
+            chkMaildrop.Checked = false;
+            chkMaildrop.Enabled = false;
             cmbCertFriendlyName.Enabled = false;
             cmdSaveChanges.Enabled = false;
             cmdDelete.Enabled = false;
@@ -94,6 +98,7 @@ namespace SMTPRelay.Configuration.Controls
             cmbTLSMode.SelectedIndex = (int)dbEP.TLSMode;
             txtHostname.Text = dbEP.Hostname;
             cmbCertFriendlyName.Text = dbEP.CertFriendlyName;
+            chkMaildrop.Checked = dbEP.Maildrop;
 
             cmbIPAddress.Enabled = true;
             nudPort.Enabled = true;
@@ -101,6 +106,7 @@ namespace SMTPRelay.Configuration.Controls
             cmbTLSMode.Enabled = true;
             txtHostname.Enabled = true;
             cmbCertFriendlyName.Enabled = true;
+            chkMaildrop.Enabled = true;
         }
 
         private void lstEndpoints_SelectedIndexChanged(object sender, EventArgs e)
@@ -135,6 +141,7 @@ namespace SMTPRelay.Configuration.Controls
             cmbTLSMode.SelectedIndex = 0;
             txtHostname.Text = SQLiteDB.GetFQDN();
             cmbCertFriendlyName.Text = "";
+            chkMaildrop.Checked = false;
 
             cmbIPAddress.Enabled = true;
             nudPort.Enabled = true;
@@ -142,6 +149,7 @@ namespace SMTPRelay.Configuration.Controls
             cmbTLSMode.Enabled = true;
             cmbCertFriendlyName.Enabled = true;
             cmdDelete.Enabled = true;
+            chkMaildrop.Enabled = true;
             Refreshing = false;
         }
 
@@ -207,13 +215,14 @@ namespace SMTPRelay.Configuration.Controls
                     updateep.TLSMode = GetTLSMode();
                     updateep.Hostname = txtHostname.Text.Trim();
                     updateep.CertFriendlyName = cmbCertFriendlyName.Text;
+                    updateep.Maildrop = chkMaildrop.Checked;
                     SQLiteDB.IPEndpoint_AddUpdate(updateep);
                     RefreshUI();
                 }
             }
             if (SelectedIP == -1)
             {
-                tblIPEndpoint newEP = new tblIPEndpoint(cmbIPAddress.Text, (int)nudPort.Value, GetProtocol(), GetTLSMode(), txtHostname.Text.Trim(), cmbCertFriendlyName.Text);
+                tblIPEndpoint newEP = new tblIPEndpoint(cmbIPAddress.Text, (int)nudPort.Value, GetProtocol(), GetTLSMode(), txtHostname.Text.Trim(), cmbCertFriendlyName.Text, chkMaildrop.Checked);
                 SQLiteDB.IPEndpoint_AddUpdate(newEP);
                 SelectedIP = newEP.IPEndpointID;
                 RefreshUI();
@@ -390,6 +399,15 @@ namespace SMTPRelay.Configuration.Controls
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            cmdSaveChanges.Enabled = true;
+        }
+
+        private void chkMaildrop_CheckedChanged(object sender, EventArgs e)
         {
             if (Refreshing)
             {

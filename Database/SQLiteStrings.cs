@@ -5,7 +5,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.4";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.5";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.
@@ -15,7 +15,7 @@ namespace SMTPRelay.Database
             @"CREATE UNIQUE INDEX idx_System_CategorySetting ON System(Category, Setting);",
 
             // User table
-            @"CREATE TABLE User (UserID INTEGER PRIMARY KEY, DisplayName TEXT, Email TEXT, Salt TEXT NOT NULL, PassHash TEXT NOT NULL, Enabled INTEGER NOT NULL, Admin INTEGER NOT NULL, MailGatewayID INTEGER);",
+            @"CREATE TABLE User (UserID INTEGER PRIMARY KEY, DisplayName TEXT, Email TEXT, Salt TEXT NOT NULL, PassHash TEXT NOT NULL, Enabled INTEGER NOT NULL, Admin INTEGER NOT NULL, Maildrop INTEGER NOT NULL, MailGatewayID INTEGER);",
 
             // Device table
             @"CREATE TABLE Device (DeviceID INTEGER PRIMARY KEY, DisplayName TEXT, Address TEXT, Hostname TEXT, Enabled INTEGER NOT NULL, MailGatewayID INTEGER);",
@@ -35,6 +35,9 @@ namespace SMTPRelay.Database
             // Stores email body in chunks.
             @"CREATE TABLE MailChunk (EnvelopeID INTEGER NOT NULL, ChunkID INTEGER NOT NULL, Chunk BLOB);",
 
+            // Stores a Mail Item received from a MailDrop enabled endpoint. 
+            @"CREATE TABLE MailItem (MailItemID INTEGER PRIMARY KEY, UserID INTEGER NOT NULL, EnvelopeID INTEGER, Unread INTEGER NOT NULL);",
+
             // Queue of items to be transmitted. Items are removed as they are completed.
             // State: -1 = disable
             //         0 = Wait for RetryAfter Timer
@@ -52,7 +55,9 @@ namespace SMTPRelay.Database
             // TLSMode: 0 = No TLS available. Reject StartTLS attempts.
             //          1 = TLS available if client asks for it.
             //          2 = TLS Required. Client MUST Issue StartTLS before Auth
-            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, Hostname TEXT, CertFriendlyName TEXT);",
+            // Maildrop: 0 = Not a maildrop, requires authentication
+            //           1 = Is a maildrop, no authentication required. A maildrop user must be a recipient to accept mail.
+            @"CREATE TABLE IPEndpoint (IPEndpointID INTEGER PRIMARY KEY, Address TEXT, Port INTEGER, Protocol TEXT, TLSMode INTEGER, Hostname TEXT, CertFriendlyName TEXT, Maildrop INTEGER NOT NULL);",
 
             // Delivery Reports
             // Generated when an email can't be sent to a recipient. It send the message to the original sender as well as the admin contact.
@@ -103,11 +108,11 @@ namespace SMTPRelay.Database
         public static string System_Select = @"SELECT Value FROM System WHERE Category = $Category AND Setting = $Setting;";
         public static string System_Insert = @"REPLACE INTO System(Category, Setting, Value) VALUES ($Category, $Setting, $Value);";
         
-        public static string User_GetAll = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, MailGatewayID FROM User;";
-        public static string User_GetByEmail = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, MailGatewayID FROM User WHERE Email = $Email COLLATE NOCASE;";
-        public static string User_GetByID = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, MailGatewayID FROM User WHERE UserID = $UserID;";
-        public static string User_Insert = @"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin, MailGatewayID) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin, $MailGatewayID);";
-        public static string User_Update = @"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin, MailGatewayID = $MailGatewayID WHERE UserID = $UserID;";
+        public static string User_GetAll = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, Maildrop, MailGatewayID FROM User;";
+        public static string User_GetByEmail = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, Maildrop, MailGatewayID FROM User WHERE Email = $Email COLLATE NOCASE;";
+        public static string User_GetByID = @"SELECT UserID, DisplayName, Email, Salt, PassHash, Enabled, Admin, Maildrop, MailGatewayID FROM User WHERE UserID = $UserID;";
+        public static string User_Insert = @"INSERT INTO User(DisplayName, Email, Salt, PassHash, Enabled, Admin, Maildrop, MailGatewayID) VALUES ($DisplayName, $Email, $Salt, $PassHash, $Enabled, $Admin, $Maildrop, $MailGatewayID);";
+        public static string User_Update = @"UPDATE User SET DisplayName = $DisplayName, Email = $Email, Salt = $Salt, PassHash = $PassHash, Enabled = $Enabled, Admin = $Admin, Maildrop = $Maildrop, MailGatewayID = $MailGatewayID WHERE UserID = $UserID;";
         public static string User_ClearGatewayByID = @"UPDATE User SET MailGatewayID = NULL WHERE MailGatewayID = $MailGatewayID;";
         public static string User_DeleteByID = @"DELETE FROM User WHERE UserID = $UserID;";
 
@@ -139,6 +144,11 @@ namespace SMTPRelay.Database
         public static string MailChunk_DeleteMailData = @"DELETE FROM MailChunk WHERE EnvelopeID = $EnvelopeID;";
         public static string MailChunk_GetMailSize = @"SELECT SUM(LENGTH(Chunk)) FROM MailChunk WHERE EnvelopeID = $EnvelopeID;";
 
+        public static string MailItem_GetByID = @"SELECT MailItemID, UserID, EnvelopeID, Unread FROM MailItem WHERE MailItemID = $MailItemID;";
+        public static string MailItem_GetAllByUserId = @"SELECT MailItemID, UserID, EnvelopeID, Unread FROM MailItem WHERE UserID = $UserID;";
+        public static string MailItem_Insert = @"INSERT INTO MailItem (UserID, EnvelopeID, Unread) VALUES ($UserID, $EnvelopeID, $Unread);";
+        public static string MailItem_UpdateUnread = @"UPDATE MailItem SET Unread = $Unread WHERE MailItemID = $MailItemID;";
+
         public static string ProcessQueue_GetAll = @"SELECT ProcessQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM ProcessQueue;";
         public static string ProcessQueue_GetReady = @"SELECT ProcessQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM ProcessQueue WHERE RetryAfter < $RetryAfter AND ProcessQueue.State = 0 ORDER BY RetryAfter;";
         public static string ProcessQueue_GetBusy = @"SELECT ProcessQueueID, EnvelopeID, EnvelopeRcptID, State, AttemptCount, RetryAfter FROM ProcessQueue WHERE ProcessQueue.State = 1;";
@@ -160,10 +170,10 @@ namespace SMTPRelay.Database
         public static string EnvelopeRcpt_Insert = @"INSERT INTO EnvelopeRcpt (EnvelopeID, RecipientID) VALUES ($EnvelopeID, $RecipientID);";
         public static string EnvelopeRcpt_DeleteByEnvelopeID = @"DELETE FROM EnvelopeRcpt WHERE EnvelopeID = $EnvelopeID;";
 
-        public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint;";
-        public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
-        public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName) VALUES ($Address, $Port, $Protocol, $TLSMode, $Hostname, $CertFriendlyName);";
-        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, Hostname = $Hostname, CertFriendlyName = $CertFriendlyName WHERE IPEndpointID = $IPEndpointID;";
+        public static string IPEndpoint_GetAll = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName, Maildrop FROM IPEndpoint;";
+        public static string IPEndpoint_GetByID = @"SELECT IPEndpointID, Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName, Maildrop FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
+        public static string IPEndpoint_Insert = @"INSERT INTO IPEndpoint (Address, Port, Protocol, TLSMode, Hostname, CertFriendlyName, Maildrop) VALUES ($Address, $Port, $Protocol, $TLSMode, $Hostname, $CertFriendlyName, $Maildrop);";
+        public static string IPEndpoint_Update = @"UPDATE IPEndpoint SET Address = $Address, Port = $Port, Protocol = $Protocol, TLSMode = $TLSMode, Hostname = $Hostname, CertFriendlyName = $CertFriendlyName, Maildrop = $Maildrop WHERE IPEndpointID = $IPEndpointID;";
         public static string IPEndpoint_DeleteByID = @"DELETE FROM IPEndpoint WHERE IPEndpointID = $IPEndpointID;";
 
         //@"CREATE TABLE DeliveryReport (DeliveryReportID INTEGER PRIMARY KEY, WhenScheduled TEXT, WhenGenerated TEXT, OriginalEnvelopeRcptID INTEGER, EnvelopeID INTEGER, ReportType INTEGER, Reason TEXT, Status INTEGER);"
@@ -173,7 +183,8 @@ namespace SMTPRelay.Database
         public static string DeliveryReport_UpdateDone = @"UPDATE DeliveryReport SET WhenGenerated = $WhenGenerated, EnvelopeID = $EnvelopeID, Status = $Status WHERE DeliveryReportID = $DeliveryReportID;";
 
         public static string vwMailQueue_GetQueue = @"SELECT Envelope.Sender, Envelope.Recipients, Envelope.WhenReceived, ProcessQueue.RetryAfter, ProcessQueue.AttemptCount FROM ProcessQueue INNER JOIN Envelope ON ProcessQueue.EnvelopeID = Envelope.EnvelopeID WHERE ProcessQueue.State = 0 ORDER BY ProcessQueue.RetryAfter ASC;";
-              
+        public static string vwMailInbox_GetInboxViewByUserId = @"SELECT MailItem.MailItemID, MailItem.EnvelopeID, MailItem.Unread, Envelope.WhenReceived, Envelope.Sender FROM MailItem INNER JOIN Envelope ON MailItem.EnvelopeID = Envelope.EnvelopeID WHERE MailItem.UserID = $UserID ORDER BY Envelope.WhenReceived DESC;";
+
 
     }
 }

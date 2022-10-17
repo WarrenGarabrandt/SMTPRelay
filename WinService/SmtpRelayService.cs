@@ -266,7 +266,7 @@ namespace SMTPRelay.WinService
             List<tblSystem> keys = SQLiteDB.System_GetAll();
 
             string testUserEmail = string.Format("testuser{0}@{1}.test.local", SQLiteDB.GenerateNonce(24), SQLiteDB.GenerateNonce(16));
-            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, null);
+            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, false, null);
             string testuserPass = SQLiteDB.GenerateNonce(24);
             SQLiteDB.GeneratePasswordHash(testUser, testuserPass);
             SQLiteDB.User_AddUpdate(testUser);
@@ -434,7 +434,7 @@ namespace SMTPRelay.WinService
         {
             System.Diagnostics.Stopwatch sw = new Stopwatch();
             string testUserEmail = string.Format("testuser{0}@{1}.test.local", SQLiteDB.GenerateNonce(24), SQLiteDB.GenerateNonce(16));
-            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, null);
+            tblUser testUser = new tblUser("Test User", testUserEmail, null, null, true, false, false, null);
             string testuserPass = SQLiteDB.GenerateNonce(24);
             SQLiteDB.GeneratePasswordHash(testUser, testuserPass);
             SQLiteDB.User_AddUpdate(testUser);

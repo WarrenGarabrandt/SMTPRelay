@@ -14,7 +14,7 @@ namespace SMTPRelay.Model.DB
         /// <summary>
         /// Creates new instance that has not been saved into the database yet.
         /// </summary>
-        public tblIPEndpoint(string address, int port, IPEndpointProtocols protocol, IPEndpointTLSModes tlsMode, string hostname, string certFriendlyName)
+        public tblIPEndpoint(string address, int port, IPEndpointProtocols protocol, IPEndpointTLSModes tlsMode, string hostname, string certFriendlyName, bool maildrop)
         {
             IPEndpointID = null;
             Address = address;
@@ -23,12 +23,13 @@ namespace SMTPRelay.Model.DB
             TLSMode = tlsMode;
             Hostname = hostname;
             CertFriendlyName = certFriendlyName;
+            Maildrop = maildrop;
         }
 
         /// <summary>
         /// Creates a new instance that exists in the database.
         /// </summary>
-        public tblIPEndpoint(long ipendpointID, string address, int port, string protocol, int tlsMode, string hostname, string certFriendlyName)
+        public tblIPEndpoint(long ipendpointID, string address, int port, string protocol, int tlsMode, string hostname, string certFriendlyName, int maildrop)
         {
             IPEndpointID = ipendpointID;
             Address = address;
@@ -37,6 +38,7 @@ namespace SMTPRelay.Model.DB
             TLSModeInt = tlsMode;
             Hostname = hostname;
             CertFriendlyName = certFriendlyName;
+            MaildropInt = maildrop;
         }
 
         public enum IPEndpointProtocols
@@ -207,5 +209,19 @@ namespace SMTPRelay.Model.DB
         public string Hostname { get; set; }
 
         public string CertFriendlyName { get; set; }
+
+        public bool Maildrop { get; set; }
+
+        public int MaildropInt
+        {
+            get
+            {
+                return Maildrop ? 1 : 0;
+            }
+            set
+            {
+                Maildrop = value > 0;
+            }
+        }
     }
 }

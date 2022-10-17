@@ -33,7 +33,7 @@ namespace SMTPRelay.Model.DB
             EnvelopeID = envelopeID;
             UserID = userID;
             DeviceID = deviceID;
-            DateTime.UtcNow.ToString();
+            //DateTime.UtcNow.ToString();
             WhenReceived = DateTime.Parse(whenReceived);
             Sender = sender;
             Recipients = recipients;

@@ -51,11 +51,14 @@ namespace SMTPRelay.Configuration.Controls
             this.colEmail = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colEnabled = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colAdmin = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.chkMaildrop = new System.Windows.Forms.CheckBox();
+            this.colMaildrop = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.chkMaildrop);
             this.groupBox1.Controls.Add(this.chkAdmin);
             this.groupBox1.Controls.Add(this.chkEnabled);
             this.groupBox1.Controls.Add(this.cmdNewUser);
@@ -246,7 +249,8 @@ namespace SMTPRelay.Configuration.Controls
             this.colDisplayName,
             this.colEmail,
             this.colEnabled,
-            this.colAdmin});
+            this.colAdmin,
+            this.colMaildrop});
             this.lstUsers.FullRowSelect = true;
             this.lstUsers.HideSelection = false;
             this.lstUsers.Location = new System.Drawing.Point(6, 19);
@@ -266,22 +270,39 @@ namespace SMTPRelay.Configuration.Controls
             // colDisplayName
             // 
             this.colDisplayName.Text = "Display Name";
-            this.colDisplayName.Width = 215;
+            this.colDisplayName.Width = 200;
             // 
             // colEmail
             // 
             this.colEmail.Text = "Email Address";
-            this.colEmail.Width = 242;
+            this.colEmail.Width = 210;
             // 
             // colEnabled
             // 
             this.colEnabled.Text = "Enabled";
-            this.colEnabled.Width = 78;
+            this.colEnabled.Width = 70;
             // 
             // colAdmin
             // 
             this.colAdmin.Text = "Admin";
-            this.colAdmin.Width = 74;
+            this.colAdmin.Width = 70;
+            // 
+            // chkMaildrop
+            // 
+            this.chkMaildrop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.chkMaildrop.AutoSize = true;
+            this.chkMaildrop.Location = new System.Drawing.Point(232, 321);
+            this.chkMaildrop.Name = "chkMaildrop";
+            this.chkMaildrop.Size = new System.Drawing.Size(77, 17);
+            this.chkMaildrop.TabIndex = 13;
+            this.chkMaildrop.Text = "Is Maildrop";
+            this.chkMaildrop.UseVisualStyleBackColor = true;
+            this.chkMaildrop.CheckedChanged += new System.EventHandler(this.chkMaildrop_CheckedChanged);
+            // 
+            // colMaildrop
+            // 
+            this.colMaildrop.Text = "Maildrop";
+            this.colMaildrop.Width = 70;
             // 
             // ucUserEditor
             // 
@@ -320,5 +341,7 @@ namespace SMTPRelay.Configuration.Controls
         private System.Windows.Forms.Button cmdNewUser;
         private System.Windows.Forms.CheckBox chkAdmin;
         private System.Windows.Forms.CheckBox chkEnabled;
+        private System.Windows.Forms.CheckBox chkMaildrop;
+        private System.Windows.Forms.ColumnHeader colMaildrop;
     }
 }

@@ -30,6 +30,9 @@ namespace SMTPRelay.Configuration.Controls
         private void InitializeComponent()
         {
             this.grpMian = new System.Windows.Forms.GroupBox();
+            this.chkMaildrop = new System.Windows.Forms.CheckBox();
+            this.txtHostname = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
             this.cmbCertFriendlyName = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
             this.cmbTLSMode = new System.Windows.Forms.ComboBox();
@@ -49,16 +52,16 @@ namespace SMTPRelay.Configuration.Controls
             this.colPort = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colProtocol = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colTLSMode = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.colCertFriendlyName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.label5 = new System.Windows.Forms.Label();
-            this.txtHostname = new System.Windows.Forms.TextBox();
             this.colHostname = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.colCertFriendlyName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.colMaildrop = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.grpMian.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudPort)).BeginInit();
             this.SuspendLayout();
             // 
             // grpMian
             // 
+            this.grpMian.Controls.Add(this.chkMaildrop);
             this.grpMian.Controls.Add(this.txtHostname);
             this.grpMian.Controls.Add(this.label5);
             this.grpMian.Controls.Add(this.cmbCertFriendlyName);
@@ -82,6 +85,37 @@ namespace SMTPRelay.Configuration.Controls
             this.grpMian.TabIndex = 0;
             this.grpMian.TabStop = false;
             this.grpMian.Text = "Endpoints";
+            // 
+            // chkMaildrop
+            // 
+            this.chkMaildrop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.chkMaildrop.AutoSize = true;
+            this.chkMaildrop.Location = new System.Drawing.Point(9, 286);
+            this.chkMaildrop.Name = "chkMaildrop";
+            this.chkMaildrop.Size = new System.Drawing.Size(261, 17);
+            this.chkMaildrop.TabIndex = 31;
+            this.chkMaildrop.Text = "Allow Unauthenticated Maildrop to Maildrop Users";
+            this.chkMaildrop.UseVisualStyleBackColor = true;
+            this.chkMaildrop.CheckedChanged += new System.EventHandler(this.chkMaildrop_CheckedChanged);
+            // 
+            // txtHostname
+            // 
+            this.txtHostname.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.txtHostname.Location = new System.Drawing.Point(6, 254);
+            this.txtHostname.Name = "txtHostname";
+            this.txtHostname.Size = new System.Drawing.Size(293, 20);
+            this.txtHostname.TabIndex = 7;
+            this.txtHostname.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
+            // 
+            // label5
+            // 
+            this.label5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(6, 238);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(187, 13);
+            this.label5.TabIndex = 30;
+            this.label5.Text = "Hostname (FQDN) Reported to Clients";
             // 
             // cmbCertFriendlyName
             // 
@@ -256,7 +290,8 @@ namespace SMTPRelay.Configuration.Controls
             this.colProtocol,
             this.colTLSMode,
             this.colHostname,
-            this.colCertFriendlyName});
+            this.colCertFriendlyName,
+            this.colMaildrop});
             this.lstEndpoints.FullRowSelect = true;
             this.lstEndpoints.HideSelection = false;
             this.lstEndpoints.Location = new System.Drawing.Point(6, 19);
@@ -291,34 +326,19 @@ namespace SMTPRelay.Configuration.Controls
             this.colTLSMode.Text = "TLS Mode";
             this.colTLSMode.Width = 71;
             // 
+            // colHostname
+            // 
+            this.colHostname.Text = "Hostname (FQDN)";
+            this.colHostname.Width = 140;
+            // 
             // colCertFriendlyName
             // 
             this.colCertFriendlyName.Text = "Certificate";
             this.colCertFriendlyName.Width = 254;
             // 
-            // label5
+            // colMaildrop
             // 
-            this.label5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(6, 238);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(187, 13);
-            this.label5.TabIndex = 30;
-            this.label5.Text = "Hostname (FQDN) Reported to Clients";
-            // 
-            // txtHostname
-            // 
-            this.txtHostname.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.txtHostname.Location = new System.Drawing.Point(6, 254);
-            this.txtHostname.Name = "txtHostname";
-            this.txtHostname.Size = new System.Drawing.Size(293, 20);
-            this.txtHostname.TabIndex = 7;
-            this.txtHostname.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
-            // 
-            // colHostname
-            // 
-            this.colHostname.Text = "Hostname (FQDN)";
-            this.colHostname.Width = 140;
+            this.colMaildrop.Text = "Maildrop";
             // 
             // ucEndpointEditor
             // 
@@ -360,5 +380,7 @@ namespace SMTPRelay.Configuration.Controls
         private System.Windows.Forms.TextBox txtHostname;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.ColumnHeader colHostname;
+        private System.Windows.Forms.CheckBox chkMaildrop;
+        private System.Windows.Forms.ColumnHeader colMaildrop;
     }
 }

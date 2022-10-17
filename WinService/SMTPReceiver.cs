@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SMTPRelay.WinService
 {
@@ -99,6 +100,7 @@ namespace SMTPRelay.WinService
                                                   // If recipient unacceptable, proceed to SendRCPTTOBadAddress
                                                   // If max recipient count exceeded, proceed to SendRCPTTOTooMany.
             SendRCPTTOBadAddress,                 // Got a RCPT TO with invalid email address. Send 550 No such user here. Proceed to WaitForClientVerb.
+            SentSCPTTONotOurUser,                 // Got a RCPT TO while in unauth mode, but user is not local. Send 553 Sorry, that user isn't in my list of allowed rcpthosts
             SendRCPTTOTooMany,                    // Send 452 Too Many recipients. Proceed to WaitForClientVerb
             SendRCPTTOOk,                         // Got a RCPT TO that is valid. Send 250 Ok, proceed to WaitForClientVerb.
             ProcessDATAMessage,                   // We got a DATA command. Should be authenticated, in MAIL mode, with at least one recipient. Create necessary database objects.
@@ -169,6 +171,8 @@ namespace SMTPRelay.WinService
                     int ConnectionTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "ConnectionTimeoutMS"));
                     int CommandTimeoutMS = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "CommandTimeoutMS"));
                     int BadCommandLimit = int.Parse(SQLiteDB.System_GetValue("SMTPServer", "BadCommandLimit"));
+                    bool UnauthMaildrop = args.EndPoint.Maildrop;
+                    bool UnauthModeEnabled = false;
 
                     string ClientHostName = "";
                     MailObject mailObject = null;
@@ -322,6 +326,7 @@ namespace SMTPRelay.WinService
                                 if (line.ToUpper() == "RSET")
                                 {
                                     mailObject = null;
+                                    UnauthModeEnabled = false;
                                     state = SMTPStates.SendSuccessAck;
                                 }
                                 else if (line.ToUpper() == "NOOP")
@@ -506,15 +511,13 @@ namespace SMTPRelay.WinService
                         {
                             lineStream.WriteLine("235 Authentication successful");
                             state = SMTPStates.WaitForClientVerb;
+                            UnauthModeEnabled = false;
                         }
                         else if (state == SMTPStates.ProcessMAILFROM)
                         {
-                            if (connectedUser == null && connectedDevice == null)
+                            if (UnauthMaildrop)
                             {
-                                state = SMTPStates.SendAuthReq;
-                            }
-                            else
-                            {
+                                // we are allowing unauthenticated users to send mail if it's to a local maildrop enabled user
                                 // parse the sender email address
                                 string addrString = line.Substring(10).Trim();
                                 try
@@ -522,6 +525,7 @@ namespace SMTPRelay.WinService
                                     System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
                                     mailObject = new MailObject(test.Address);
                                     state = SMTPStates.SendMAILFROMSuccess;
+                                    UnauthModeEnabled = true;
                                 }
                                 catch (Exception ex)
                                 {
@@ -531,6 +535,34 @@ namespace SMTPRelay.WinService
                                     });
                                     line = addrString;
                                     state = SMTPStates.SendMAILFROMFailure;
+                                }
+                            }
+                            else 
+                            {
+                                // if we are NOT a maildrop, we require either an approved device, or an authenticated user
+                                if (connectedUser == null && connectedDevice == null)
+                                {
+                                    state = SMTPStates.SendAuthReq;
+                                }
+                                else
+                                {
+                                    // parse the sender email address
+                                    string addrString = line.Substring(10).Trim();
+                                    try
+                                    {
+                                        System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
+                                        mailObject = new MailObject(test.Address);
+                                        state = SMTPStates.SendMAILFROMSuccess;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
+                                        });
+                                        line = addrString;
+                                        state = SMTPStates.SendMAILFROMFailure;
+                                    }
                                 }
                             }
                         }
@@ -562,9 +594,24 @@ namespace SMTPRelay.WinService
                                 try
                                 {
                                     System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
-                                    mailObject.Recipients.Add(test.Address);
-                                    line = test.Address;
-                                    state = SMTPStates.SendRCPTTOOk;
+                                    bool userok = true;
+                                    if (UnauthModeEnabled)
+                                    {
+                                        // if we are in unauth mode, we check each recipient to make sure they are a local user,
+                                        // enabled, and maildrop enabled.
+                                        tblUser localUser = SQLiteDB.User_GetByEmail(test.Address);
+                                        if (localUser == null || !localUser.Enabled || !localUser.Maildrop)
+                                        {
+                                            state = SMTPStates.SentSCPTTONotOurUser;
+                                            userok = false;
+                                        }
+                                    }
+                                    if (userok)
+                                    {
+                                        mailObject.Recipients.Add(test.Address);
+                                        line = test.Address;
+                                        state = SMTPStates.SendRCPTTOOk;
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
@@ -585,6 +632,11 @@ namespace SMTPRelay.WinService
                         else if (state == SMTPStates.SendRCPTTOBadAddress)
                         {
                             lineStream.WriteLine("513 Bad email address");
+                            state = SMTPStates.WaitForClientVerb;
+                        }
+                        else if (state == SMTPStates.SentSCPTTONotOurUser)
+                        {
+                            lineStream.WriteLine("553 Sorry, that user isn't in my list of allowed rcpthosts");
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendRCPTTOOk)
@@ -648,6 +700,7 @@ namespace SMTPRelay.WinService
                             mailObject = null;
                             ActiveEnvelope = null;
                             ActiveEnvelopeRcpts = null;
+                            UnauthModeEnabled = false;
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendDATAOk)
@@ -759,12 +812,41 @@ namespace SMTPRelay.WinService
 
                             try
                             {
-                                foreach (var envrcp in ActiveEnvelopeRcpts)
+                                if (UnauthModeEnabled)
                                 {
-                                    tblProcessQueue snd = new tblProcessQueue(ActiveEnvelope.EnvelopeID.Value, envrcp.EnvelopeRcptID.Value, 0, 0, DateTime.Now);
-                                    SQLiteDB.ProcessQueue_AddUpdate(snd);
+                                    // Add a new MailItem for a newly received item in a user's inbox.
+                                    bool AddMaildropSuccess = true;
+                                    foreach (var rcp in mailObject.Recipients)
+                                    {
+                                        tblUser localUser = SQLiteDB.User_GetByEmail(rcp);
+                                        if (localUser == null || !localUser.Enabled || !localUser.Maildrop)
+                                        {
+                                            AddMaildropSuccess = false;
+                                        }
+                                        else
+                                        {
+                                            SQLiteDB.MailItem_Insert(localUser.UserID.Value, ActiveEnvelope.EnvelopeID.Value, true);
+                                        }
+                                    }
+                                    if (AddMaildropSuccess)
+                                    {
+                                        state = SMTPStates.SendDATAAck;
+                                    }
+                                    else
+                                    {
+                                        state = SMTPStates.SendDATAServerError;
+                                    }
                                 }
-                                state = SMTPStates.SendDATAAck;
+                                else
+                                {
+                                    // add a process queue for a new item that will be relayed.
+                                    foreach (var envrcp in ActiveEnvelopeRcpts)
+                                    {
+                                        tblProcessQueue snd = new tblProcessQueue(ActiveEnvelope.EnvelopeID.Value, envrcp.EnvelopeRcptID.Value, 0, 0, DateTime.Now);
+                                        SQLiteDB.ProcessQueue_AddUpdate(snd);
+                                    }
+                                    state = SMTPStates.SendDATAAck;
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -779,6 +861,7 @@ namespace SMTPRelay.WinService
                         {
                             lineStream.WriteLine("250 Ok, Message accepted");
                             state = SMTPStates.WaitForClientVerb;
+                            UnauthModeEnabled = false;
                             mailObject = null;
                             ActiveEnvelope = null;
                             ActiveEnvelopeRcpts = null;

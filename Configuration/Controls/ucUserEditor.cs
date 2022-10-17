@@ -37,6 +37,7 @@ namespace SMTPRelay.Configuration.Controls
                 user.SubItems.Add(dbuser.Email);
                 user.SubItems.Add(dbuser.Enabled ? "Enabled" : "");
                 user.SubItems.Add(dbuser.Admin ? "Admin" : "");
+                user.SubItems.Add(dbuser.Maildrop ? "Maildrop" : "");
                 user.Tag = dbuser.UserID;
                 UserCollection.Add(user);
             }
@@ -49,6 +50,7 @@ namespace SMTPRelay.Configuration.Controls
                 txtPassword2.Enabled = false;
                 chkEnabled.Enabled = false;
                 chkAdmin.Enabled = false;
+                chkMaildrop.Enabled = false;
                 cmdSaveChanges.Enabled = false;
                 cmdDeleteUser.Enabled = false;
                 cmbGateways.SelectedItem = null;
@@ -83,6 +85,8 @@ namespace SMTPRelay.Configuration.Controls
             chkEnabled.Enabled = false;
             chkAdmin.Checked = false;
             chkAdmin.Enabled = false;
+            chkMaildrop.Checked = false;
+            chkMaildrop.Enabled = false;
             cmdSaveChanges.Enabled = false;
             cmbGateways.SelectedItem = null;
             cmbGateways.Enabled = false;
@@ -109,12 +113,14 @@ namespace SMTPRelay.Configuration.Controls
             }
             chkEnabled.Checked = dbUser.Enabled;
             chkAdmin.Checked = dbUser.Admin;
+            chkMaildrop.Checked = dbUser.Maildrop;
             txtDisplayName.Enabled = true;
             txtEmailAddress.Enabled = true;
             txtPassword1.Enabled = true;
             txtPassword2.Enabled = true;
             chkEnabled.Enabled = true;
             chkAdmin.Enabled = true;
+            chkMaildrop.Enabled = true;
             UserPasswordChanged = false;
         }
 
@@ -163,6 +169,7 @@ namespace SMTPRelay.Configuration.Controls
             txtPassword2.Text = "";
             chkEnabled.Checked = true;
             chkAdmin.Checked = false;
+            chkMaildrop.Checked = false;
             PopulateMailGateways();
             txtDisplayName.Enabled = true;
             txtEmailAddress.Enabled = true;
@@ -170,6 +177,7 @@ namespace SMTPRelay.Configuration.Controls
             txtPassword2.Enabled = true;
             chkEnabled.Enabled = true;
             chkAdmin.Enabled = true;
+            chkMaildrop.Enabled = true;
             cmdDeleteUser.Enabled = true;
             Refreshing = false;
         }
@@ -228,6 +236,7 @@ namespace SMTPRelay.Configuration.Controls
                     updateUser.Email = txtEmailAddress.Text;
                     updateUser.Enabled = chkEnabled.Checked;
                     updateUser.Admin = chkAdmin.Checked;
+                    updateUser.Maildrop = chkMaildrop.Checked;
                     updateUser.MailGateway = ((tblMailGateway)cmbGateways.SelectedItem).MailGatewayID;
                     if (UserPasswordChanged)
                     {
@@ -241,7 +250,7 @@ namespace SMTPRelay.Configuration.Controls
             if (SelectedUser == -1)
             {
                 // new user
-                tblUser newUser = new tblUser(txtDisplayName.Text, txtEmailAddress.Text, null, null, chkEnabled.Checked, chkAdmin.Checked, ((tblMailGateway)cmbGateways.SelectedItem).MailGatewayID);
+                tblUser newUser = new tblUser(txtDisplayName.Text, txtEmailAddress.Text, null, null, chkEnabled.Checked, chkAdmin.Checked, chkMaildrop.Checked, ((tblMailGateway)cmbGateways.SelectedItem).MailGatewayID);
                 SQLiteDB.GeneratePasswordHash(newUser, txtPassword1.Text);
                 UserPasswordChanged = false;
                 SQLiteDB.User_AddUpdate(newUser);
@@ -307,6 +316,15 @@ namespace SMTPRelay.Configuration.Controls
         }
 
         private void chkAdmin_CheckedChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            cmdSaveChanges.Enabled = true;
+        }
+
+        private void chkMaildrop_CheckedChanged(object sender, EventArgs e)
         {
             if (Refreshing)
             {

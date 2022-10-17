@@ -6,6 +6,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.SQLite;
+using System.Diagnostics;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -13,7 +16,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteDB
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.4";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.5";
         private static BackgroundWorker Worker = null;
         public static bool ConnectionInitialized = false;
 
@@ -135,6 +138,21 @@ namespace SMTPRelay.Database
                                         break;
                                     case qryGetMailDataSize q:
                                         _mailChunk_GetMailSize(conn, q);
+                                        break;
+                                    case qryGetMailItemByID q:
+                                        _mailItem_GetByID(conn, q);
+                                        break;
+                                    case qryGetAllMailItemsByUserID q:
+                                        _mailItem_GetAllByUserID(conn, q);
+                                        break;
+                                    case qrySetMailitem q:
+                                        _mailItem_Add(conn, q);
+                                        break;
+                                    case qrySetMailItemUnread q:
+                                        _mailItem_SetUnread(conn, q);
+                                        break;
+                                    case qryViewGetInbox q:
+                                        _mailItem_QueryView(conn, q);
                                         break;
                                     case qryGetAllProcessQueue q:
                                         _sendQueue_GetAll(conn, q);
@@ -726,6 +744,41 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        public static tblMailItem MailItem_GetByID(long mailItemId)
+        {
+            qryGetMailItemByID q = new qryGetMailItemByID(mailItemId);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static List<tblMailItem> MailItem_GetAllByUserId(long userId)
+        {
+            qryGetAllMailItemsByUserID q = new qryGetAllMailItemsByUserID(userId);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool MailItem_Insert(long userId, long envelopeId, bool unread)
+        {
+            qrySetMailitem q = new qrySetMailitem(new tblMailItem(userId, envelopeId, unread));
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static bool MailItem_Update(long mailItemId, bool unread)
+        {
+            qrySetMailItemUnread q = new qrySetMailItemUnread(mailItemId, unread);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        public static List<vwMailInbox> MailItem_GetInboxViewByUserId(long userId)
+        {
+            qryViewGetInbox q = new qryViewGetInbox(userId);
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
         /// <summary>
         /// Gets a list of all queued mail items.
         /// </summary>
@@ -1022,13 +1075,13 @@ namespace SMTPRelay.Database
                 }
 
                 // Create the admin user
-                tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, null);
+                tblUser newAdminUser = new tblUser("Administrator", "admin@local", "", "", true, true, false, null);
                 GeneratePasswordHash(newAdminUser, "password");
                 qrySetUser q = new qrySetUser(newAdminUser);
                 _user_AddUpdate(s, q);
 
                 // Create a default IP Endpoint
-                tblIPEndpoint newEndpoint = new tblIPEndpoint("0.0.0.0", 25, tblIPEndpoint.IPEndpointProtocols.ESMTP, tblIPEndpoint.IPEndpointTLSModes.Disabled, "smtprelay.local", "");
+                tblIPEndpoint newEndpoint = new tblIPEndpoint("0.0.0.0", 25, tblIPEndpoint.IPEndpointProtocols.ESMTP, tblIPEndpoint.IPEndpointTLSModes.Disabled, "smtprelay.local", "", false);
                 qrySetIPEndpoint newepq = new qrySetIPEndpoint(newEndpoint);
                 _ipendpoint_AddUpdate(s, newepq);
             }
@@ -1119,7 +1172,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7)));
+                        results.Add(new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8)));
                     }
                 }
             }
@@ -1137,7 +1190,7 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                        dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8));
                     }
                 }
             }
@@ -1155,7 +1208,7 @@ namespace SMTPRelay.Database
                 {
                     if (reader.Read())
                     {
-                        result = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                        result = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8));
                     }
                 }
             }
@@ -1203,7 +1256,7 @@ namespace SMTPRelay.Database
                         {
                             if (reader.Read())
                             {
-                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7));
+                                dbUser = new tblUser(reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8));
                             }
                         }
                     }
@@ -1224,6 +1277,7 @@ namespace SMTPRelay.Database
                             command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
                             command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
                             command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
+                            command.Parameters.AddWithValue("$Maildrop", query.User.MaildropInt);
                             if (query.User.MailGateway.HasValue)
                             {
                                 command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
@@ -1252,6 +1306,7 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$PassHash", query.User.PassHash);
                         command.Parameters.AddWithValue("$Enabled", query.User.EnabledInt);
                         command.Parameters.AddWithValue("$Admin", query.User.AdminInt);
+                        command.Parameters.AddWithValue("$Maildrop", query.User.MaildropInt);
                         if (query.User.MailGateway.HasValue)
                         {
                             command.Parameters.AddWithValue("$MailGatewayID", query.User.MailGateway);
@@ -1817,6 +1872,97 @@ namespace SMTPRelay.Database
             }
         }
 
+        private static void _mailItem_GetByID(SQLiteConnection conn, qryGetMailItemByID query)
+        {
+            tblMailItem result = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.MailItem_GetByID;
+                command.Parameters.AddWithValue("$MailItemID", query.MailItemId);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        result = new tblMailItem(
+                            reader.GetInt64(0), // MailItemID
+                            reader.GetInt64(1), // UserID
+                            reader.GetInt64(2), // EnvelopeID
+                            reader.GetInt32(4)); // Unread
+                    }
+                }
+            }
+            query.SetResult(result);
+        }
+
+        private static void _mailItem_GetAllByUserID(SQLiteConnection conn, qryGetAllMailItemsByUserID query)
+        {
+            List<tblMailItem> result = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.MailItem_GetAllByUserId;
+                command.Parameters.AddWithValue("$UserID", query.UserId);
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        result.Add(new tblMailItem(
+                            reader.GetInt64(0), // MailItemID
+                            reader.GetInt64(1), // UserID
+                            reader.GetInt64(2), // EnvelopeID
+                            reader.GetInt32(4))); // Unread
+                    }
+                }
+            }
+            query.SetResult(result);
+        }
+
+        private static void _mailItem_Add(SQLiteConnection conn, qrySetMailitem query)
+        {
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.MailItem_Insert;
+                command.Parameters.AddWithValue("$UserID", query.MailItem.UserID);
+                command.Parameters.AddWithValue("$EnvelopeID", query.MailItem.EnvelopeID);
+                command.Parameters.AddWithValue("$Unread", query.MailItem.UnreadInt);
+                command.ExecuteNonQuery();
+            }
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.Table_LastRowID;
+                query.MailItem.MailItemID = (long)command.ExecuteScalar();
+            }
+            query.SetResult(true);
+        }
+
+        private static void _mailItem_SetUnread(SQLiteConnection conn, qrySetMailItemUnread query)
+        {
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.MailItem_UpdateUnread;
+                command.Parameters.AddWithValue("$Unread", query.Unread ? 1 : 0);
+                command.Parameters.AddWithValue("$MailItemID", query.MailItemID);
+                command.ExecuteNonQuery();
+            }
+            query.SetResult(true);
+        }
+
+        private static void _mailItem_QueryView(SQLiteConnection conn, qryViewGetInbox query)
+        {
+            List<vwMailInbox> results = new List<vwMailInbox>();
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.vwMailInbox_GetInboxViewByUserId;
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new vwMailInbox(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt32(2), reader.GetString(3), reader.GetString(4)));
+                    }
+                }
+            }
+            query.SetResult(results);
+        }
+
         private static void _sendQueue_GetAll(SQLiteConnection conn, qryGetAllProcessQueue query)
         {
             List<tblProcessQueue> results = new List<tblProcessQueue>();
@@ -2070,7 +2216,7 @@ namespace SMTPRelay.Database
                 {
                     while (reader.Read())
                     {
-                        results.Add(new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6)));
+                        results.Add(new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetInt32(7)));
                     }
                 }
             }
@@ -2089,7 +2235,7 @@ namespace SMTPRelay.Database
                     if (reader.Read())
                     {
                         //EnvelopeRcptID, EnvelopeID, Recipient
-                        result = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6));
+                        result = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetInt32(7));
                     }
                 }
             }
@@ -2112,7 +2258,7 @@ namespace SMTPRelay.Database
                     {
                         if (reader.Read())
                         {
-                            dbipendpoint = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6));
+                            dbipendpoint = new tblIPEndpoint(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetInt32(4), reader.GetString(5), reader.GetString(6), reader.GetInt32(7));
                         }
                     }
                 }
@@ -2133,6 +2279,7 @@ namespace SMTPRelay.Database
                         command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
                         command.Parameters.AddWithValue("$Hostname", query.IPEndpoint.Hostname);
                         command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
+                        command.Parameters.AddWithValue("$Maildrop", query.IPEndpoint.MaildropInt);
                         command.Parameters.AddWithValue("$IPEndpointID", query.IPEndpoint.IPEndpointID);
                         command.ExecuteNonQuery();
                     }
@@ -2152,6 +2299,7 @@ namespace SMTPRelay.Database
                     command.Parameters.AddWithValue("$Protocol", query.IPEndpoint.ProtocolString);
                     command.Parameters.AddWithValue("$TLSMode", query.IPEndpoint.TLSModeInt);
                     command.Parameters.AddWithValue("$Hostname", query.IPEndpoint.Hostname);
+                    command.Parameters.AddWithValue("$Maildrop", query.IPEndpoint.MaildropInt);
                     command.Parameters.AddWithValue("$CertFriendlyName", query.IPEndpoint.CertFriendlyName);
                     command.ExecuteNonQuery();
                 }
