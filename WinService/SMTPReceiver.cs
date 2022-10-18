@@ -522,17 +522,17 @@ namespace SMTPRelay.WinService
                             {
                                 bool FailedParse = false;
                                 // trim the address string
-                                string addrstring = line.Substring(10).Trim(); // remove  "MAIL FROM:"
-                                if (addrstring.StartsWith("\""))    // remove any quotes
+                                string addrString = line.Substring(10).Trim(); // remove  "MAIL FROM:"
+                                if (addrString.StartsWith("\""))    // remove any quotes
                                 {
-                                    addrstring = addrstring.Replace('\"', ' ').Trim();
+                                    addrString = addrString.Replace('\"', ' ').Trim();
                                 }
                                 // see if the server has sent a "size" extension
                                 int rcptSizeParam = -1;
-                                if (addrstring.Contains("SIZE="))
+                                if (addrString.Contains("SIZE="))
                                 {
-                                    string sz = addrstring.Substring(addrstring.IndexOf("SIZE=") + 5);
-                                    addrstring = addrstring.Substring(0, addrstring.IndexOf("SIZE=")).Trim();
+                                    string sz = addrString.Substring(addrString.IndexOf("SIZE=") + 5);
+                                    addrString = addrString.Substring(0, addrString.IndexOf("SIZE=")).Trim();
                                     if (!Int32.TryParse(sz, out rcptSizeParam))
                                     {
                                         FailedParse = true;
@@ -554,8 +554,6 @@ namespace SMTPRelay.WinService
                                     if (UnauthMaildrop)
                                     {
                                         // we are allowing unauthenticated users to send mail if it's to a local maildrop enabled user
-                                        // parse the sender email address
-                                        string addrString = line.Substring(10).Trim();
                                         try
                                         {
                                             System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
@@ -586,8 +584,6 @@ namespace SMTPRelay.WinService
                                         }
                                         else
                                         {
-                                            // parse the sender email address
-                                            string addrString = line.Substring(10).Trim();
                                             try
                                             {
                                                 System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
