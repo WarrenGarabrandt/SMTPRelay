@@ -138,6 +138,7 @@ namespace SMTPRelay.WinService
             string ClientUsername = "";
             string ClientPassword = "";
             int RCPTTOFailCount = 0;
+            int ExpectedMessageBytesCount = -1;
 
             try
             {
@@ -327,6 +328,8 @@ namespace SMTPRelay.WinService
                                 {
                                     mailObject = null;
                                     UnauthModeEnabled = false;
+                                    ExpectedMessageBytesCount = -1;
+                                    RCPTTOFailCount = 0;
                                     state = SMTPStates.SendSuccessAck;
                                 }
                                 else if (line.ToUpper() == "NOOP")
@@ -515,59 +518,99 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessMAILFROM)
                         {
-                            if (UnauthMaildrop)
+                            try
                             {
-                                // we are allowing unauthenticated users to send mail if it's to a local maildrop enabled user
-                                // parse the sender email address
-                                string addrString = line.Substring(10).Trim();
-                                try
+                                bool FailedParse = false;
+                                // trim the address string
+                                string addrstring = line.Substring(10).Trim(); // remove  "MAIL FROM:"
+                                if (addrstring.StartsWith("\""))    // remove any quotes
                                 {
-                                    System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
-                                    mailObject = new MailObject(test.Address);
-                                    state = SMTPStates.SendMAILFROMSuccess;
-                                    UnauthModeEnabled = true;
-                                    Worker.ReportProgress(0, new WorkerReport()
-                                    {
-                                        LogMessage = string.Format("Changing connection mode to Maildrop {0} from {1} [{2}].", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress)
-                                    });
+                                    addrstring = addrstring.Replace('\"', ' ').Trim();
                                 }
-                                catch (Exception ex)
+                                // see if the server has sent a "size" extension
+                                int rcptSizeParam = -1;
+                                if (addrstring.Contains("SIZE="))
                                 {
-                                    Worker.ReportProgress(0, new WorkerReport()
+                                    string sz = addrstring.Substring(addrstring.IndexOf("SIZE=") + 5);
+                                    addrstring = addrstring.Substring(0, addrstring.IndexOf("SIZE=")).Trim();
+                                    if (!Int32.TryParse(sz, out rcptSizeParam))
                                     {
-                                        LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
-                                    });
-                                    line = addrString;
-                                    state = SMTPStates.SendMAILFROMFailure;
-                                }
-                            }
-                            else 
-                            {
-                                // if we are NOT a maildrop, we require either an approved device, or an authenticated user
-                                if (connectedUser == null && connectedDevice == null)
-                                {
-                                    state = SMTPStates.SendAuthReq;
+                                        FailedParse = true;
+                                    }
+                                    ExpectedMessageBytesCount = rcptSizeParam;
                                 }
                                 else
                                 {
-                                    // parse the sender email address
-                                    string addrString = line.Substring(10).Trim();
-                                    try
+                                    ExpectedMessageBytesCount = -1;
+                                }
+
+                                if (FailedParse)
+                                {
+                                    state = SMTPStates.SendMAILFROMFailure;
+                                    BadCommandLimit--;
+                                }
+                                else
+                                {
+                                    if (UnauthMaildrop)
                                     {
-                                        System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
-                                        mailObject = new MailObject(test.Address);
-                                        state = SMTPStates.SendMAILFROMSuccess;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Worker.ReportProgress(0, new WorkerReport()
+                                        // we are allowing unauthenticated users to send mail if it's to a local maildrop enabled user
+                                        // parse the sender email address
+                                        string addrString = line.Substring(10).Trim();
+                                        try
                                         {
-                                            LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
-                                        });
-                                        line = addrString;
-                                        state = SMTPStates.SendMAILFROMFailure;
+                                            System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
+                                            mailObject = new MailObject(test.Address);
+                                            state = SMTPStates.SendMAILFROMSuccess;
+                                            UnauthModeEnabled = true;
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogMessage = string.Format("Changing connection mode to Maildrop {0} from {1} [{2}].", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress)
+                                            });
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
+                                            });
+                                            line = addrString;
+                                            state = SMTPStates.SendMAILFROMFailure;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // if we are NOT a maildrop, we require either an approved device, or an authenticated user
+                                        if (connectedUser == null && connectedDevice == null)
+                                        {
+                                            state = SMTPStates.SendAuthReq;
+                                        }
+                                        else
+                                        {
+                                            // parse the sender email address
+                                            string addrString = line.Substring(10).Trim();
+                                            try
+                                            {
+                                                System.Net.Mail.MailAddress test = new System.Net.Mail.MailAddress(addrString);
+                                                mailObject = new MailObject(test.Address);
+                                                state = SMTPStates.SendMAILFROMSuccess;
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Worker.ReportProgress(0, new WorkerReport()
+                                                {
+                                                    LogError = string.Format("Error processing MAIL FROM: \"{0}\": {1}.", addrString, ex.Message)
+                                                });
+                                                line = addrString;
+                                                state = SMTPStates.SendMAILFROMFailure;
+                                            }
+                                        }
                                     }
                                 }
+                            }
+                            catch (Exception ex)
+                            {
+                                state = SMTPStates.SendMAILFROMFailure;
+                                BadCommandLimit--;
                             }
                         }
                         else if (state == SMTPStates.SendMAILFROMFailure)
@@ -662,7 +705,14 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendRCPTTOOk)
                         {
-                            lineStream.WriteLine(string.Format("250 Recipient {0} Ok", line));
+                            if (ExpectedMessageBytesCount <= -1)
+                            {
+                                lineStream.WriteLine(string.Format("250 Recipient {0} Ok", line));
+                            }
+                            else
+                            {
+                                lineStream.WriteLine(string.Format("250 Recipient {0} Ok; can accomodate {1} byte message.", line, ExpectedMessageBytesCount));
+                            }
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.ProcessDATAMessage)
@@ -886,6 +936,7 @@ namespace SMTPRelay.WinService
                             mailObject = null;
                             ActiveEnvelope = null;
                             ActiveEnvelopeRcpts = null;
+                            ExpectedMessageBytesCount = -1;
                         }
                         else if (state == SMTPStates.ProcessQUITMessage)
                         {
