@@ -17,7 +17,7 @@ namespace SMTPRelay.WinService
 {
     public class SMTPReceiver
     {
-
+        private readonly int MAX_RCPTTO_FAIL_COUNT = 10;
         private BackgroundWorker Worker;        
         public bool Running;        
         public ConcurrentQueue<WorkerReport> WorkerReports;
@@ -137,6 +137,7 @@ namespace SMTPRelay.WinService
             tblDevice connectedDevice = null;
             string ClientUsername = "";
             string ClientPassword = "";
+            int RCPTTOFailCount = 0;
 
             try
             {
@@ -189,7 +190,6 @@ namespace SMTPRelay.WinService
                     string line = null;
 
                     sw.Restart();
-                    sw.Stop();
                     while (!CloseConnection)
                     {
                         if (Worker.CancellationPending)
@@ -210,7 +210,7 @@ namespace SMTPRelay.WinService
                             lineStream.WriteLine("421 Timout, closing connection");
                             CloseConnection = true;
                         }
-                        else if (BadCommandLimit == 0)
+                        else if (BadCommandLimit <= 0)
                         {
                             lineStream.WriteLine("421 Too many bad commands, closing connection");
                             CloseConnection = true;
@@ -526,6 +526,10 @@ namespace SMTPRelay.WinService
                                     mailObject = new MailObject(test.Address);
                                     state = SMTPStates.SendMAILFROMSuccess;
                                     UnauthModeEnabled = true;
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogMessage = string.Format("Changing connection mode to Maildrop {0} from {1} [{2}].", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress)
+                                    });
                                 }
                                 catch (Exception ex)
                                 {
@@ -611,6 +615,23 @@ namespace SMTPRelay.WinService
                                         mailObject.Recipients.Add(test.Address);
                                         line = test.Address;
                                         state = SMTPStates.SendRCPTTOOk;
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogMessage = string.Format("Maildrop {0} from {1} [{2}] accepted RCPT TO {3}.", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, test.Address)
+                                        });
+                                    }
+                                    else
+                                    {
+                                        RCPTTOFailCount++;
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogWarning = string.Format("Maildrop {0} from {1} [{2}] REJECTED RCPT TO {3}.", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, addrString)
+                                        });
+                                        if (RCPTTOFailCount >= MAX_RCPTTO_FAIL_COUNT)
+                                        {
+                                            lineStream.WriteLine("421 Too many bad commands, closing connection");
+                                            CloseConnection = true;
+                                        }
                                     }
                                 }
                                 catch (Exception ex)
