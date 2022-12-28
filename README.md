@@ -5,12 +5,12 @@ Typical usage is to install it onto a server, set up users and devices, set up m
 
 # Getting Started
 Compile the code using the latest version of Visual Studio. This will create the following files:
-Configuration.exe: this allows editing users, devices, mail gateways, etc. You can run this while the service is running, but not everything will take effect until the service is restarted.
-Database.dll: Contains the logic for the SQLite Database. 
-Model.dll: Contains model definitions for the service, configuration, and database components.
-WinService.exe: Windows service (and console application) that hosts the SMTP listener and sender components.
-System.Data.SQLite.dll: SQLite database engine.
-x64 and x86 folders: these contain the interop SQLite dlls.
+* Configuration.exe: this allows editing users, devices, mail gateways, etc. You can run this while the service is running, but not everything will take effect until the service is restarted.
+* Database.dll: Contains the logic for the SQLite Database. 
+* Model.dll: Contains model definitions for the service, configuration, and database components.
+* WinService.exe: Windows service (and console application) that hosts the SMTP listener and sender components.
+* System.Data.SQLite.dll: SQLite database engine.
+* x64 and x86 folders: these contain the interop SQLite dlls.
 
 Copy all these files to where you want to install the SMTP Relay agent. I suggest a location such as: c:\Program Files\SMTPRelay\
 You can open WinService.exe and it will run as a console program. If you don't run it as admin the first time, you'll get a notice that it can't set up Event Log Source. This will prevent most logging from working correctly. Run as an admin to fix this automatically. 
