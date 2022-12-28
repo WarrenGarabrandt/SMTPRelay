@@ -1,29 +1,43 @@
-This repo is meant to contain some SMTP tools. Right now, the only one is named incorrectly because I'm an idiot and pushed it wrong.
-
-
-
-
-
-
-## I'll read over this stuff below this later...
-
 # Introduction
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+This is a self-hosted SMTP Relay agent. 
+Typical usage is to install it onto a server, set up users and devices, set up mail gateways, and then point your internal services/servers to this agent for mail relay.
+
 
 # Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
+Compile the code using the latest version of Visual Studio. This will create the following files:
+Configuration.exe: this allows editing users, devices, mail gateways, etc. You can run this while the service is running, but not everything will take effect until the service is restarted.
+Database.dll: Contains the logic for the SQLite Database. 
+Model.dll: Contains model definitions for the service, configuration, and database components.
+WinService.exe: Windows service (and console application) that hosts the SMTP listener and sender components.
+System.Data.SQLite.dll: SQLite database engine.
+x64 and x86 folders: these contain the interop SQLite dlls.
+
+Copy all these files to where you want to install the SMTP Relay agent. I suggest a location such as: c:\Program Files\SMTPRelay\
+You can open WinService.exe and it will run as a console program. If you don't run it as admin the first time, you'll get a notice that it can't set up Event Log Source. This will prevent most logging from working correctly. Run as an admin to fix this automatically. 
+Opening WinService.exe will create "C:\ProgramData\SMTPRelay\config.db" if it does not already exist. This is the config database that will also contain your mail items. 
+You can then close WinService.exe (control + C, or close with the X in the top right corner), and open Configuration.exe
+Send Queue tab:
+  This is planned to show a list of mail items that are waiting to be sent, but there was a lot of overhead loading this so I didn't implement it yet.
+Endpoints tab:
+  This is all the local endpoints that SMTP Relay will listen on. You can create multiple ones to have TLS/SSL/Unencrypted variants, or to use for different hostnames and SSL certificates. 
+Users tab:
+  This is where you create the users that will be able to send or receive mail. You'll want to create the Mail Gateways first if your users need to be able to relay mail.
+Devices tab:
+  This is where you create devices that can send mail without needing to specify a username in their SMTP config, since they are "authenticated" using only their source IP/Hostname. You'll want to create the Mail Gateways first if your devices need to be able to relay mail.
+Mail Gateways tab:
+  This is where you specify the outbound SMTP server settings that mail will be relayed to. If you specify a sender override, it will replace the sender address with the specified sender, no matter which device or user actually originated the mail item. Useful if you want to aggregate mail from multiple users and have them all appear from a single source.
+  
+
 1.	Installation process
+You can use either SC CREATE to add the service, or installutil.exe. Both requires an elevated command prompt.
+For SC CREATE:
+SC CREATE "SMTPRelayAgent" binpath="Path to WinService.exe"
+For installutil:
+Navigate to the path where installutil.exe is, for example "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\"
+installutil.exe "c:\Program Files\SMTP Relay\WinService.exe"
+
 2.	Software dependencies
-3.	Latest releases
-4.	API references
+Requires .NET framework 4.8
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
-
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
-
-If you want to learn more about creating good readme files then refer the following [guidelines](https://www.visualstudio.com/en-us/docs/git/create-a-readme). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
+You can run WinService.exe either as a service or as command line program, whichever you prefer, but don't run it as both at the same time.
+I Recommend you get SQLite Studio (https://github.com/pawelsalawa/sqlitestudio) and open the config.db file. Look in the System table and there are some parameters you can tweak. These will eventually be added to the configuration program, but that's still a TODO for now.
