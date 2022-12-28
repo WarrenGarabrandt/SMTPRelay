@@ -366,11 +366,11 @@ namespace SMTPRelay.WinService
                     }
                     else if (line.StartsWith("535 "))
                     {
-                        throw new Exception(string.Format("Authentication not successful. {0}", line));
+                        throw new Exception(string.Format("Authentication not successful for user {0} on gateway {1}. Message: {2}", gateway.SMTPServer, gateway.Username, line));
                     }
                     else if (!line.StartsWith("235 "))
                     {
-                        throw new Exception(string.Format("Authentication not successful. {0}", line));
+                        throw new Exception(string.Format("Authentication not successful for user {0} on gateway {1}. Message: {2}", gateway.SMTPServer, gateway.Username, line));
                     }
                 }
 
