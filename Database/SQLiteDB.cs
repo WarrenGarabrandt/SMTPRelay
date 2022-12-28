@@ -615,11 +615,11 @@ namespace SMTPRelay.Database
         /// Deleted all mail data for old items. This query can be quite expensive, and should only be run periodically.
         /// </summary>
         /// <param name="successCutOff">Cutoff date for successfully sent items</param>
-        /// <param name="failCutOFf">Cutoff date for failed to send items</param>
+        /// <param name="failCutOff">Cutoff date for failed to send items</param>
         /// <returns></returns>
-        public static long Envelope_PurgeOldItems(DateTime successCutOff, DateTime failedCutOFf)
+        public static long Envelope_PurgeOldItems(DateTime successCutOff, DateTime failedCutOff)
         {
-            qryDeleteEnvelopePurgeOld q = new qryDeleteEnvelopePurgeOld(successCutOff, failedCutOFf);
+            qryDeleteEnvelopePurgeOld q = new qryDeleteEnvelopePurgeOld(successCutOff, failedCutOff);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -1599,10 +1599,24 @@ namespace SMTPRelay.Database
 
         private static void _envelope_PurgeOld(SQLiteConnection conn, qryDeleteEnvelopePurgeOld query)
         {
-            List<KeyValuePair<string, string>> logparms = new List<KeyValuePair<string, string>>();
-            logparms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
-            logparms.Add(new KeyValuePair<string, string>("$Setting", "DebugLog"));            
-            string purgedebuglog = _runValueQuery(conn, SQLiteStrings.System_Select, logparms);
+            List<KeyValuePair<string, string>> parms = new List<KeyValuePair<string, string>>();
+            parms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
+            parms.Add(new KeyValuePair<string, string>("$Setting", "DebugLog"));            
+            string purgedebuglog = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
+            parms.Clear();
+            parms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
+            parms.Add(new KeyValuePair<string, string>("$Setting", "BatchSize"));
+            string batchSizeStr = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
+            int batchSize;
+            if (!int.TryParse(batchSizeStr, out batchSize))
+            {
+                batchSize = 100;
+            }
+            if (batchSize == 0)
+            {
+                batchSize = -1;
+            }
+
             string SuccStr = query.SuccessCutOff.ToUniversalTime().ToString("O");
             string FailStr = query.FailedCutOFf.ToUniversalTime().ToString("O");
             List<long> envIds = new List<long>();
@@ -1612,9 +1626,10 @@ namespace SMTPRelay.Database
                 command.CommandText = SQLiteStrings.Envelope_GetAllOld;
                 command.Parameters.AddWithValue("$FailedCutoff", FailStr);
                 command.Parameters.AddWithValue("$CompleteCutoff", SuccStr);
+                command.Parameters.AddWithValue("$LimitValue", batchSize);
                 using (var reader = command.ExecuteReader())
                 {
-                    if (reader.Read())
+                    while (reader.Read())
                     {
                         envIds.Add(reader.GetInt64(0));
                     }
@@ -1622,7 +1637,10 @@ namespace SMTPRelay.Database
 
                 if (purgedebuglog == "1")
                 {
-                    string fullQuery = SQLiteStrings.Envelope_GetAllOld.Replace("$FailedCutoff", FailStr).Replace("$CompleteCutoff", SuccStr);
+                    string fullQuery = SQLiteStrings.Envelope_GetAllOld
+                        .Replace("$FailedCutoff", string.Format("'{0}'", FailStr))
+                        .Replace("$CompleteCutoff", string.Format("'{0}'", SuccStr))
+                        .Replace("$LimitValue", string.Format("{0}", batchSize));
                     string purgelogPath = Path.Combine(DatabasePath, "purgelog.txt");
                     using (var log = System.IO.File.AppendText(purgelogPath))
                     {

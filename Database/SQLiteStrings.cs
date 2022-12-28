@@ -91,6 +91,8 @@ namespace SMTPRelay.Database
             // How often to perform the purge, in minutes
             new Tuple<string, string, string>("Purge", "FrequencyMins", "360"),
             // How often to perform the purge, in minutes
+            new Tuple<string, string, string>("Purge", "BatchSize", "100"),
+            // How often to perform the purge, in minutes
             new Tuple<string, string, string>("Purge", "DebugLog", "0"),
             // SMTP server Host Name it advertises.
             new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
@@ -134,7 +136,7 @@ namespace SMTPRelay.Database
         public static string Envelope_GetAllOld = @"SELECT EnvelopeID FROM Envelope WHERE (SELECT COUNT(*) FROM ProcessQueue WHERE ProcessQueue.EnvelopeID = Envelope.EnvelopeID AND (ProcessQueue.State = 0 OR ProcessQueue.State = 1)) = 0 AND " +
             "(SELECT COUNT(*) FROM ProcessQueue WHERE ProcessQueue.EnvelopeID = Envelope.EnvelopeID AND ProcessQueue.State = -1 AND ProcessQueue.RetryAfter > $FailedCutoff) = 0 AND " + 
             "(SELECT COUNT(*) FROM ProcessQueue WHERE ProcessQueue.EnvelopeID = Envelope.EnvelopeID AND ProcessQueue.State = 2 AND ProcessQueue.RetryAfter > $CompleteCutoff) = 0 AND " +
-            "(SELECT COUNT(*) FROM MailItem WHERE MailItem.EnvelopeID = Envelope.EnvelopeID) = 0;";
+            "(SELECT COUNT(*) FROM MailItem WHERE MailItem.EnvelopeID = Envelope.EnvelopeID) = 0 LIMIT $LimitValue;";
 
         public static string MailGateway_GetAll = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride, ConnectionLimit FROM MailGateway;";
         public static string MailGateway_GetByID = @"SELECT MailGatewayID, SMTPServer, Port, EnableSSL, Authenticate, Username, Password, SenderOverride, ConnectionLimit FROM MailGateway WHERE MailGatewayID = $MailGatewayID;";
