@@ -1685,6 +1685,16 @@ namespace SMTPRelay.Database
                 }
                 processed++;
             }
+            if (purgedebuglog == "1")
+            {
+                string purgelogPath = Path.Combine(DatabasePath, "purgelog.txt");
+                using (var log = System.IO.File.AppendText(purgelogPath))
+                {
+                    log.WriteLine("Items Purged: {0}", processed);
+                    log.WriteLine("Purge Completed at {0} UTC", DateTime.UtcNow.ToString("O"));
+                    log.WriteLine();
+                }
+            }
             query.SetResult(processed);
         }
         private static void _mailGateway_GetAll(SQLiteConnection conn, qryGetAllMailGateways query)
