@@ -50,6 +50,8 @@ namespace SMTPRelay.WinService
 
         public string DBPathOverride = null;
 
+        public bool FailEventLog = false;
+
         public SmtpRelayService()
         {
             this.ServiceName = "SMTP Relay Service";
@@ -57,12 +59,20 @@ namespace SMTPRelay.WinService
 
             if (!RunningInteractively)
             {
-                ((ISupportInitialize)(this.EventLog)).BeginInit();
-                if (!EventLog.SourceExists(this.EventLog.Source))
+                try
                 {
-                    EventLog.CreateEventSource(this.EventLog.Source, this.EventLog.Log);
+                    ((ISupportInitialize)(this.EventLog)).BeginInit();
+                    if (!EventLog.SourceExists(this.EventLog.Source))
+                    {
+                        EventLog.CreateEventSource(this.EventLog.Source, this.EventLog.Log);
+                    }
+                    ((ISupportInitialize)(this.EventLog)).EndInit();
                 }
-                ((ISupportInitialize)(this.EventLog)).EndInit();
+                catch
+                {
+                    FailEventLog = true;
+                }
+
             }
             this.CanHandlePowerEvent = true;
             this.CanHandleSessionChangeEvent = true;
@@ -136,10 +146,17 @@ namespace SMTPRelay.WinService
             if (RunningInteractively)
             {
                 Console.Write("Smtp Relay Starting.\r\n");
+                if (FailEventLog)
+                {
+                    Console.WriteLine("Unable to set up Event Log Source. You'll need to run the program as an administrator to fix this.");
+                }
             }
             else
             {
-                this.EventLog.WriteEntry("Smtp Relay Starting.");
+                if (!FailEventLog)
+                {
+                    this.EventLog.WriteEntry("Smtp Relay Starting.");
+                }
             }
             worker = new BackgroundWorker()
             {
@@ -170,7 +187,10 @@ namespace SMTPRelay.WinService
             }
             else
             {
-                this.EventLog.WriteEntry("Smtp Relay Stopping.");
+                if (!FailEventLog)
+                {
+                    this.EventLog.WriteEntry("Smtp Relay Stopping.");
+                }
             }
             worker.CancelAsync();
         }
@@ -208,7 +228,10 @@ namespace SMTPRelay.WinService
             }
             else
             {
-                this.EventLog.WriteEntry("Smtp Relay System Shutdown.");
+                if (!FailEventLog)
+                {
+                    this.EventLog.WriteEntry("Smtp Relay System Shutdown.");
+                }
             }
             OnStop();
             base.OnShutdown();
