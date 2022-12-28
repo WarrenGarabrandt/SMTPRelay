@@ -90,6 +90,8 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Purge", "LastRun", ""),
             // How often to perform the purge, in minutes
             new Tuple<string, string, string>("Purge", "FrequencyMins", "360"),
+            // How often to perform the purge, in minutes
+            new Tuple<string, string, string>("Purge", "DebugLog", "0"),
             // SMTP server Host Name it advertises.
             new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
             // Client has 15 seconds to send HELO or EHLO or we abort the connection.

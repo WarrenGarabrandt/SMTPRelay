@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.SQLite;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -1598,6 +1599,10 @@ namespace SMTPRelay.Database
 
         private static void _envelope_PurgeOld(SQLiteConnection conn, qryDeleteEnvelopePurgeOld query)
         {
+            List<KeyValuePair<string, string>> logparms = new List<KeyValuePair<string, string>>();
+            logparms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
+            logparms.Add(new KeyValuePair<string, string>("$Setting", "DebugLog"));            
+            string purgedebuglog = _runValueQuery(conn, SQLiteStrings.System_Select, logparms);
             string SuccStr = query.SuccessCutOff.ToUniversalTime().ToString("O");
             string FailStr = query.FailedCutOFf.ToUniversalTime().ToString("O");
             List<long> envIds = new List<long>();
@@ -1612,6 +1617,19 @@ namespace SMTPRelay.Database
                     if (reader.Read())
                     {
                         envIds.Add(reader.GetInt64(0));
+                    }
+                }
+
+                if (purgedebuglog == "1")
+                {
+                    string fullQuery = SQLiteStrings.Envelope_GetAllOld.Replace("$FailedCutoff", FailStr).Replace("$CompleteCutoff", SuccStr);
+                    string purgelogPath = Path.Combine(DatabasePath, "purgelog.txt");
+                    using (var log = System.IO.File.AppendText(purgelogPath))
+                    {
+                        log.WriteLine("Purge started at {0} UTC", DateTime.UtcNow.ToString("O"));
+                        log.WriteLine("Running Query:");
+                        log.WriteLine(fullQuery);
+                        log.WriteLine("Result Count: {0}", envIds.Count);
                     }
                 }
             }
