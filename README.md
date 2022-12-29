@@ -61,3 +61,6 @@ I Recommend you get SQLite Studio (https://github.com/pawelsalawa/sqlitestudio) 
 4. Add ability to look up and connect to mail servers for mail relay without a gateway configured for a user/device. 
 5. Allow POP/IMAP access to mailboxes.
 6. Implement auth xoauth2 for SMTP connections (for example Microsoft 365).
+
+# Notes
+I was relatively new to GIT, and github in particular when I started this project, and I've had a few problems with merges and reverts screwing stuff up. You'll probably see evidence of that in the change log. I think this is all straightened out now and hopefully won't be a problem in the future. :)
