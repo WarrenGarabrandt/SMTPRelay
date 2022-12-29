@@ -90,9 +90,9 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Purge", "LastRun", ""),
             // How often to perform the purge, in minutes
             new Tuple<string, string, string>("Purge", "FrequencyMins", "360"),
-            // How often to perform the purge, in minutes
+            // How many items to process in a purge batch.
             new Tuple<string, string, string>("Purge", "BatchSize", "100"),
-            // How often to perform the purge, in minutes
+            // 0 - disables debug logging. 1 - creates a text log with query details for troubleshooting.
             new Tuple<string, string, string>("Purge", "DebugLog", "0"),
             // SMTP server Host Name it advertises.
             new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
