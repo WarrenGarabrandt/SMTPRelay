@@ -1,7 +1,6 @@
 # Introduction
 This is a self-hosted SMTP Relay agent. 
-Typical usage is to install it onto a server, set up users and devices, set up mail gateways, and then point your internal services/servers to this agent for mail relay.
-
+Typical usage is to install it onto a server, set up users and devices, set up mail gateways, and then point your internal services/servers to this agent for mail relay. It will also allow receiving of messages without trying to relay them.
 
 # Getting Started
 Compile the code using the latest version of Visual Studio. This will create the following files:
@@ -54,3 +53,11 @@ Requires .NET framework 4.8
 You can run WinService.exe either as a service or as command line program, whichever you prefer, but don't run it as both at the same time.
 
 I Recommend you get SQLite Studio (https://github.com/pawelsalawa/sqlitestudio) and open the config.db file. Look in the System table and there are some parameters you can tweak. These will eventually be added to the configuration program, but that's still a TODO for now.
+
+# Planned Features
+1. Add system configuration options to a tab page in the configuration tool. (For now, these are configured directly in the database with SQLite Studio.)
+2. Storing mailbox items in separate mailbox databases, and allowing to configure where to store those.
+3. Add a simple mail client to allow viewing maildrop items in a mailbox.
+4. Add ability to look up and connect to mail servers for mail relay without a gateway configured for a user/device. 
+5. Allow POP/IMAP access to mailboxes.
+6. Implement auth xoauth2 for SMTP connections (for example Microsoft 365).
