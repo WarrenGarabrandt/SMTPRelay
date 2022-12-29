@@ -474,15 +474,13 @@ namespace SMTPRelay.WinService
 
         private void SendTestEmail(string senderEmail, string senderPassword)
         {
-            string Addr_to = "wgarabrandt@mn-e.com";
-            string Addr_from = "avayavoicemail@miamination.com";
+            string Addr_to = "testrecipient@domain.com";
+            string Addr_from = "testsender@domain.com";
             System.Net.Mail.MailMessage msg = new System.Net.Mail.MailMessage(Addr_from, Addr_to);
             msg.Subject = "Test Email";
-            //"C:\Users\wgarabrandt\OneDrive - Miami Tribe of Oklahoma\Documents\test.zip"
-            //System.Net.Mail.Attachment att = new System.Net.Mail.Attachment(@"C:\Users\wgarabrandt\OneDrive - Miami Tribe of Oklahoma\Documents\test.zip", "audio/wav");
-            //msg.Attachments.Add(att);
+            
             msg.Body = "Hello world!";
-            string server = "127.0.0.1";// "smtp.office365.com";
+            string server = "127.0.0.1";
             using (System.Net.Mail.SmtpClient client = new System.Net.Mail.SmtpClient(server, 1025))
             {
                 client.EnableSsl = false; // true;
