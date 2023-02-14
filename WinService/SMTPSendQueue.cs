@@ -51,7 +51,7 @@ namespace SMTPRelay.WinService
             try
             {
                 Dictionary<long, int> GatewayUsageTrack = new Dictionary<long, int>();
-                int QueryUpdateInterval = Int32.Parse(SQLiteDB.System_GetValue("SMTPSenderQueue", "RefreshMS"));
+                int QueryUpdateInterval = Int32.Parse(SQLiteDB.System_GetValue("SMTPSender", "QueueRefreshMS"));
                 Worker.ReportProgress(0, new WorkerReport()
                 {
                     LogMessage = "Started Outbound Queue Monitor."

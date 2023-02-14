@@ -5,9 +5,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -139,6 +141,8 @@ namespace SMTPRelay.WinService
             string ClientPassword = "";
             int RCPTTOFailCount = 0;
             int ExpectedMessageBytesCount = -1;
+            TextWriter debugWriter = null;
+            string outLine = "";
 
             try
             {
@@ -176,6 +180,107 @@ namespace SMTPRelay.WinService
                     bool UnauthMaildrop = args.EndPoint.Maildrop;
                     bool UnauthModeEnabled = false;
 
+                    // these get flagged true to enable debugging based on the current settings in the database.
+                    bool Verbose = false;
+                    bool VerboseBodyStarted = false;
+                    bool VerboseBody = false;
+                    
+                    string VerboseEnabledString = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingEnabled");
+                    if (string.IsNullOrEmpty(VerboseEnabledString) || (VerboseEnabledString != "1" && VerboseEnabledString != "0"))
+                    {
+                        Worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogWarning = "Resetting default Verbose Debugging settings for SMTPServer."
+                        });
+                        SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingEnabled", "0");
+                        SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\");
+                        SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingIncludeBody", "0");
+                    }
+                    else if (VerboseEnabledString != "1")
+                    {
+                        string VerbosePathString = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingPath");
+                        string debugpath = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingPath");
+                        string debugbody = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingIncludeBody");
+                        if (string.IsNullOrEmpty(debugpath))
+                        {
+                            Worker.ReportProgress(0, new WorkerReport()
+                            {
+                                LogWarning = "No SMTPServer verbose debug path specified. Using C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\"
+                            });
+                            debugpath = "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\";
+                            SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\");
+                        }
+
+                        bool pathGood = true;
+                        if (!Directory.Exists(debugpath))
+                        {
+                            try
+                            {
+                                Directory.CreateDirectory(debugpath);
+                            }
+                            catch (Exception ex)
+                            {
+                                pathGood = false;
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogWarning = string.Format("Could not create the verbose debug path {0}. Exception: {1}" + debugpath, ex.Message)
+                                });
+                            }
+                        }
+                        if (pathGood)
+                        {
+                            string fname = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ClientIPAddress;
+                            string filePath = Path.Combine(debugpath, fname + ".log");
+                            if (File.Exists(filePath))
+                            {
+                                for (int collisionCount = 1; collisionCount < 1000; collisionCount++)
+                                {
+                                    filePath = Path.Combine(debugpath, fname + " (" + collisionCount + ").log");
+                                    if (!File.Exists(filePath))
+                                    {
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        filePath = null;
+                                    }
+                                }
+                            }
+
+                            if (string.IsNullOrEmpty(filePath))
+                            {
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogWarning = "Could not verbose debug the connection because the file exists."
+                                });
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    debugWriter = new StreamWriter(filePath, false, Encoding.ASCII);
+                                }
+                                catch (Exception ex)
+                                {
+                                    debugWriter = null;
+                                    Worker.ReportProgress(0, new WorkerReport()
+                                    {
+                                        LogWarning = string.Format("Could not verbose debug the connection because the file couldn't be opened. Exception: {0}", ex.Message)
+                                    });
+                                }
+                            }
+
+                            if (debugWriter != null)
+                            {
+                                Verbose = true;
+                                if (debugbody == "1")
+                                {
+                                    VerboseBody = true;
+                                }
+                            }
+                        }
+                    }
+
                     string ClientHostName = "";
                     MailObject mailObject = null;
 
@@ -183,7 +288,8 @@ namespace SMTPRelay.WinService
                     bool CloseConnection = false;
 
                     // in the beginning, state = SMTPStates.SendHello
-                    lineStream.WriteLine(string.Format("220 {0} ESMTP MAIL relay service ready {1}", ServerHostName, DateTime.UtcNow));
+                    outLine = string.Format("220 {0} ESMTP MAIL relay service ready {1}", ServerHostName, DateTime.UtcNow);
+                    WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                     state = SMTPStates.WaitClientHello;
 
                     System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
@@ -195,7 +301,8 @@ namespace SMTPRelay.WinService
                     {
                         if (Worker.CancellationPending)
                         {
-                            lineStream.WriteLine("554 SMTP Server is shutting down");
+                            outLine = "554 SMTP Server is shutting down";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             CloseConnection = true;
                             if (ActiveEnvelope != null)
                             {
@@ -208,12 +315,14 @@ namespace SMTPRelay.WinService
                         else if ((state == SMTPStates.WaitClientHello && sw.ElapsedMilliseconds > ConnectionTimeoutMS) ||
                                  (state != SMTPStates.WaitClientHello && state != SMTPStates.ReceiveDATABlock && sw.ElapsedMilliseconds > CommandTimeoutMS))
                         {
-                            lineStream.WriteLine("421 Timout, closing connection");
+                            outLine = "421 Timout, closing connection";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             CloseConnection = true;
                         }
                         else if (BadCommandLimit <= 0)
                         {
-                            lineStream.WriteLine("421 Too many bad commands, closing connection");
+                            outLine = "421 Too many bad commands, closing connection";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             CloseConnection = true;
                         }
                         else if (state == SMTPStates.WaitClientHello)
@@ -221,6 +330,22 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine();
                             if (!string.IsNullOrEmpty(line))
                             {
+                                if (Verbose)
+                                {
+                                    try
+                                    {
+                                        debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                        });
+                                        Verbose = false;
+                                        VerboseBody = false;
+                                    }
+                                }
                                 // we got something.
                                 if (line.ToUpper().StartsWith("EHLO ") && line.Length > 6 && line.Length < 134)
                                 {
@@ -238,7 +363,8 @@ namespace SMTPRelay.WinService
                                 }
                                 else
                                 {
-                                    lineStream.WriteLine("550 Command not Implemented");
+                                    outLine = "550 Command not Implemented";
+                                    WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                     BadCommandLimit--;
                                 }
                                 if (state != SMTPStates.WaitClientHello)
@@ -288,33 +414,40 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendServerExtensions)
                         {
-                            lineStream.WriteLine(string.Format("250-{0}", ServerHostName));
-                            lineStream.WriteLine(string.Format("250-SIZE {0}", MaxMessageLength));
+                            outLine = string.Format("250-{0}", ServerHostName);
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                            outLine = string.Format("250-SIZE {0}", MaxMessageLength);
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             if (EncryptedChannel)
                             {
-                                lineStream.WriteLine("250-AUTH LOGIN");
+                                outLine = "250-AUTH LOGIN";
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             }
                             else
                             {
                                 if (args.EndPoint.TLSMode != tblIPEndpoint.IPEndpointTLSModes.Disabled)
                                 {
-                                    lineStream.WriteLine("250-STARTTLS");
+                                    outLine = "250-STARTTLS";
+                                    WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                 }
                                 if (args.EndPoint.TLSMode != tblIPEndpoint.IPEndpointTLSModes.Enforced)
                                 {
-                                    lineStream.WriteLine("250-AUTH LOGIN");
+                                    outLine = "250-AUTH LOGIN";
+                                    WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                 }
                             }
                             state = SMTPStates.SendWelcomeClient;
                         }
                         else if (state == SMTPStates.SendWelcomeClient)
                         {
-                            lineStream.WriteLine(string.Format("250 {0} Hello {1} [{2}], pleased to meet you", ServerHostName, ClientHostName, ClientIPAddress));
+                            outLine = string.Format("250 {0} Hello {1} [{2}], pleased to meet you", ServerHostName, ClientHostName, ClientIPAddress);
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendSuccessAck)
                         {
-                            lineStream.WriteLine("250 Ok");
+                            outLine = "250 Ok";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.WaitForClientVerb)
@@ -322,6 +455,22 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine(10);
                             if (!string.IsNullOrEmpty(line))
                             {
+                                if (Verbose)
+                                {
+                                    try
+                                    {
+                                        debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                        });
+                                        Verbose = false;
+                                        VerboseBody = false;
+                                    }
+                                }
                                 sw.Restart();
                                 // figure out what they said.
                                 if (line.ToUpper() == "RSET")
@@ -362,7 +511,8 @@ namespace SMTPRelay.WinService
                                 }
                                 else
                                 {
-                                    lineStream.WriteLine("550 Command not Implemented");
+                                    outLine = "550 Command not Implemented";
+                                    WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                     BadCommandLimit--;
                                 }
                             }
@@ -386,7 +536,8 @@ namespace SMTPRelay.WinService
                             serverCert = FindSystemCert(args.EndPoint.CertFriendlyName);
                             if (serverCert != null)
                             {
-                                lineStream.WriteLine("220 Go ahead");
+                                outLine = "220 Go ahead";
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                 state = SMTPStates.SwitchToTLS;
                             }
                             else
@@ -403,22 +554,26 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendStartTLSNotAvail)
                         {
-                            lineStream.WriteLine("454 TLS not available");
+                            outLine = "454 TLS not available";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendStartTLSReq)
                         {
-                            lineStream.WriteLine("530 StartTLS Required");
+                            outLine = "530 StartTLS Required";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendAuthReq)
                         {
-                            lineStream.WriteLine("550 Authentication Required");
+                            outLine = "550 Authentication Required";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendBadCommandSeq)
                         {
-                            lineStream.WriteLine("503 Bad sequence of commands");
+                            outLine = "503 Bad sequence of commands";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.ProcessAUTHLOGINMessage)
@@ -460,7 +615,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendAUTHLOGINUsernameChallenge)
                         {
-                            lineStream.WriteLine("334 VXNlcm5hbWU6");
+                            outLine = "334 VXNlcm5hbWU6";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientUsernameResonse;
                         }
                         else if (state == SMTPStates.WaitForClientUsernameResonse)
@@ -468,6 +624,22 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine();
                             if (!string.IsNullOrEmpty(line))
                             {
+                                if (Verbose)
+                                {
+                                    try
+                                    {
+                                        debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                        });
+                                        Verbose = false;
+                                        VerboseBody = false;
+                                    }
+                                }
                                 sw.Restart();
                                 ClientUsername = BASE64Decode(line);
                                 state = SMTPStates.SendAUTHLOGINPasswordChallenge;
@@ -475,7 +647,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendAUTHLOGINPasswordChallenge)
                         {
-                            lineStream.WriteLine("334 UGFzc3dvcmQ6");
+                            outLine = "334 UGFzc3dvcmQ6";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientPasswordResponse;
                         }
                         else if (state == SMTPStates.WaitForClientPasswordResponse)
@@ -483,6 +656,22 @@ namespace SMTPRelay.WinService
                             line = lineStream.ReadLine();
                             if (!string.IsNullOrEmpty(line))
                             {
+                                if (Verbose)
+                                {
+                                    try
+                                    {
+                                        debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                        });
+                                        Verbose = false;
+                                        VerboseBody = false;
+                                    }
+                                }
                                 sw.Restart();
                                 ClientPassword = BASE64Decode(line);
                                 state = SMTPStates.ProcessAUTHLOGINCredentials;
@@ -512,7 +701,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendAUTHLOGINSuccess)
                         {
-                            lineStream.WriteLine("235 Authentication successful");
+                            outLine = "235 Authentication successful";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                             UnauthModeEnabled = false;
                         }
@@ -611,12 +801,14 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendMAILFROMFailure)
                         {
-                            lineStream.WriteLine("513 Bad email address");
+                            outLine = "513 Bad email address";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendMAILFROMSuccess)
                         {
-                            lineStream.WriteLine(string.Format("250 Originator {0} Ok.", mailObject.Sender));
+                            outLine = string.Format("250 Originator {0} Ok.", mailObject.Sender);
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.ProcessRCPTTOMessage)
@@ -668,7 +860,8 @@ namespace SMTPRelay.WinService
                                         });
                                         if (RCPTTOFailCount >= MAX_RCPTTO_FAIL_COUNT)
                                         {
-                                            lineStream.WriteLine("421 Too many bad commands, closing connection");
+                                            outLine = "421 Too many bad commands, closing connection";
+                                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                             CloseConnection = true;
                                         }
                                     }
@@ -686,28 +879,33 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendRCPTTOTooMany)
                         {
-                            lineStream.WriteLine("452 Too Many recipients");
+                            outLine = "452 Too Many recipients";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendRCPTTOBadAddress)
                         {
-                            lineStream.WriteLine("513 Bad email address");
+                            outLine = "513 Bad email address";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SentSCPTTONotOurUser)
                         {
-                            lineStream.WriteLine("553 Sorry, that user isn't in my list of allowed rcpthosts");
+                            outLine = "553 Sorry, that user isn't in my list of allowed rcpthosts";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendRCPTTOOk)
                         {
                             if (ExpectedMessageBytesCount <= -1)
                             {
-                                lineStream.WriteLine(string.Format("250 Recipient {0} Ok", line));
+                                outLine = string.Format("250 Recipient {0} Ok", line);
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             }
                             else
                             {
-                                lineStream.WriteLine(string.Format("250 Recipient {0} Ok; can accomodate {1} byte message.", line, ExpectedMessageBytesCount));
+                                outLine = string.Format("250 Recipient {0} Ok; can accomodate {1} byte message.", line, ExpectedMessageBytesCount);
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             }
                             state = SMTPStates.WaitForClientVerb;
                         }
@@ -757,12 +955,14 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendDATANoRcpt)
                         {
-                            lineStream.WriteLine("554 No valid recipients");
+                            outLine = "554 No valid recipients";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.SendDATAServerError)
                         {
-                            lineStream.WriteLine("451 Local server error");
+                            outLine = "451 Local server error";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             CleanupFailedMessageData(ActiveEnvelope);
                             mailObject = null;
                             ActiveEnvelope = null;
@@ -772,7 +972,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendDATAOk)
                         {
-                            lineStream.WriteLine("354 End data with <CR><LF>.<CR><LF>");
+                            outLine = "354 End data with <CR><LF>.<CR><LF>";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             sw.Restart();
                             state = SMTPStates.ReceiveDATABlock;
                         }
@@ -782,6 +983,43 @@ namespace SMTPRelay.WinService
                             // Can't use string.IsNullOrEmpty() because empty strings are valid in a message. Only null indicates that no data was received.
                             if (line != null)
                             {
+                                if (Verbose)
+                                {
+                                    if (!VerboseBody && !VerboseBodyStarted)
+                                    {
+                                        VerboseBodyStarted = true;
+                                        try
+                                        {
+                                            debugWriter.WriteLine(string.Format("C->S: <message body redacted>", line));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                            });
+                                            Verbose = false;
+                                            VerboseBody = false;
+                                        }
+                                    }
+                                    else if (VerboseBody)
+                                    {
+                                        try
+                                        {
+                                            debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                            });
+                                            Verbose = false;
+                                            VerboseBody = false;
+                                        }
+                                    }
+                                }
+                                
                                 sw.Restart();
                                 bool Handled = false;
                                 if (line == ".")
@@ -829,7 +1067,8 @@ namespace SMTPRelay.WinService
                             }
                             else if (sw.ElapsedMilliseconds > CommandTimeoutMS)
                             {
-                                lineStream.WriteLine("421 Timout, Closing Connection");
+                                outLine = "421 Timout, Closing Connection";
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                 CloseConnection = true;
                                 Worker.ReportProgress(0, new WorkerReport()
                                 {
@@ -843,7 +1082,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.FailDATABlock)
                         {
-                            lineStream.WriteLine("552 Requested mail actions aborted – Exceeded storage allocation");
+                            outLine = "552 Requested mail actions aborted – Exceeded storage allocation";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             Worker.ReportProgress(0, new WorkerReport()
                             {
                                 LogMessage = string.Format("Mail length exceeds max message length, for client {0} [{1}].", ClientHostName, ClientIPAddress)
@@ -926,7 +1166,8 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SendDATAAck)
                         {
-                            lineStream.WriteLine("250 Ok, Message accepted");
+                            outLine = "250 Ok, Message accepted";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                             UnauthModeEnabled = false;
                             mailObject = null;
@@ -936,13 +1177,23 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ProcessQUITMessage)
                         {
-                            lineStream.WriteLine("221 Bye");
+                            outLine = "221 Bye";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             CloseConnection = true;
                         }
                     }
                 }
                 finally
                 {
+                    if (debugWriter != null)
+                    {
+                        try
+                        {
+                            debugWriter.Dispose();
+                            debugWriter = null;
+                        }
+                        catch { }
+                    }
                     if (stream != null)
                     {
                         try
@@ -970,7 +1221,36 @@ namespace SMTPRelay.WinService
                 {
                     LogError = ex.Message
                 };
+                if (debugWriter != null)
+                {
+                    try
+                    {
+                        debugWriter.Dispose();
+                        debugWriter = null;
+                    }
+                    catch { }
+                }
             }
+        }
+
+        private void WriteLineWithDebugOptions(ISMTPStream lineStream, string line, ref bool debug, TextWriter debugWriter, string clientIPAddress)
+        {
+            if (debug)
+            {
+                try
+                {
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                }
+                catch (Exception ex)
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", clientIPAddress, ex.Message)
+                    });
+                    debug = false;
+                }
+            }
+            lineStream.WriteLine(line);
         }
 
         private X509Certificate2 FindSystemCert(string friendlyName)

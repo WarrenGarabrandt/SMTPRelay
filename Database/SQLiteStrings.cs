@@ -102,8 +102,21 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("SMTPServer", "CommandTimeoutMS", "120000"),
             // Max number of bad commands before the connection is aborted = 10
             new Tuple<string, string, string>("SMTPServer", "BadCommandLimit", "10"),
+            // SMTP Server Verbose Debugging
+            new Tuple<string, string, string>("SMTPServer", "VerboseDebuggingEnabled", "0"),
+            // SMTP Server Verbose Debugging Path
+            new Tuple<string, string, string>("SMTPServer", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\"),
+            // SMTP Server Verbose Debugging Include Mail Body
+            new Tuple<string, string, string>("SMTPServer", "VerboseDebuggingIncludeBody", "0"),
+            // SMTP Client Verbose Debugging
+            new Tuple<string, string, string>("SMTPSender", "VerboseDebuggingEnabled", "0"),
+            // SMTP Client Verbose Debugging Path
+            new Tuple<string, string, string>("SMTPSender", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Send\\"),
+            // SMTP Client Verbose Debugging Include Mail Body
+            new Tuple<string, string, string>("SMTPSender", "VerboseDebuggingIncludeBody", "0"),
             // For SMTPSenderQueue, Refresh interval in milliseconds.
-            new Tuple<string, string, string>("SMTPSenderQueue", "RefreshMS", "10000")
+            new Tuple<string, string, string>("SMTPSender", "QueueRefreshMS", "10000"),
+            
         };
 
         public static string Table_LastRowID = @"SELECT last_insert_rowid();";
