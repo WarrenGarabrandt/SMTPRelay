@@ -79,17 +79,20 @@ namespace SMTPRelay.WinService
             SendStartTLSReq,                      // Command received that requires StartTLS first. Send 530 StartTLS Required. Proceed to WaitForClientVerb
             SendAuthReq,                          // Authentication required. Send 550 Authentication Required. Proceed to WaitForClientVerb
             SendBadCommandSeq,                    // Got a RCPT TO with no MAIL object yet. Send 503 Bad sequence of commands. Proceed to WaitForClientVerb.
-            ProcessAUTHLOGINMessage,              // Prepare to handle auth requests. If acceptable, proceed to SendAUTHLOGINUsernameChallenge.
+            ProcessAUTHMessage,                   // Prepare to handle auth requests. If acceptable, proceed to SendAUTHLOGINUsernameChallenge.
                                                   // If we require STARTTLS, proceed to SendStartTLSReq. This is currently not implemented.
+            WaitForClientAUTHPLAINResponse,       // If AUTH PLAIN with no initial response, we will have already sent "334 ", and we're waiting for their reply. 
             SendAUTHLOGINUsernameChallenge,       // Client sent AUTH LOGIN, Clear logged in user, send 334 VXNlcm5hbWU6. Proceed to WaitForClientUsernameResonse
             WaitForClientUsernameResonse,         // Receive BASE64 encoded username. Proceed to SendAUTHLOGINPasswordChallenge
             SendAUTHLOGINPasswordChallenge,       // Send 334 UGFzc3dvcmQ6. Proceed to WaitForClientPasswordResponse
             WaitForClientPasswordResponse,        // Receive BASE64 encoded password. Proceed to ProcessAUTHLOGINCredentials
+            CancelAUTHProcess,                    // Client has send * for a username or password. This means to cancel the operation.
             ProcessAUTHLOGINCredentials,          // Query database with the username/password they provided.
                                                   // If successful, proceed to SendAUTHLOGINSuccess
                                                   // If unsuccessful, proceed to SendAUTHLOGINFailure
             SendAUTHLOGINSuccess,                 // Send 235 Authentication successful. Proceed to WaitForClientVerb
             SendAUTHLOGINFailure,                 // Send 535 SMTP Authentication unsuccessful/Bad username or password. proceed to WaitForClientVerb
+            SendAuthFailure,                      // Send a 501 Argument or Parameter Incorrect.
             ProcessMAILFROM,                      // We got a MAIL FROM message from the user. Create a MAIL object to hold the client data
                                                   // If not logged in, proceed to SendAuthReq
                                                   // If logged in and sender is OK, proceed to SendMAILFROMSuccess.
@@ -399,9 +402,9 @@ namespace SMTPRelay.WinService
                                     {
                                         Worker.ReportProgress(0, new WorkerReport()
                                         {
-                                            LogMessage = string.Format("Upgraded encryption for {0} connection from {1} [{2}] to {3}.", 
+                                            LogMessage = string.Format("Upgraded encryption for {0} connection from {1} [{2}] to {3}.",
                                             eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, ((SMTPTLSStreamHandler)lineStream).EncryptionNegotiated)
-                                        }) ;
+                                        });
                                     }
                                     else
                                     {
@@ -493,7 +496,7 @@ namespace SMTPRelay.WinService
                                 }
                                 else if (line.ToUpper().StartsWith("AUTH"))
                                 {
-                                    state = SMTPStates.ProcessAUTHLOGINMessage;
+                                    state = SMTPStates.ProcessAUTHMessage;
                                 }
                                 else if (line.ToUpper().StartsWith("MAIL FROM:"))
                                 {
@@ -578,20 +581,75 @@ namespace SMTPRelay.WinService
                             WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                         }
-                        else if (state == SMTPStates.ProcessAUTHLOGINMessage)
+                        else if (state == SMTPStates.ProcessAUTHMessage)
                         {
-                            connectedUser = null;
-                            ClientUsername = "";
-                            ClientPassword = "";
-                            // Encrypted channels aren't suported yet, so just proceed.
-                            if (line.ToUpper().StartsWith("AUTH LOGIN") && line.Length > 10)
+                            // first, check to see if we enforce TLS. If we do, don't let them log in without STARTTLS first.
+                            if (args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Enforced && !EncryptedChannel)
                             {
-                                if (args.EndPoint.TLSMode == tblIPEndpoint.IPEndpointTLSModes.Enforced && !EncryptedChannel)
+                                state = SMTPStates.SendStartTLSReq;
+                            }
+                            // if user is already authenticated (already completed an AUTH), the server MUST reply with a 503
+                            else if (connectedUser != null)
+                            {
+                                outLine = "503 You Already Authenticated";
+                                WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                                state = SMTPStates.WaitForClientVerb;
+                            }
+                            else if (line.ToUpper().StartsWith("AUTH PLAIN"))
+                            {
+                                ClientUsername = "";
+                                ClientPassword = "";
+                                // username and password are transmitted on one line.
+                                // an initial response is permitted to contain the BASE64 encoded credentials.
+                                if (line.ToUpper().StartsWith("AUTH PLAIN"))
                                 {
-                                    state = SMTPStates.SendStartTLSReq;
+                                    if (line.Length > 10)
+                                    {
+                                        // we have been provided with an intial response
+                                        string parseUnP = BASE64Decode(line.Substring(10).Trim());
+                                        if (string.IsNullOrWhiteSpace(parseUnP))
+                                        {
+                                            outLine = "334 ";
+                                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                                            state = SMTPStates.WaitForClientAUTHPLAINResponse;
+                                        }
+                                        else
+                                        {
+                                            if (parseUnP.StartsWith("\0"))
+                                            {
+                                                parseUnP = parseUnP.Substring(1);
+                                            }
+                                            string[] parts = parseUnP.Split(new char[] { '\0' });
+                                            if (parts.Length != 2)
+                                            {
+                                                state = SMTPStates.SendAUTHLOGINFailure;
+                                            }
+                                            else
+                                            {
+                                                ClientUsername = parts[0];
+                                                ClientPassword = parts[1];
+                                                state = SMTPStates.ProcessAUTHLOGINCredentials;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // no initial response. Send 334
+                                        outLine = "334 ";
+                                        WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                                        state = SMTPStates.WaitForClientAUTHPLAINResponse;
+                                    }
                                 }
-                                else
+                            }
+                            else if (line.ToUpper().StartsWith("AUTH LOGIN"))
+                            {
+                                ClientUsername = "";
+                                ClientPassword = "";
+                                // username and password are transmitted separately
+                                // an initial reponse is permitted to contain the username
+                                if (line.Length > 10)
                                 {
+                                    // initial response provided
                                     try
                                     {
                                         ClientUsername = BASE64Decode(line.Substring(10).Trim());
@@ -609,10 +667,67 @@ namespace SMTPRelay.WinService
                                         state = SMTPStates.SendAUTHLOGINPasswordChallenge;
                                     }
                                 }
+                                else
+                                {
+                                    // proceed to sending the client a login username challenge.
+                                    state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                                }
                             }
-                            else
+                        }
+                        else if (state == SMTPStates.WaitForClientAUTHPLAINResponse)
+                        {
+                            line = lineStream.ReadLine();
+                            if (!string.IsNullOrEmpty(line))
                             {
-                                state = SMTPStates.SendAUTHLOGINUsernameChallenge;
+                                if (Verbose)
+                                {
+                                    try
+                                    {
+                                        debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        debugWriter.Flush();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Worker.ReportProgress(0, new WorkerReport()
+                                        {
+                                            LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", ClientIPAddress, ex.Message)
+                                        });
+                                        Verbose = false;
+                                        VerboseBody = false;
+                                    }
+                                }
+                                sw.Restart();
+                                if (line == "*")
+                                {
+                                    // cancel the auth process
+                                    state = SMTPStates.CancelAUTHProcess;
+                                }
+                                else
+                                {
+                                    string parseUnP = BASE64Decode(line);
+                                    if (string.IsNullOrWhiteSpace(parseUnP))
+                                    {
+                                        state = SMTPStates.SendAUTHLOGINFailure;
+                                    }
+                                    else
+                                    {
+                                        if (parseUnP.StartsWith("\0"))
+                                        {
+                                            parseUnP = parseUnP.Substring(1);
+                                        }
+                                        string[] parts = parseUnP.Split(new char[] { '\0' });
+                                        if (parts.Length != 2)
+                                        {
+                                            state = SMTPStates.SendAUTHLOGINFailure;
+                                        }
+                                        else
+                                        {
+                                            ClientUsername = parts[0];
+                                            ClientPassword = parts[1];
+                                            state = SMTPStates.ProcessAUTHLOGINCredentials;
+                                        }
+                                    }
+                                }
                             }
                         }
                         else if (state == SMTPStates.SendAUTHLOGINUsernameChallenge)
@@ -644,6 +759,10 @@ namespace SMTPRelay.WinService
                                     }
                                 }
                                 sw.Restart();
+                                if (line == "*")
+                                {
+
+                                }
                                 ClientUsername = BASE64Decode(line);
                                 state = SMTPStates.SendAUTHLOGINPasswordChallenge;
                             }
@@ -686,7 +805,6 @@ namespace SMTPRelay.WinService
                             System.Threading.Thread.Sleep(900 + rnd.Next(150));
                             if (string.IsNullOrEmpty(ClientUsername) || string.IsNullOrEmpty(ClientPassword))
                             {
-                                BadCommandLimit--;
                                 state = SMTPStates.SendAUTHLOGINFailure;
                             }
                             else
@@ -694,7 +812,6 @@ namespace SMTPRelay.WinService
                                 connectedUser = SQLiteDB.User_GetByEmailPassword(ClientUsername, ClientPassword);
                                 if (connectedUser == null)
                                 {
-                                    BadCommandLimit--;
                                     state = SMTPStates.SendAUTHLOGINFailure;
                                 }
                                 else
@@ -709,6 +826,28 @@ namespace SMTPRelay.WinService
                             WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             state = SMTPStates.WaitForClientVerb;
                             UnauthModeEnabled = false;
+                        }
+                        else if (state == SMTPStates.SendAUTHLOGINFailure)
+                        {
+                            outLine = "535 Unable to Authenticate";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                            state = SMTPStates.WaitForClientVerb;
+                            BadCommandLimit--;
+                            UnauthModeEnabled = false;
+                        }
+                        else if (state == SMTPStates.CancelAUTHProcess)
+                        {
+                            ClientUsername = "";
+                            ClientPassword = "";
+                            
+                            UnauthModeEnabled = false;
+                            state = SMTPStates.SendAuthFailure;
+                        }
+                        else if (state == SMTPStates.SendAuthFailure)
+                        {
+                            outLine = "501 Argument or Parameter Incorrect";
+                            WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
+                            state = SMTPStates.WaitForClientVerb;
                         }
                         else if (state == SMTPStates.ProcessMAILFROM)
                         {
