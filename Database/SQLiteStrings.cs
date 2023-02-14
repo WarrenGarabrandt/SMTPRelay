@@ -5,7 +5,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.5";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.6";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.

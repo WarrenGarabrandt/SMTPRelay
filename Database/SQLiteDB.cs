@@ -17,7 +17,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteDB
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.5";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.6";
         private static BackgroundWorker Worker = null;
         public static bool ConnectionInitialized = false;
 
