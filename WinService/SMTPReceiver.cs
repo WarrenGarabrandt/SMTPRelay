@@ -196,7 +196,7 @@ namespace SMTPRelay.WinService
                         SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\");
                         SQLiteDB.System_AddUpdateValue("SMTPServer", "VerboseDebuggingIncludeBody", "0");
                     }
-                    else if (VerboseEnabledString != "1")
+                    else if (VerboseEnabledString == "1")
                     {
                         string VerbosePathString = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingPath");
                         string debugpath = SQLiteDB.System_GetValue("SMTPServer", "VerboseDebuggingPath");
