@@ -335,6 +335,7 @@ namespace SMTPRelay.WinService
                                     try
                                     {
                                         debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        debugWriter.Flush();
                                     }
                                     catch (Exception ex)
                                     {
@@ -460,6 +461,7 @@ namespace SMTPRelay.WinService
                                     try
                                     {
                                         debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        debugWriter.Flush();
                                     }
                                     catch (Exception ex)
                                     {
@@ -629,6 +631,7 @@ namespace SMTPRelay.WinService
                                     try
                                     {
                                         debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        debugWriter.Flush();
                                     }
                                     catch (Exception ex)
                                     {
@@ -661,6 +664,7 @@ namespace SMTPRelay.WinService
                                     try
                                     {
                                         debugWriter.WriteLine(string.Format("C->S: {0}", line));
+                                        debugWriter.Flush();
                                     }
                                     catch (Exception ex)
                                     {
@@ -1189,6 +1193,7 @@ namespace SMTPRelay.WinService
                     {
                         try
                         {
+                            debugWriter.Flush();
                             debugWriter.Dispose();
                             debugWriter = null;
                         }
@@ -1225,6 +1230,7 @@ namespace SMTPRelay.WinService
                 {
                     try
                     {
+                        debugWriter.Flush();
                         debugWriter.Dispose();
                         debugWriter = null;
                     }
@@ -1240,6 +1246,7 @@ namespace SMTPRelay.WinService
                 try
                 {
                     debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
                 }
                 catch (Exception ex)
                 {
