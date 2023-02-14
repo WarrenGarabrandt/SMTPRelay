@@ -424,7 +424,7 @@ namespace SMTPRelay.WinService
                             WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             if (EncryptedChannel)
                             {
-                                outLine = "250-AUTH LOGIN";
+                                outLine = "250-AUTH LOGIN PLAIN";
                                 WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                             }
                             else
@@ -436,7 +436,7 @@ namespace SMTPRelay.WinService
                                 }
                                 if (args.EndPoint.TLSMode != tblIPEndpoint.IPEndpointTLSModes.Enforced)
                                 {
-                                    outLine = "250-AUTH LOGIN";
+                                    outLine = "250-AUTH LOGIN PLAIN";
                                     WriteLineWithDebugOptions(lineStream, outLine, ref Verbose, debugWriter, ClientIPAddress);
                                 }
                             }
