@@ -232,7 +232,7 @@ namespace SMTPRelay.WinService
                         }
                         if (pathGood)
                         {
-                            string fname = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ClientIPAddress;
+                            string fname = string.Format("{0} {1} th {2}", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff"), ClientIPAddress, System.Threading.Thread.CurrentThread.ManagedThreadId);
                             string filePath = Path.Combine(debugpath, fname + ".log");
                             if (File.Exists(filePath))
                             {
@@ -989,10 +989,20 @@ namespace SMTPRelay.WinService
                                         mailObject.Recipients.Add(test.Address);
                                         line = test.Address;
                                         state = SMTPStates.SendRCPTTOOk;
-                                        Worker.ReportProgress(0, new WorkerReport()
+                                        if (UnauthModeEnabled)
                                         {
-                                            LogMessage = string.Format("Maildrop {0} from {1} [{2}] accepted RCPT TO {3}.", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, test.Address)
-                                        });
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogMessage = string.Format("Maildrop {0} from {1} [{2}] accepted RCPT TO {3}.", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, test.Address)
+                                            });
+                                        }
+                                        else
+                                        {
+                                            Worker.ReportProgress(0, new WorkerReport()
+                                            {
+                                                LogMessage = string.Format("Authenticated Relay {0} from {1} [{2}] accepted RCPT TO {3}.", eSMTP ? "ESMTP" : "SMTP", ClientHostName, ClientIPAddress, test.Address)
+                                            });
+                                        }
                                     }
                                     else
                                     {
@@ -1134,6 +1144,7 @@ namespace SMTPRelay.WinService
                                         try
                                         {
                                             debugWriter.WriteLine(string.Format("C->S: <message body redacted>", line));
+                                            debugWriter.Flush();
                                         }
                                         catch (Exception ex)
                                         {

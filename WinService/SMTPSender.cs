@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -73,7 +74,7 @@ namespace SMTPRelay.WinService
                 });
                 return;
             }
-            sendQueueItem.AttemptCount ++;
+            sendQueueItem.AttemptCount++;
 
             TcpClient client = null;
             NetworkStream stream = null;
@@ -82,6 +83,11 @@ namespace SMTPRelay.WinService
             string MsgIdentifier = string.Empty;
             bool PermanentFailure = false;
 
+            TextWriter debugWriter = null;
+
+            // these get flagged true to enable debugging based on the current settings in the database.
+            bool Verbose = false;
+            bool VerboseBody = false;
 
             try
             {
@@ -111,7 +117,7 @@ namespace SMTPRelay.WinService
                 {
                     gateway = SQLiteDB.MailGateway_GetByID(device.MailGateway.Value);
                 }
-                
+
                 // Sender
                 string MailFromAddress = envelope.Sender;
                 // Recipient
@@ -120,6 +126,109 @@ namespace SMTPRelay.WinService
                 List<string> SMTPExtensions = new List<string>();
 
                 MsgIdentifier = string.Format("Msg [{0}] from <{1}> to <{2}>. ", envelope.MsgID, envelope.Sender, envelopeRcpt.Recipient);
+                
+                string VerboseEnabledString = SQLiteDB.System_GetValue("SMTPSender", "VerboseDebuggingEnabled");
+                if (string.IsNullOrEmpty(VerboseEnabledString) || (VerboseEnabledString != "1" && VerboseEnabledString != "0"))
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogWarning = "Resetting default Verbose Debugging settings for SMTPSender."
+                    });
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingEnabled", "0");
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Sent\\");
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingIncludeBody", "0");
+                }
+                else if (VerboseEnabledString == "1")
+                {
+                    string VerbosePathString = SQLiteDB.System_GetValue("SMTPSender", "VerboseDebuggingPath");
+                    string debugpath = SQLiteDB.System_GetValue("SMTPSender", "VerboseDebuggingPath");
+                    string debugbody = SQLiteDB.System_GetValue("SMTPSender", "VerboseDebuggingIncludeBody");
+                    if (string.IsNullOrEmpty(debugpath))
+                    {
+                        Worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogWarning = "No SMTPSender verbose debug path specified. Using C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Sent\\"
+                        });
+                        debugpath = "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Sent\\";
+                        SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Sent\\");
+                    }
+
+                    bool pathGood = true;
+                    if (!Directory.Exists(debugpath))
+                    {
+                        try
+                        {
+                            Directory.CreateDirectory(debugpath);
+                        }
+                        catch (Exception ex)
+                        {
+                            pathGood = false;
+                            Worker.ReportProgress(0, new WorkerReport()
+                            {
+                                LogWarning = string.Format("Could not create the verbose debug path {0}. Exception: {1}" + debugpath, ex.Message)
+                            });
+                        }
+                    }
+                    if (pathGood)
+                    {
+                        string safeIdent = SanitizeName(envelope.MsgID);
+                        string fname = string.Format("{0} msg {1} th {2}", DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff"), safeIdent, System.Threading.Thread.CurrentThread.ManagedThreadId);
+                        string filePath = Path.Combine(debugpath, fname + ".log");
+                        if (File.Exists(filePath))
+                        {
+                            for (int collisionCount = 1; collisionCount < 1000; collisionCount++)
+                            {
+                                filePath = Path.Combine(debugpath, fname + " (" + collisionCount + ").log");
+                                if (!File.Exists(filePath))
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    filePath = null;
+                                }
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(filePath))
+                        {
+                            Worker.ReportProgress(0, new WorkerReport()
+                            {
+                                LogWarning = "Could not verbose debug the connection because the file exists."
+                            });
+                        }
+                        else
+                        {
+                            try
+                            {
+                                debugWriter = new StreamWriter(filePath, false, Encoding.ASCII);
+                            }
+                            catch (Exception ex)
+                            {
+                                debugWriter = null;
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogWarning = string.Format("Could not verbose debug the connection because the file couldn't be opened. Exception: {0}", ex.Message)
+                                });
+                            }
+                        }
+
+                        if (debugWriter != null)
+                        {
+                            Verbose = true;
+                            if (debugbody == "1")
+                            {
+                                VerboseBody = true;
+                            }
+                        }
+                    }
+                }
+
+                if (Verbose)
+                {
+                    debugWriter.WriteLine(string.Format("# Send email initiated for MessageID {0} from {1} to {2}. ", envelope.MsgID, envelope.Sender, envelopeRcpt.Recipient));
+                    debugWriter.Flush();
+                }
 
                 // figure out how to contact the server.
                 // if there's a gateway specified, look that up and connect.
@@ -139,9 +248,26 @@ namespace SMTPRelay.WinService
                     username = gateway.Username;
                     password = gateway.Password;
                     useTLS = gateway.EnableSSL;
+                    if (Verbose)
+                    {
+                        if (login)
+                        {
+                            debugWriter.WriteLine("# Gateway host {0} port {1} authenticate as {2}", serverHostname, serverPort, username);
+                        }
+                        else
+                        {
+                            debugWriter.WriteLine("# Gateway host {0} port {1}", serverHostname, serverPort);
+                        }
+                        debugWriter.Flush();
+                    }
                 }
                 else
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# No gateway specified, and MX Lookup not implemented. Failing item.");
+                        debugWriter.Flush();
+                    }
                     PermanentFailure = true;
                     throw new NotImplementedException("Looking up domain MX recoreds is not implemented.");
                 }
@@ -150,6 +276,11 @@ namespace SMTPRelay.WinService
                 {
                     HeaderReplaceSender = true;
                     MailFromAddress = gateway.SenderOverride;
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(string.Format("# Sender override enabled. Sending as {0}", MailFromAddress));
+                        debugWriter.Flush();
+                    }
                 }
 
                 // at this point, we should have either a domain name or an IP address in serverAddress.
@@ -172,6 +303,11 @@ namespace SMTPRelay.WinService
                     }
                     catch (Exception ex)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine(string.Format("# Failed querying DNS for {0}. Exception: {1}", serverHostname, ex.Message));
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Querying DNS failed for [{0}]. {1}", serverHostname, ex.Message));
                     }
                 }
@@ -179,6 +315,11 @@ namespace SMTPRelay.WinService
                 // attempt to connect to the server
                 if (serverEPs.Count == 0)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Unable to connect to SMTP server. No End Point could be resolved.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Unable to connect to SMTP server. No End Point could be resolved.");
                 }
 
@@ -187,18 +328,33 @@ namespace SMTPRelay.WinService
                 {
                     try
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine(string.Format("# Initiating TCP connection to {0}:{1}", ep.Address.ToString(), ep.Port));
+                            debugWriter.Flush();
+                        }
                         client = new TcpClient();
                         client.Connect(ep);
                         break;
                     }
-                    catch
+                    catch (Exception exconnect)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine(string.Format("# Failed to connect. Exception: {0}", exconnect.Message.ToString()));
+                            debugWriter.Flush();
+                        }
                         client = null;
                     }
                 }
 
                 if (client == null)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Unable to connect to SMTP Server. All server end points have been exhausted.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Unable to connect to the SMTP Server.");
                 }
 
@@ -207,51 +363,100 @@ namespace SMTPRelay.WinService
 
                 // negotiate the connection and switch to TLS if the gateway specifies requirements to do so.
                 string line = smtpStream.ReadLine(30000, Worker);
+
                 if (string.IsNullOrEmpty(line))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("Timeout waiting for SMTP server welcome message.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Timeout initiating connection to SMTP server.");
+                }
+                if (Verbose)
+                {
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
                 }
 
                 if (!line.StartsWith("220 "))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Unexpected welcome message. Aborting SMTP connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception(string.Format("Unexpected welcome message: {0}", line));
                 }
                 // we got a 220 hello message.
                 // send the HELO message
-                smtpStream.WriteLine(string.Format("EHLO {0}", localHostname));
-                
+                line = string.Format("EHLO {0}", localHostname);
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
 
                 // Get the server extensions (250-) and the OK message (250)
-                while ((line = smtpStream.ReadLine(30000, Worker)).StartsWith("250-"))
+                bool LoopDone = false;
+                while (!LoopDone)
                 {
+                    line = smtpStream.ReadLine(30000, Worker);
+                    if (string.IsNullOrEmpty(line))
+                    {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Timeout waiting for EHLO acknowledgment and server extensions response.");
+                            debugWriter.Flush();
+                        }
+                        // we got a timeout waiting for a line back from the server
+                        throw new Exception("Timeout initiating connection to SMTP server.");
+                    }
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
                     if (Worker.CancellationPending)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Operation Canceled.");
+                            debugWriter.Flush();
+                        }
                         throw new OperationCanceledException();
                     }
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Connection Timeout Expired. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Total Process Timeout Exceeded for the connection.");
                     }
-                    SMTPExtensions.Add(line);
-                    if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                    if (line.StartsWith("250-"))
                     {
-                        throw new Exception("Timeout Exceeded for the connection.");
+                        SMTPExtensions.Add(line);
+                    }
+                    else
+                    {
+                        LoopDone = true;
                     }
                 }
-                if (string.IsNullOrEmpty(line))
-                {
-                    throw new Exception("Timeout initiating connection to SMTP server.");
-                }
+
                 SMTPExtensions.Add(line);  // sometimes the last message is Ok, continue, or some nice message. Often, it's the last item in the extensions list
 
                 if (!line.StartsWith("250 "))
                 {
                     // didn't get expected 250 message
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Unexpected message from SMTP server. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception(string.Format("Server didn't reply as expected to EHLO. Got: {0}", line));
                 }
                 if (useTLS)
                 {
-                    smtpStream.WriteLine("STARTTLS");
+                    line = "STARTTLS";
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     // Possible responses
                     // 220 Ready to start TLS
                     // 501 Syntax error (no parameters allowed)
@@ -259,18 +464,43 @@ namespace SMTPRelay.WinService
                     line = smtpStream.ReadLine(30000, Worker);
                     if (string.IsNullOrEmpty(line))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Timeout initiating TLS connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Timeout enabling TLS.");
                     }
-                    else if (line.StartsWith("501 "))
+                    if (Verbose)
                     {
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
+                    if (line.StartsWith("501 "))
+                    {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Server doesn't suport TLS. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Server doesn't support TLS.");
                     }
                     else if (line.StartsWith("454 "))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Server indicated TLS not available at this time. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("TLS not available at this time.");
                     }
                     else if (!line.StartsWith("220 "))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Expected server response to TLS request. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Unexpected server response to STARTTLS: {0}", line));
                     }
                     // switch to TLS now
@@ -278,169 +508,368 @@ namespace SMTPRelay.WinService
                     smtpStream = null;
                     smtpStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Client, serverHostname, null);
                     // send the HELO message. This essentially starts the conversation over.
-                    smtpStream.WriteLine(string.Format("EHLO {0}", localHostname));
+                    line = string.Format("EHLO {0}", localHostname);
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     SMTPExtensions.Clear();  // we might get different extensions now that we're in TLS mode.
-                    while ((line = smtpStream.ReadLine(30000, Worker)).StartsWith("250-"))
+
+                    // Get the server extensions (250-) and the OK message (250)
+                    LoopDone = false;
+                    while (!LoopDone)
                     {
+                        line = smtpStream.ReadLine(30000, Worker);
+                        if (string.IsNullOrEmpty(line))
+                        {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Timeout waiting for EHLO acknowledgment and server extensions response.");
+                                debugWriter.Flush();
+                            }
+                            // we got a timeout waiting for a line back from the server
+                            throw new Exception("Timeout initiating connection to SMTP server.");
+                        }
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                            debugWriter.Flush();
+                        }
                         if (Worker.CancellationPending)
                         {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Operation Canceled.");
+                                debugWriter.Flush();
+                            }
                             throw new OperationCanceledException();
                         }
                         if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                         {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Connection Timeout Expired. Aborting connection.");
+                                debugWriter.Flush();
+                            }
                             throw new Exception("Total Process Timeout Exceeded for the connection.");
                         }
-                        SMTPExtensions.Add(line);
-                        if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
+                        if (line.StartsWith("250-"))
                         {
-                            throw new Exception("Timeout Exceeded for the connection.");
+                            SMTPExtensions.Add(line);
+                        }
+                        else
+                        {
+                            LoopDone = true;
                         }
                     }
-                    if (string.IsNullOrEmpty(line))
-                    {
-                        throw new Exception("Timeout sending EHLO after STARTTLS.");
-                    }
+
                     SMTPExtensions.Add(line);  // sometimes the last message is Ok, continue, or some nice message. Often, it's the last item in the extensions list
 
                     if (!line.StartsWith("250 "))
                     {
                         // didn't get expected 250 message
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Unexpected message from SMTP server. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Server didn't reply as expected to EHLO. Got: {0}", line));
                     }
+
+                    // this should leave the connection TLS encrypted, and ready to either start AUTH or to start a mail item.
                 }
-                //else
-                // Server may send "530 Must issue a STARTTLS command first" to anything other than NOOP, EHLO, STARTTLS, or QUIT.
 
                 // handle authentication
                 if (login)
                 {
-                    smtpStream.WriteLine("AUTH LOGIN");
+                    line = "AUTH LOGIN";
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Total Process Timeout Exceeded for the connection.");
                     }
                     if (string.IsNullOrEmpty(line))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Timeout authenticating to the SMTP server. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Timeout authenticating to SMTP server.");
                     }
                     else if (line.StartsWith("530 "))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Server requires STARTTLS before authenticating. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Must use STARTTLS before authenticating.");
                     }
                     else if (line != "334 VXNlcm5hbWU6")
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# AUTH LOGIN apparently not supported by SMTP server. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Authentication not supported. {0}", line));
                     }
-                    smtpStream.WriteLine(BASE64Encode(gateway.Username));
+                    line = BASE64Encode(gateway.Username);
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Total Process Timeout Exceeded for the connection.");
                     }
                     if (string.IsNullOrEmpty(line))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Timeout authenticating to the SMTP server. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Timeout authenticating to SMTP server.");
                     }
-                    else if (line.StartsWith("530 "))
+                    if (Verbose)
                     {
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
+                    if (line.StartsWith("530 "))
+                    {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Server requires STARTTLS before authenticating. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Must use STARTTLS before authenticating.");
                     }
                     else if (line != "334 UGFzc3dvcmQ6")
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# AUTH LOGIN apparently not supported by SMTP server. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Authentication not supported. {0}", line));
                     }
-                    smtpStream.WriteLine(BASE64Encode(gateway.Password));
+                    line = BASE64Encode(gateway.Password);
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Total Process Timeout Exceeded for the connection.");
                     }
                     if (string.IsNullOrEmpty(line))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Timeout authenticating to the SMTP server. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Timeout authenticating to SMTP server.");
                     }
-                    else if (line.StartsWith("530 "))
+                    if (Verbose)
                     {
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
+                    if (line.StartsWith("530 "))
+                    {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Server requires STARTTLS before authenticating. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception("Must use STARTTLS before authenticating.");
                     }
                     else if (line.StartsWith("535 "))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Authentication Failed for user. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Authentication not successful for user {0} on gateway {1}. Message: {2}", gateway.SMTPServer, gateway.Username, line));
                     }
                     else if (!line.StartsWith("235 "))
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Authentication Failed for user. Aborting Connection.");
+                            debugWriter.Flush();
+                        }
                         throw new Exception(string.Format("Authentication not successful for user {0} on gateway {1}. Message: {2}", gateway.SMTPServer, gateway.Username, line));
                     }
                 }
 
                 // negotiate the MAIL FROM
-                smtpStream.WriteLine(string.Format("MAIL FROM: {0}", EscapeEmailAddress(MailFromAddress)));
+                line = string.Format("MAIL FROM: {0}", EscapeEmailAddress(MailFromAddress));
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Total Process Timeout Exceeded for the connection.");
                 }
                 if (string.IsNullOrEmpty(line))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Timeout negotiating MAIL FROM. Aborting Connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Timeout negotiating MAIL FROM.");
                 }
-                else if (line.StartsWith("550 "))
+                if (Verbose)
                 {
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
+                }
+                if (line.StartsWith("550 "))
+                {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Authentication required or relay not permitted. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception(string.Format("Authentication required or relay not permitted for {0}", MailFromAddress));
                 }
                 else if (!line.StartsWith("250 "))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(string.Format("# Can't send as {0}. Aborting connection.", MailFromAddress));
+                        debugWriter.Flush();
+                    }
                     throw new Exception(string.Format("Can't send as {0}. {1}", MailFromAddress, line));
                 }
 
                 // and now the RCPT TO
-                smtpStream.WriteLine(string.Format("RCPT TO: {0}", EscapeEmailAddress(RcptToAddress)));
+                line = string.Format("RCPT TO: {0}", EscapeEmailAddress(RcptToAddress));
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Total Process Timeout Exceeded for the connection.");
                 }
                 if (string.IsNullOrEmpty(line))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Timeout negotiating RCPT TO. Aborting Connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Timeout negotiating RCPT TO.");
                 }
-                else if (!line.StartsWith("250 ") && !line.StartsWith("251 "))
+                if (Verbose)
                 {
-                    throw new Exception(string.Format("Can't send as {0}. {1}", RcptToAddress, line));
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
+                }
+                if (!line.StartsWith("250 ") && !line.StartsWith("251 "))
+                {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(string.Format("# Can't send to {0}. Aborting connection.", RcptToAddress));
+                        debugWriter.Flush();
+                    }
+                    throw new Exception(string.Format("Can't send to {0}. {1}", RcptToAddress, line));
                 }
 
                 // Signal that we are done with the envelope and ready to send the message
-                smtpStream.WriteLine("DATA");
+                line = "DATA";
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Total Process Timeout Exceeded for the connection.");
                 }
                 if (string.IsNullOrEmpty(line))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Timeout negotiating DATA stream. Aborting Connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Timeout negotiating DATA stream.");
                 }
-                else if (!line.StartsWith("250 ") && !line.StartsWith("354 "))
+                if (Verbose)
                 {
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
+                }
+                if (!line.StartsWith("250 ") && !line.StartsWith("354 "))
+                {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine(string.Format("# Can't send to {0}. Aborting connection.", RcptToAddress));
+                        debugWriter.Flush();
+                    }
                     throw new Exception(string.Format("Can't send email to {0}. {1}", RcptToAddress, line));
                 }
 
                 // send the data
                 bool FromDone = false;
                 //bool MIMEFormat = false;
+                if (Verbose && !VerboseBody)
+                {
+                    debugWriter.WriteLine(string.Format("C->S: <message body redacted>", line));
+                    debugWriter.Flush();
+                }
+                string lastLine = null;
+                bool LineSent = false;
                 for (int i = 0; i < envelope.ChunkCount; i++)
                 {
                     if (Worker.CancellationPending)
                     {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Operation Canceled.");
+                            debugWriter.Flush();
+                        }
                         throw new OperationCanceledException();
                     }
                     byte[] datablock = SQLiteDB.MailChunk_GetChunk(envelope.EnvelopeID.Value, i);
                     string datastring = ASCIIEncoding.ASCII.GetString(datablock);
                     List<string> datalines = datastring.Split(new string[] { "\r\n" }, StringSplitOptions.None).ToList();
-                    foreach (string dl in datalines)
+                    for (int lineno = 0; lineno < datalines.Count; lineno++)
+                    //foreach (string dl in datalines)
                     {
-                        string outputLine = dl;
+                        string outputLine = datalines[lineno];
                         if (HeaderReplaceSender && !FromDone && outputLine.ToUpper().StartsWith("FROM:"))
                         {
                             FromDone = true;
@@ -450,35 +879,88 @@ namespace SMTPRelay.WinService
                         {
                             outputLine = string.Format(".{0}", outputLine);
                         }
-                        smtpStream.WriteLine(outputLine);
+                        // the last line in the  message might be empty because of how receiving works, so skip that if so.
+                        if (string.IsNullOrEmpty(outputLine) && i == envelope.ChunkCount - 1 && lineno == datalines.Count - 1)
+                        {
+                            // skip this line
+                            if (Verbose && VerboseBody)
+                            {
+                                debugWriter.WriteLine("# Cropping the last empty line from the message.");
+                                debugWriter.Flush();
+                            }
+                        }
+                        else
+                        {
+                            lastLine = outputLine;
+                            WriteLineWithDebugOptions(smtpStream, outputLine, ref VerboseBody, debugWriter, MsgIdentifier);
+                            LineSent = true;
+                        }
                         if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                         {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                                debugWriter.Flush();
+                            }
                             throw new Exception("Total Process Timeout Exceeded for the connection.");
                         }
                         if (swTimeout.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                         {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                                debugWriter.Flush();
+                            }
                             throw new Exception("Timeout Exceeded for the connection.");
                         }
                     }
                 }
                 // end the message with /r/n./r/n
-                smtpStream.WriteLine(".");
+                if (!LineSent || !string.IsNullOrEmpty(lastLine))
+                {
+                    // if the last line sent had anythign on it, we need to emit an empty line before the .
+                    // otherwise we can sometimes hang the receiving SMTP server.
+                    line = "";
+                    WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
+                }
+                line = ".";
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
 
                 // get a final ack
                 line = smtpStream.ReadLine(30000, Worker);
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Total Process Timeout Exceeded for the connection.");
                 }
                 if (string.IsNullOrEmpty(line))
                 {
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Connection timeout. Aborting connection.");
+                        debugWriter.Flush();
+                    }
                     throw new Exception("Timeout finalizing message. No ACK received.");
                 }
-                else if (!line.StartsWith("250 "))
+                if (Verbose)
+                {
+                    debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                    debugWriter.Flush();
+                }
+                if (!line.StartsWith("250 "))
                 {
                     if (line.StartsWith("554"))
                     {
                         // SendAsDenied
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Send message denied by SMTP server.");
+                            debugWriter.Flush();
+                        }
                         PermanentFailure = true;
                     }
                     throw new Exception(string.Format("Can't send email to {0}. {1}", RcptToAddress, line));
@@ -489,24 +971,39 @@ namespace SMTPRelay.WinService
                 {
                     LogMessage = string.Format("{0}Email sent. {1}", MsgIdentifier, line)
                 });
-                
+
                 // close the tcp connection
-                smtpStream.WriteLine("QUIT");
+                line = "QUIT";
+                WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(10000, Worker);
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
-                    throw new Exception("Total Process Timeout Exceeded for the connection.");
+                    if (Verbose)
+                    {
+                        debugWriter.WriteLine("# Timeout waiting for response to QUIT.");
+                        debugWriter.Flush();
+                    }
                 }
-                if (string.IsNullOrEmpty(line))
+                if (!string.IsNullOrEmpty(line))
                 {
                     //we don't actually need to wait for a reply to a QUIT. We can hang up.
-                }
-                else if (!line.StartsWith("221 "))
-                {
-                    Worker.ReportProgress(0, new WorkerReport()
+                    if (Verbose)
                     {
-                        LogMessage = string.Format("{0}Unexpected response to QUIT. {1}", MsgIdentifier, line)
-                    }); ;
+                        debugWriter.WriteLine(String.Format("S->C: {0}", line));
+                        debugWriter.Flush();
+                    }
+                    if (!line.StartsWith("221 "))
+                    {
+                        if (Verbose)
+                        {
+                            debugWriter.WriteLine("# Unexpected response to QUIT message.");
+                            debugWriter.Flush();
+                        }
+                        Worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogMessage = string.Format("{0}Unexpected response to QUIT. {1}", MsgIdentifier, line)
+                        });
+                    }
                 }
                 // store the ack as a SendLog and update the ProcessQueue.
                 tblSendLog log = new tblSendLog(envelope.EnvelopeID.Value, envelopeRcpt.EnvelopeRcptID.Value, DateTime.Now, finalResults, sendQueueItem.AttemptCount, true);
@@ -567,6 +1064,25 @@ namespace SMTPRelay.WinService
             }
             finally
             {
+                if (debugWriter != null)
+                {
+                    try
+                    {
+                        debugWriter.Flush();
+                    }
+                    catch { }
+                    try
+                    {
+                        debugWriter.Close();
+                    }
+                    catch { }
+                    try
+                    {
+                        debugWriter.Dispose();
+                    }
+                    catch { }
+                    debugWriter = null;
+                }
                 if (smtpStream != null)
                 {
                     try
@@ -595,6 +1111,35 @@ namespace SMTPRelay.WinService
                     client = null;
                 }
             }
+        }
+
+        private void WriteLineWithDebugOptions(ISMTPStream lineStream, string line, ref bool debug, TextWriter debugWriter, string messageID)
+        {
+            if (debug)
+            {
+                try
+                {
+                    debugWriter.WriteLine(String.Format("C->S: {0}", line));
+                    debugWriter.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", messageID, ex.Message)
+                    });
+                    debug = false;
+                }
+            }
+            lineStream.WriteLine(line);
+        }
+
+        private string SanitizeName(string name)
+        {
+            string invalidChars = System.Text.RegularExpressions.Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars()));
+            string invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
+
+            return System.Text.RegularExpressions.Regex.Replace(name, invalidRegStr, "_");
         }
 
         private string BASE64Encode(string cleartext)
