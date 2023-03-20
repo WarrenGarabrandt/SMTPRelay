@@ -421,6 +421,20 @@ namespace SMTPRelay.Database
             return q.GetResult();
         }
 
+        public static string System_GetDefaultValue(string category, string setting)
+        {
+            string value = string.Empty;
+            foreach (var item in SQLiteStrings.DatabaseDefaults)
+            {
+                if (item.Item1 == category && item.Item2 == setting)
+                {
+                    return item.Item3;
+                }
+            }
+
+            return value;
+        }
+
         /// <summary>
         /// Creates or updates a setting to a specified value.
         /// </summary>

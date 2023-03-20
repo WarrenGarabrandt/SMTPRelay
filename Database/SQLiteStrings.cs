@@ -94,8 +94,7 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Purge", "BatchSize", "100"),
             // 0 - disables debug logging. 1 - creates a text log with query details for troubleshooting.
             new Tuple<string, string, string>("Purge", "DebugLog", "0"),
-            // SMTP server Host Name it advertises.
-            new Tuple<string, string, string>("SMTPServer", "Hostname", "mailrelay.local"),
+
             // Client has 15 seconds to send HELO or EHLO or we abort the connection.
             new Tuple<string, string, string>("SMTPServer", "ConnectionTimeoutMS", "15000"),
             // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
@@ -108,6 +107,8 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("SMTPServer", "VerboseDebuggingPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Receive\\"),
             // SMTP Server Verbose Debugging Include Mail Body
             new Tuple<string, string, string>("SMTPServer", "VerboseDebuggingIncludeBody", "0"),
+            // Hostname used when sending mail
+            new Tuple<string, string, string>("SMTPSender", "Hostname", "mailrelay.local"),
             // SMTP Client Verbose Debugging
             new Tuple<string, string, string>("SMTPSender", "VerboseDebuggingEnabled", "0"),
             // SMTP Client Verbose Debugging Path

@@ -106,6 +106,11 @@ namespace Configuration
                 ucSendQueueEditor.SuspendUI();
                 ucDeviceEditor1.RefreshUI();
             }
+            else if (tcMain.SelectedTab == tpConfig)
+            {
+                ucSendQueueEditor.SuspendUI();
+                ucSettings1.RefreshUI();
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)

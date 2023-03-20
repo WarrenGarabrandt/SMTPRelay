@@ -49,6 +49,8 @@ namespace Configuration
             this.label2 = new System.Windows.Forms.Label();
             this.txtServerURL = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.tpConfig = new System.Windows.Forms.TabPage();
+            this.ucSettings1 = new SMTPRelay.Configuration.Controls.ucSettings();
             this.tcMain.SuspendLayout();
             this.tpSendQueue.SuspendLayout();
             this.tpEndpoints.SuspendLayout();
@@ -56,6 +58,7 @@ namespace Configuration
             this.tpDevices.SuspendLayout();
             this.tpMailGateway.SuspendLayout();
             this.groupBox1.SuspendLayout();
+            this.tpConfig.SuspendLayout();
             this.SuspendLayout();
             // 
             // tcMain
@@ -68,6 +71,7 @@ namespace Configuration
             this.tcMain.Controls.Add(this.tpUsers);
             this.tcMain.Controls.Add(this.tpDevices);
             this.tcMain.Controls.Add(this.tpMailGateway);
+            this.tcMain.Controls.Add(this.tpConfig);
             this.tcMain.Location = new System.Drawing.Point(0, 0);
             this.tcMain.Name = "tcMain";
             this.tcMain.SelectedIndex = 0;
@@ -269,6 +273,25 @@ namespace Configuration
             this.label1.TabIndex = 0;
             this.label1.Text = "Server URL";
             // 
+            // tpConfig
+            // 
+            this.tpConfig.Controls.Add(this.ucSettings1);
+            this.tpConfig.Location = new System.Drawing.Point(4, 22);
+            this.tpConfig.Name = "tpConfig";
+            this.tpConfig.Padding = new System.Windows.Forms.Padding(3);
+            this.tpConfig.Size = new System.Drawing.Size(802, 526);
+            this.tpConfig.TabIndex = 5;
+            this.tpConfig.Text = "Configuration";
+            this.tpConfig.UseVisualStyleBackColor = true;
+            // 
+            // ucSettings1
+            // 
+            this.ucSettings1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucSettings1.Location = new System.Drawing.Point(3, 3);
+            this.ucSettings1.Name = "ucSettings1";
+            this.ucSettings1.Size = new System.Drawing.Size(796, 520);
+            this.ucSettings1.TabIndex = 0;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -287,6 +310,7 @@ namespace Configuration
             this.tpMailGateway.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.tpConfig.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -313,6 +337,8 @@ namespace Configuration
         private SMTPRelay.Configuration.Controls.ucEndpointEditor ucEndpointEditor;
         private System.Windows.Forms.TabPage tpDevices;
         private SMTPRelay.Configuration.Controls.ucDeviceEditor ucDeviceEditor1;
+        private System.Windows.Forms.TabPage tpConfig;
+        private SMTPRelay.Configuration.Controls.ucSettings ucSettings1;
     }
 }
 
