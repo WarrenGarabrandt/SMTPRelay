@@ -93,7 +93,7 @@ namespace SMTPRelay.WinService
             {
                 // queue item is already marked as dispatched before SMTPSender is instantiated to prevent duplicate pickups.
                 // retrieve settings
-                string localHostname = SQLiteDB.System_GetValue("SMTPServer", "Hostname");
+                string localHostname = SQLiteDB.System_GetValue("SMTPSender", "Hostname");
 
                 // retrieve necessary message info (sender, recipient, gateway, message size)
                 tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sendQueueItem.EnvelopeID);

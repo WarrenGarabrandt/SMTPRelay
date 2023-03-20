@@ -17,7 +17,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteDB
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.6";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.7";
         private static BackgroundWorker Worker = null;
         public static bool ConnectionInitialized = false;
 
@@ -1619,6 +1619,10 @@ namespace SMTPRelay.Database
             string purgedebuglog = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
             parms.Clear();
             parms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
+            parms.Add(new KeyValuePair<string, string>("$Setting", "DebugLogPath"));
+            string logPath = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
+            parms.Clear();
+            parms.Add(new KeyValuePair<string, string>("$Category", "Purge"));
             parms.Add(new KeyValuePair<string, string>("$Setting", "BatchSize"));
             string batchSizeStr = _runValueQuery(conn, SQLiteStrings.System_Select, parms);
             int batchSize;
@@ -1655,7 +1659,8 @@ namespace SMTPRelay.Database
                         .Replace("$FailedCutoff", string.Format("'{0}'", FailStr))
                         .Replace("$CompleteCutoff", string.Format("'{0}'", SuccStr))
                         .Replace("$LimitValue", string.Format("{0}", batchSize));
-                    string purgelogPath = Path.Combine(DatabasePath, "purgelog.txt");
+
+                    string purgelogPath = Path.Combine(logPath, "purgelog.txt");
                     using (var log = System.IO.File.AppendText(purgelogPath))
                     {
                         log.WriteLine("Purge started at {0} UTC", DateTime.UtcNow.ToString("O"));
@@ -1701,7 +1706,7 @@ namespace SMTPRelay.Database
             }
             if (purgedebuglog == "1")
             {
-                string purgelogPath = Path.Combine(DatabasePath, "purgelog.txt");
+                string purgelogPath = Path.Combine(logPath, "purgelog.txt");
                 using (var log = System.IO.File.AppendText(purgelogPath))
                 {
                     log.WriteLine("Items Purged: {0}", processed);

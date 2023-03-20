@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -78,6 +79,19 @@ namespace SMTPRelay.Configuration.Controls
             chkPurgePage.Checked = false;
         }
 
+        private void SetNudValSafe(NumericUpDown nud, int val)
+        {
+            if (nud.Minimum > val)
+            {
+                nud.Minimum = val;
+            }
+            if (nud.Maximum < val)
+            {
+                nud.Maximum = val;
+            }
+            nud.Value = val;
+        }
+
         private void PopulateSMTPReceiverSettings()
         {
             grpReceiver.Visible = true;
@@ -108,24 +122,32 @@ namespace SMTPRelay.Configuration.Controls
             txtRecLogPath.Text = SettingsHelper.GetStrValue("SMTPServer", "VerboseDebuggingPath");
         }
 
-        private void SetNudValSafe(NumericUpDown nud, int val)
-        {
-            if (nud.Minimum > val)
-            {
-                nud.Minimum = val;
-            }
-            if (nud.Maximum < val)
-            {
-                nud.Maximum = val;
-            }
-            nud.Value = val;
-        }
-
         private void PopulateSMTPSenderSettings()
         {
             grpSender.Visible = true;
             grpSender.BringToFront();
             chkSenderPage.Checked = true;
+            cmdSaveSndHostname.Visible = false;
+            cmdSaveSndIntervalMS.Visible = false;
+            cmdSaveSndLogPath.Visible = false;
+            cmdSaveSndVerboseDebugging.Visible = false;
+            txtSndHostname.Text = SettingsHelper.GetStrValue("SMTPSender", "Hostname");
+            SetNudValSafe(nudSndIntervalMS, SettingsHelper.GetIntValue("SMTPSender", "QueueRefreshMS"));
+            int dbg = SettingsHelper.GetIntValue("SMTPSender", "VerboseDebuggingEnabled");
+            int dbgmsg = SettingsHelper.GetIntValue("SMTPSender", "VerboseDebuggingIncludeBody");
+            if (dbg == 0)
+            {
+                cmbSndVerboseDebugging.SelectedIndex = 0;
+            }
+            else if (dbgmsg == 0)
+            {
+                cmbSndVerboseDebugging.SelectedIndex = 1;
+            }
+            else
+            {
+                cmbSndVerboseDebugging.SelectedIndex = 2;
+            }
+            txtSndLogPath.Text = SettingsHelper.GetStrValue("SMTPSender", "VerboseDebuggingPath");
         }
 
         private void PopulateMessageSettings()
@@ -380,6 +402,185 @@ namespace SMTPRelay.Configuration.Controls
             cmdSaveRecLogPath.Visible = false;
         }
 
+        #endregion
+
+        #region SMTP Sender Save
+        private void txtSndHostname_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveSndHostname.Visible)
+            {
+                return;
+            }
+            cmdSaveSndHostname.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSaveSndHostname_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("SMTPSender", "Hostname", txtSndHostname.Text.Trim());
+
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                Editing = false;
+                EditingCount = 0;
+            }
+            cmdSaveSndHostname.Visible = false;
+        }
+
+        private void nudSndIntervalMS_ValueChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveSndIntervalMS.Visible)
+            {
+                return;
+            }
+            cmdSaveSndIntervalMS.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSaveSndIntervalMS_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("SMTPSender", "QueueRefreshMS", ((int)nudSndIntervalMS.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveSndIntervalMS.Visible = false;
+        }
+
+        private void cmbSndVerboseDebugging_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveSndVerboseDebugging.Visible)
+            {
+                return;
+            }
+            cmdSaveSndVerboseDebugging.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSaveSndVerboseDebugging_Click(object sender, EventArgs e)
+        {
+            switch (cmbSndVerboseDebugging.SelectedIndex)
+            {
+                case 0:
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingEnabled", "0");
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingIncludeBody", "0");
+                    break;
+                case 1:
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingEnabled", "1");
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingIncludeBody", "0");
+                    break;
+                case 2:
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingEnabled", "1");
+                    SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingIncludeBody", "1");
+                    break;
+            }
+
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                Editing = false;
+                EditingCount = 0;
+            }
+            cmdSaveSndVerboseDebugging.Visible = false;
+        }
+
+        private void txtSndLogPath_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveSndLogPath.Visible)
+            {
+                return;
+            }
+            cmdSaveSndLogPath.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSaveSndLogPath_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("SMTPSender", "VerboseDebuggingPath", txtSndLogPath.Text.Trim());
+
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                Editing = false;
+                EditingCount = 0;
+            }
+            cmdSaveSndLogPath.Visible = false;
+        }
+        #endregion
+
+        #region Message Save
+        private void nudMsgMaxSize_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cmdSaveMsgMaxSize_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void nudMsgRecipCount_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cmdSaveMsgRecipCount_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void nudMsgChunkSize_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cmdSaveMsgChunkSize_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void nudMsgRetentionMins_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cmdSaveMsgRetentionMins_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void nudMsgFailedRetentionMins_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cmdSaveMsgFailedRetentionMins_Click(object sender, EventArgs e)
+        {
+
+        }
         #endregion
     }
 }

@@ -5,7 +5,7 @@ namespace SMTPRelay.Database
 {
     public static class SQLiteStrings
     {
-        private const string COMPATIBLE_DATABASE_VERSION = "1.6";
+        private const string COMPATIBLE_DATABASE_VERSION = "1.7";
         public static string[] Format_Database = new string[]
         {
             // Contains configuration and version data.
@@ -94,7 +94,8 @@ namespace SMTPRelay.Database
             new Tuple<string, string, string>("Purge", "BatchSize", "100"),
             // 0 - disables debug logging. 1 - creates a text log with query details for troubleshooting.
             new Tuple<string, string, string>("Purge", "DebugLog", "0"),
-
+            // Path for debug logs to be saved
+            new Tuple<string, string, string>("Purge", "DebugLogPath", "C:\\ProgramData\\SMTPRelay\\VerboseDebugging\\Purge\\"),
             // Client has 15 seconds to send HELO or EHLO or we abort the connection.
             new Tuple<string, string, string>("SMTPServer", "ConnectionTimeoutMS", "15000"),
             // A connection can stay idle for up to 2 minutes without MAIL being at least started, or after a MAIL successfully processes. After that, we close even if they are still there.
