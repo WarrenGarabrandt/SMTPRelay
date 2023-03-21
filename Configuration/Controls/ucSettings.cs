@@ -92,6 +92,8 @@ namespace SMTPRelay.Configuration.Controls
             nud.Value = val;
         }
 
+        #region Populate Controls
+
         private void PopulateSMTPReceiverSettings()
         {
             grpReceiver.Visible = true;
@@ -155,6 +157,16 @@ namespace SMTPRelay.Configuration.Controls
             grpMessage.Visible = true;
             grpMessage.BringToFront();
             chkMessagePage.Checked = true;
+            cmdSaveMsgMaxSize.Visible = false;
+            cmdSaveMsgRecipCount.Visible = false;
+            cmdSaveMsgChunkSize.Visible = false;
+            cmdSaveMsgRetentionMins.Visible = false;
+            cmdSaveMsgFailedRetentionMins.Visible = false;
+            SetNudValSafe(nudMsgMaxSize, SettingsHelper.GetIntValue("Message", "MaxLength"));
+            SetNudValSafe(nudMsgRecipCount, SettingsHelper.GetIntValue("Message", "MaxRecipients"));
+            SetNudValSafe(nudMsgChunkSize, SettingsHelper.GetIntValue("Message", "ChunkSize"));
+            SetNudValSafe(nudMsgRetentionMins, SettingsHelper.GetIntValue("Message", "DataRetainMins"));
+            SetNudValSafe(nudMsgFailedRetentionMins, SettingsHelper.GetIntValue("Message", "PurgeFailedMins"));
         }
 
         private void PopulatePurgeSettings()
@@ -163,6 +175,8 @@ namespace SMTPRelay.Configuration.Controls
             grpPurge.BringToFront();
             chkPurgePage.Checked = true;
         }
+
+        #endregion
 
         private void PageChange(object sender, EventArgs e)
         {
@@ -279,7 +293,7 @@ namespace SMTPRelay.Configuration.Controls
             {
                 return;
             }
-            if (nudRecCmdTimeoutMS.Visible)
+            if (cmdSaveRecCmdTimeoutMS.Visible)
             {
                 return;
             }
@@ -306,7 +320,7 @@ namespace SMTPRelay.Configuration.Controls
             {
                 return;
             }
-            if (nudRecBadCmdLimit.Visible)
+            if (cmdSaveRecBadCmdLimit.Visible)
             {
                 return;
             }
@@ -534,52 +548,138 @@ namespace SMTPRelay.Configuration.Controls
         #region Message Save
         private void nudMsgMaxSize_ValueChanged(object sender, EventArgs e)
         {
-
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveMsgMaxSize.Visible)
+            {
+                return;
+            }
+            cmdSaveMsgMaxSize.Visible = true;
+            Editing = true;
+            EditingCount++;
         }
 
         private void cmdSaveMsgMaxSize_Click(object sender, EventArgs e)
         {
-
+            SQLiteDB.System_AddUpdateValue("Message", "MaxLength", ((int)nudMsgMaxSize.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveMsgMaxSize.Visible = false;
         }
 
         private void nudMsgRecipCount_ValueChanged(object sender, EventArgs e)
         {
-
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveMsgRecipCount.Visible)
+            {
+                return;
+            }
+            cmdSaveMsgRecipCount .Visible = true;
+            Editing = true;
+            EditingCount++;
         }
 
         private void cmdSaveMsgRecipCount_Click(object sender, EventArgs e)
         {
-
+            SQLiteDB.System_AddUpdateValue("Message", "MaxRecipients", ((int)nudMsgRecipCount.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveMsgRecipCount.Visible = false;
         }
 
         private void nudMsgChunkSize_ValueChanged(object sender, EventArgs e)
         {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveMsgChunkSize.Visible)
+            {
+                return;
+            }
+            cmdSaveMsgChunkSize .Visible = true;
+            Editing = true;
+            EditingCount++;
 
         }
 
         private void cmdSaveMsgChunkSize_Click(object sender, EventArgs e)
         {
-
+            SQLiteDB.System_AddUpdateValue("Message", "ChunkSize", ((int)nudMsgChunkSize.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveMsgChunkSize.Visible = false;
         }
 
         private void nudMsgRetentionMins_ValueChanged(object sender, EventArgs e)
         {
-
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveMsgRetentionMins.Visible)
+            {
+                return;
+            }
+            cmdSaveMsgRetentionMins .Visible = true;
+            Editing = true;
+            EditingCount++;
         }
 
         private void cmdSaveMsgRetentionMins_Click(object sender, EventArgs e)
         {
-
+            SQLiteDB.System_AddUpdateValue("Message", "DataRetainMins", ((int)nudMsgRetentionMins.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveMsgRetentionMins.Visible = false;
         }
 
         private void nudMsgFailedRetentionMins_ValueChanged(object sender, EventArgs e)
         {
-
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSaveMsgFailedRetentionMins.Visible)
+            {
+                return;
+            }
+            cmdSaveMsgFailedRetentionMins .Visible = true;
+            Editing = true;
+            EditingCount++;
         }
 
         private void cmdSaveMsgFailedRetentionMins_Click(object sender, EventArgs e)
         {
-
+            SQLiteDB.System_AddUpdateValue("Message", "PurgeFailedMins", ((int)nudMsgFailedRetentionMins.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSaveMsgFailedRetentionMins.Visible = false;
         }
         #endregion
     }

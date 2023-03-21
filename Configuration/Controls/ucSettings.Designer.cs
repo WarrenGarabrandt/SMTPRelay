@@ -46,12 +46,7 @@ namespace SMTPRelay.Configuration.Controls
             this.nudRecCmdTimeoutMS = new System.Windows.Forms.NumericUpDown();
             this.nudRecConnTimeoutMS = new System.Windows.Forms.NumericUpDown();
             this.grpSender = new System.Windows.Forms.GroupBox();
-            this.grpMessage = new System.Windows.Forms.GroupBox();
-            this.grpPurge = new System.Windows.Forms.GroupBox();
-            this.chkReceiverPage = new System.Windows.Forms.CheckBox();
-            this.chkSenderPage = new System.Windows.Forms.CheckBox();
-            this.chkMessagePage = new System.Windows.Forms.CheckBox();
-            this.chkPurgePage = new System.Windows.Forms.CheckBox();
+            this.txtSndHostname = new System.Windows.Forms.TextBox();
             this.cmdSaveSndLogPath = new System.Windows.Forms.Button();
             this.label6 = new System.Windows.Forms.Label();
             this.cmdSaveSndVerboseDebugging = new System.Windows.Forms.Button();
@@ -63,7 +58,13 @@ namespace SMTPRelay.Configuration.Controls
             this.label9 = new System.Windows.Forms.Label();
             this.label10 = new System.Windows.Forms.Label();
             this.nudSndIntervalMS = new System.Windows.Forms.NumericUpDown();
-            this.txtSndHostname = new System.Windows.Forms.TextBox();
+            this.grpMessage = new System.Windows.Forms.GroupBox();
+            this.cmdSaveMsgFailedRetentionMins = new System.Windows.Forms.Button();
+            this.label11 = new System.Windows.Forms.Label();
+            this.nudMsgFailedRetentionMins = new System.Windows.Forms.NumericUpDown();
+            this.cmdSaveMsgRetentionMins = new System.Windows.Forms.Button();
+            this.label8 = new System.Windows.Forms.Label();
+            this.nudMsgRetentionMins = new System.Windows.Forms.NumericUpDown();
             this.cmdSaveMsgChunkSize = new System.Windows.Forms.Button();
             this.label12 = new System.Windows.Forms.Label();
             this.nudMsgChunkSize = new System.Windows.Forms.NumericUpDown();
@@ -73,12 +74,11 @@ namespace SMTPRelay.Configuration.Controls
             this.label14 = new System.Windows.Forms.Label();
             this.nudMsgRecipCount = new System.Windows.Forms.NumericUpDown();
             this.nudMsgMaxSize = new System.Windows.Forms.NumericUpDown();
-            this.cmdSaveMsgRetentionMins = new System.Windows.Forms.Button();
-            this.label8 = new System.Windows.Forms.Label();
-            this.nudMsgRetentionMins = new System.Windows.Forms.NumericUpDown();
-            this.cmdSaveMsgFailedRetentionMins = new System.Windows.Forms.Button();
-            this.label11 = new System.Windows.Forms.Label();
-            this.nudMsgFailedRetentionMins = new System.Windows.Forms.NumericUpDown();
+            this.grpPurge = new System.Windows.Forms.GroupBox();
+            this.cmdSavePrgLogPath = new System.Windows.Forms.Button();
+            this.label20 = new System.Windows.Forms.Label();
+            this.txtPrgLogPath = new System.Windows.Forms.TextBox();
+            this.cmbPrgLogging = new System.Windows.Forms.ComboBox();
             this.cmdSavePrgLogging = new System.Windows.Forms.Button();
             this.label17 = new System.Windows.Forms.Label();
             this.cmdSavePrgBatchSize = new System.Windows.Forms.Button();
@@ -87,23 +87,23 @@ namespace SMTPRelay.Configuration.Controls
             this.label19 = new System.Windows.Forms.Label();
             this.nugPrgBatchSize = new System.Windows.Forms.NumericUpDown();
             this.nudPrgFrequencyMins = new System.Windows.Forms.NumericUpDown();
-            this.cmdSavePrgLogPath = new System.Windows.Forms.Button();
-            this.label20 = new System.Windows.Forms.Label();
-            this.txtPrgLogPath = new System.Windows.Forms.TextBox();
-            this.cmbPrgLogging = new System.Windows.Forms.ComboBox();
+            this.chkReceiverPage = new System.Windows.Forms.CheckBox();
+            this.chkSenderPage = new System.Windows.Forms.CheckBox();
+            this.chkMessagePage = new System.Windows.Forms.CheckBox();
+            this.chkPurgePage = new System.Windows.Forms.CheckBox();
             this.grpReceiver.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudRecBadCmdLimit)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudRecCmdTimeoutMS)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudRecConnTimeoutMS)).BeginInit();
             this.grpSender.SuspendLayout();
-            this.grpMessage.SuspendLayout();
-            this.grpPurge.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudSndIntervalMS)).BeginInit();
+            this.grpMessage.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudMsgFailedRetentionMins)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudMsgRetentionMins)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgChunkSize)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgRecipCount)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgMaxSize)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudMsgRetentionMins)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudMsgFailedRetentionMins)).BeginInit();
+            this.grpPurge.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nugPrgBatchSize)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudPrgFrequencyMins)).BeginInit();
             this.SuspendLayout();
@@ -355,110 +355,15 @@ namespace SMTPRelay.Configuration.Controls
             this.grpSender.Text = "SMTP Sender Settings";
             this.grpSender.Visible = false;
             // 
-            // grpMessage
+            // txtSndHostname
             // 
-            this.grpMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.txtSndHostname.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.grpMessage.Controls.Add(this.cmdSaveMsgFailedRetentionMins);
-            this.grpMessage.Controls.Add(this.label11);
-            this.grpMessage.Controls.Add(this.nudMsgFailedRetentionMins);
-            this.grpMessage.Controls.Add(this.cmdSaveMsgRetentionMins);
-            this.grpMessage.Controls.Add(this.label8);
-            this.grpMessage.Controls.Add(this.nudMsgRetentionMins);
-            this.grpMessage.Controls.Add(this.cmdSaveMsgChunkSize);
-            this.grpMessage.Controls.Add(this.label12);
-            this.grpMessage.Controls.Add(this.nudMsgChunkSize);
-            this.grpMessage.Controls.Add(this.cmdSaveMsgRecipCount);
-            this.grpMessage.Controls.Add(this.cmdSaveMsgMaxSize);
-            this.grpMessage.Controls.Add(this.label13);
-            this.grpMessage.Controls.Add(this.label14);
-            this.grpMessage.Controls.Add(this.nudMsgRecipCount);
-            this.grpMessage.Controls.Add(this.nudMsgMaxSize);
-            this.grpMessage.Location = new System.Drawing.Point(137, 3);
-            this.grpMessage.Name = "grpMessage";
-            this.grpMessage.Size = new System.Drawing.Size(509, 488);
-            this.grpMessage.TabIndex = 7;
-            this.grpMessage.TabStop = false;
-            this.grpMessage.Text = "Message Settings";
-            this.grpMessage.Visible = false;
-            // 
-            // grpPurge
-            // 
-            this.grpPurge.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.grpPurge.Controls.Add(this.cmdSavePrgLogPath);
-            this.grpPurge.Controls.Add(this.label20);
-            this.grpPurge.Controls.Add(this.txtPrgLogPath);
-            this.grpPurge.Controls.Add(this.cmbPrgLogging);
-            this.grpPurge.Controls.Add(this.cmdSavePrgLogging);
-            this.grpPurge.Controls.Add(this.label17);
-            this.grpPurge.Controls.Add(this.cmdSavePrgBatchSize);
-            this.grpPurge.Controls.Add(this.cmdSavePrgFrequencyMins);
-            this.grpPurge.Controls.Add(this.label18);
-            this.grpPurge.Controls.Add(this.label19);
-            this.grpPurge.Controls.Add(this.nugPrgBatchSize);
-            this.grpPurge.Controls.Add(this.nudPrgFrequencyMins);
-            this.grpPurge.Location = new System.Drawing.Point(137, 3);
-            this.grpPurge.Name = "grpPurge";
-            this.grpPurge.Size = new System.Drawing.Size(509, 488);
-            this.grpPurge.TabIndex = 8;
-            this.grpPurge.TabStop = false;
-            this.grpPurge.Text = "Purge Settings";
-            this.grpPurge.Visible = false;
-            // 
-            // chkReceiverPage
-            // 
-            this.chkReceiverPage.Appearance = System.Windows.Forms.Appearance.Button;
-            this.chkReceiverPage.Location = new System.Drawing.Point(3, 8);
-            this.chkReceiverPage.Name = "chkReceiverPage";
-            this.chkReceiverPage.Size = new System.Drawing.Size(128, 46);
-            this.chkReceiverPage.TabIndex = 9;
-            this.chkReceiverPage.Tag = "R";
-            this.chkReceiverPage.Text = "SMTP Receiver";
-            this.chkReceiverPage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.chkReceiverPage.UseVisualStyleBackColor = true;
-            this.chkReceiverPage.CheckedChanged += new System.EventHandler(this.PageChange);
-            // 
-            // chkSenderPage
-            // 
-            this.chkSenderPage.Appearance = System.Windows.Forms.Appearance.Button;
-            this.chkSenderPage.Location = new System.Drawing.Point(3, 60);
-            this.chkSenderPage.Name = "chkSenderPage";
-            this.chkSenderPage.Size = new System.Drawing.Size(128, 46);
-            this.chkSenderPage.TabIndex = 10;
-            this.chkSenderPage.Tag = "S";
-            this.chkSenderPage.Text = "SMTP Sender";
-            this.chkSenderPage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.chkSenderPage.UseVisualStyleBackColor = true;
-            this.chkSenderPage.CheckedChanged += new System.EventHandler(this.PageChange);
-            // 
-            // chkMessagePage
-            // 
-            this.chkMessagePage.Appearance = System.Windows.Forms.Appearance.Button;
-            this.chkMessagePage.Location = new System.Drawing.Point(3, 112);
-            this.chkMessagePage.Name = "chkMessagePage";
-            this.chkMessagePage.Size = new System.Drawing.Size(128, 46);
-            this.chkMessagePage.TabIndex = 11;
-            this.chkMessagePage.Tag = "M";
-            this.chkMessagePage.Text = "Message";
-            this.chkMessagePage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.chkMessagePage.UseVisualStyleBackColor = true;
-            this.chkMessagePage.CheckedChanged += new System.EventHandler(this.PageChange);
-            // 
-            // chkPurgePage
-            // 
-            this.chkPurgePage.Appearance = System.Windows.Forms.Appearance.Button;
-            this.chkPurgePage.Location = new System.Drawing.Point(3, 164);
-            this.chkPurgePage.Name = "chkPurgePage";
-            this.chkPurgePage.Size = new System.Drawing.Size(128, 46);
-            this.chkPurgePage.TabIndex = 12;
-            this.chkPurgePage.Tag = "P";
-            this.chkPurgePage.Text = "Purge";
-            this.chkPurgePage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.chkPurgePage.UseVisualStyleBackColor = true;
-            this.chkPurgePage.CheckedChanged += new System.EventHandler(this.PageChange);
+            this.txtSndHostname.Location = new System.Drawing.Point(155, 36);
+            this.txtSndHostname.Name = "txtSndHostname";
+            this.txtSndHostname.Size = new System.Drawing.Size(252, 20);
+            this.txtSndHostname.TabIndex = 30;
+            this.txtSndHostname.TextChanged += new System.EventHandler(this.txtSndHostname_TextChanged);
             // 
             // cmdSaveSndLogPath
             // 
@@ -594,15 +499,129 @@ namespace SMTPRelay.Configuration.Controls
             0});
             this.nudSndIntervalMS.ValueChanged += new System.EventHandler(this.nudSndIntervalMS_ValueChanged);
             // 
-            // txtSndHostname
+            // grpMessage
             // 
-            this.txtSndHostname.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.grpMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtSndHostname.Location = new System.Drawing.Point(155, 36);
-            this.txtSndHostname.Name = "txtSndHostname";
-            this.txtSndHostname.Size = new System.Drawing.Size(252, 20);
-            this.txtSndHostname.TabIndex = 30;
-            this.txtSndHostname.TextChanged += new System.EventHandler(this.txtSndHostname_TextChanged);
+            this.grpMessage.Controls.Add(this.cmdSaveMsgFailedRetentionMins);
+            this.grpMessage.Controls.Add(this.label11);
+            this.grpMessage.Controls.Add(this.nudMsgFailedRetentionMins);
+            this.grpMessage.Controls.Add(this.cmdSaveMsgRetentionMins);
+            this.grpMessage.Controls.Add(this.label8);
+            this.grpMessage.Controls.Add(this.nudMsgRetentionMins);
+            this.grpMessage.Controls.Add(this.cmdSaveMsgChunkSize);
+            this.grpMessage.Controls.Add(this.label12);
+            this.grpMessage.Controls.Add(this.nudMsgChunkSize);
+            this.grpMessage.Controls.Add(this.cmdSaveMsgRecipCount);
+            this.grpMessage.Controls.Add(this.cmdSaveMsgMaxSize);
+            this.grpMessage.Controls.Add(this.label13);
+            this.grpMessage.Controls.Add(this.label14);
+            this.grpMessage.Controls.Add(this.nudMsgRecipCount);
+            this.grpMessage.Controls.Add(this.nudMsgMaxSize);
+            this.grpMessage.Location = new System.Drawing.Point(137, 3);
+            this.grpMessage.Name = "grpMessage";
+            this.grpMessage.Size = new System.Drawing.Size(509, 488);
+            this.grpMessage.TabIndex = 7;
+            this.grpMessage.TabStop = false;
+            this.grpMessage.Text = "Message Settings";
+            this.grpMessage.Visible = false;
+            // 
+            // cmdSaveMsgFailedRetentionMins
+            // 
+            this.cmdSaveMsgFailedRetentionMins.Location = new System.Drawing.Point(254, 187);
+            this.cmdSaveMsgFailedRetentionMins.Name = "cmdSaveMsgFailedRetentionMins";
+            this.cmdSaveMsgFailedRetentionMins.Size = new System.Drawing.Size(75, 23);
+            this.cmdSaveMsgFailedRetentionMins.TabIndex = 29;
+            this.cmdSaveMsgFailedRetentionMins.Text = "Save";
+            this.cmdSaveMsgFailedRetentionMins.UseVisualStyleBackColor = true;
+            this.cmdSaveMsgFailedRetentionMins.Visible = false;
+            this.cmdSaveMsgFailedRetentionMins.Click += new System.EventHandler(this.cmdSaveMsgFailedRetentionMins_Click);
+            // 
+            // label11
+            // 
+            this.label11.AutoSize = true;
+            this.label11.Location = new System.Drawing.Point(24, 190);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(124, 13);
+            this.label11.TabIndex = 28;
+            this.label11.Text = "Failed Retention Minutes";
+            // 
+            // nudMsgFailedRetentionMins
+            // 
+            this.nudMsgFailedRetentionMins.Increment = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            this.nudMsgFailedRetentionMins.Location = new System.Drawing.Point(156, 188);
+            this.nudMsgFailedRetentionMins.Maximum = new decimal(new int[] {
+            2147483647,
+            0,
+            0,
+            0});
+            this.nudMsgFailedRetentionMins.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.nudMsgFailedRetentionMins.Name = "nudMsgFailedRetentionMins";
+            this.nudMsgFailedRetentionMins.Size = new System.Drawing.Size(86, 20);
+            this.nudMsgFailedRetentionMins.TabIndex = 27;
+            this.nudMsgFailedRetentionMins.Value = new decimal(new int[] {
+            4320,
+            0,
+            0,
+            0});
+            this.nudMsgFailedRetentionMins.ValueChanged += new System.EventHandler(this.nudMsgFailedRetentionMins_ValueChanged);
+            // 
+            // cmdSaveMsgRetentionMins
+            // 
+            this.cmdSaveMsgRetentionMins.Location = new System.Drawing.Point(254, 150);
+            this.cmdSaveMsgRetentionMins.Name = "cmdSaveMsgRetentionMins";
+            this.cmdSaveMsgRetentionMins.Size = new System.Drawing.Size(75, 23);
+            this.cmdSaveMsgRetentionMins.TabIndex = 26;
+            this.cmdSaveMsgRetentionMins.Text = "Save";
+            this.cmdSaveMsgRetentionMins.UseVisualStyleBackColor = true;
+            this.cmdSaveMsgRetentionMins.Visible = false;
+            this.cmdSaveMsgRetentionMins.Click += new System.EventHandler(this.cmdSaveMsgRetentionMins_Click);
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(27, 154);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(121, 13);
+            this.label8.TabIndex = 25;
+            this.label8.Text = "Send Retention Minutes";
+            // 
+            // nudMsgRetentionMins
+            // 
+            this.nudMsgRetentionMins.Increment = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            this.nudMsgRetentionMins.Location = new System.Drawing.Point(156, 152);
+            this.nudMsgRetentionMins.Maximum = new decimal(new int[] {
+            2147483647,
+            0,
+            0,
+            0});
+            this.nudMsgRetentionMins.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.nudMsgRetentionMins.Name = "nudMsgRetentionMins";
+            this.nudMsgRetentionMins.Size = new System.Drawing.Size(86, 20);
+            this.nudMsgRetentionMins.TabIndex = 24;
+            this.nudMsgRetentionMins.Value = new decimal(new int[] {
+            1440,
+            0,
+            0,
+            0});
+            this.nudMsgRetentionMins.ValueChanged += new System.EventHandler(this.nudMsgRetentionMins_ValueChanged);
             // 
             // cmdSaveMsgChunkSize
             // 
@@ -743,101 +762,71 @@ namespace SMTPRelay.Configuration.Controls
             0});
             this.nudMsgMaxSize.ValueChanged += new System.EventHandler(this.nudMsgMaxSize_ValueChanged);
             // 
-            // cmdSaveMsgRetentionMins
+            // grpPurge
             // 
-            this.cmdSaveMsgRetentionMins.Location = new System.Drawing.Point(254, 150);
-            this.cmdSaveMsgRetentionMins.Name = "cmdSaveMsgRetentionMins";
-            this.cmdSaveMsgRetentionMins.Size = new System.Drawing.Size(75, 23);
-            this.cmdSaveMsgRetentionMins.TabIndex = 26;
-            this.cmdSaveMsgRetentionMins.Text = "Save";
-            this.cmdSaveMsgRetentionMins.UseVisualStyleBackColor = true;
-            this.cmdSaveMsgRetentionMins.Visible = false;
-            this.cmdSaveMsgRetentionMins.Click += new System.EventHandler(this.cmdSaveMsgRetentionMins_Click);
+            this.grpPurge.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.grpPurge.Controls.Add(this.cmdSavePrgLogPath);
+            this.grpPurge.Controls.Add(this.label20);
+            this.grpPurge.Controls.Add(this.txtPrgLogPath);
+            this.grpPurge.Controls.Add(this.cmbPrgLogging);
+            this.grpPurge.Controls.Add(this.cmdSavePrgLogging);
+            this.grpPurge.Controls.Add(this.label17);
+            this.grpPurge.Controls.Add(this.cmdSavePrgBatchSize);
+            this.grpPurge.Controls.Add(this.cmdSavePrgFrequencyMins);
+            this.grpPurge.Controls.Add(this.label18);
+            this.grpPurge.Controls.Add(this.label19);
+            this.grpPurge.Controls.Add(this.nugPrgBatchSize);
+            this.grpPurge.Controls.Add(this.nudPrgFrequencyMins);
+            this.grpPurge.Location = new System.Drawing.Point(137, 3);
+            this.grpPurge.Name = "grpPurge";
+            this.grpPurge.Size = new System.Drawing.Size(509, 488);
+            this.grpPurge.TabIndex = 8;
+            this.grpPurge.TabStop = false;
+            this.grpPurge.Text = "Purge Settings";
+            this.grpPurge.Visible = false;
             // 
-            // label8
+            // cmdSavePrgLogPath
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(27, 154);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(121, 13);
-            this.label8.TabIndex = 25;
-            this.label8.Text = "Send Retention Minutes";
+            this.cmdSavePrgLogPath.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmdSavePrgLogPath.Location = new System.Drawing.Point(414, 148);
+            this.cmdSavePrgLogPath.Name = "cmdSavePrgLogPath";
+            this.cmdSavePrgLogPath.Size = new System.Drawing.Size(75, 23);
+            this.cmdSavePrgLogPath.TabIndex = 48;
+            this.cmdSavePrgLogPath.Text = "Save";
+            this.cmdSavePrgLogPath.UseVisualStyleBackColor = true;
+            this.cmdSavePrgLogPath.Visible = false;
             // 
-            // nudMsgRetentionMins
+            // label20
             // 
-            this.nudMsgRetentionMins.Increment = new decimal(new int[] {
-            60,
-            0,
-            0,
-            0});
-            this.nudMsgRetentionMins.Location = new System.Drawing.Point(156, 152);
-            this.nudMsgRetentionMins.Maximum = new decimal(new int[] {
-            2147483647,
-            0,
-            0,
-            0});
-            this.nudMsgRetentionMins.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.nudMsgRetentionMins.Name = "nudMsgRetentionMins";
-            this.nudMsgRetentionMins.Size = new System.Drawing.Size(86, 20);
-            this.nudMsgRetentionMins.TabIndex = 24;
-            this.nudMsgRetentionMins.Value = new decimal(new int[] {
-            1440,
-            0,
-            0,
-            0});
-            this.nudMsgRetentionMins.ValueChanged += new System.EventHandler(this.nudMsgRetentionMins_ValueChanged);
+            this.label20.AutoSize = true;
+            this.label20.Location = new System.Drawing.Point(100, 153);
+            this.label20.Name = "label20";
+            this.label20.Size = new System.Drawing.Size(50, 13);
+            this.label20.TabIndex = 47;
+            this.label20.Text = "Log Path";
             // 
-            // cmdSaveMsgFailedRetentionMins
+            // txtPrgLogPath
             // 
-            this.cmdSaveMsgFailedRetentionMins.Location = new System.Drawing.Point(254, 187);
-            this.cmdSaveMsgFailedRetentionMins.Name = "cmdSaveMsgFailedRetentionMins";
-            this.cmdSaveMsgFailedRetentionMins.Size = new System.Drawing.Size(75, 23);
-            this.cmdSaveMsgFailedRetentionMins.TabIndex = 29;
-            this.cmdSaveMsgFailedRetentionMins.Text = "Save";
-            this.cmdSaveMsgFailedRetentionMins.UseVisualStyleBackColor = true;
-            this.cmdSaveMsgFailedRetentionMins.Visible = false;
-            this.cmdSaveMsgFailedRetentionMins.Click += new System.EventHandler(this.cmdSaveMsgFailedRetentionMins_Click);
+            this.txtPrgLogPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtPrgLogPath.Location = new System.Drawing.Point(156, 150);
+            this.txtPrgLogPath.Name = "txtPrgLogPath";
+            this.txtPrgLogPath.Size = new System.Drawing.Size(252, 20);
+            this.txtPrgLogPath.TabIndex = 46;
             // 
-            // label11
+            // cmbPrgLogging
             // 
-            this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(24, 190);
-            this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(124, 13);
-            this.label11.TabIndex = 28;
-            this.label11.Text = "Failed Retention Minutes";
-            // 
-            // nudMsgFailedRetentionMins
-            // 
-            this.nudMsgFailedRetentionMins.Increment = new decimal(new int[] {
-            60,
-            0,
-            0,
-            0});
-            this.nudMsgFailedRetentionMins.Location = new System.Drawing.Point(156, 188);
-            this.nudMsgFailedRetentionMins.Maximum = new decimal(new int[] {
-            2147483647,
-            0,
-            0,
-            0});
-            this.nudMsgFailedRetentionMins.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.nudMsgFailedRetentionMins.Name = "nudMsgFailedRetentionMins";
-            this.nudMsgFailedRetentionMins.Size = new System.Drawing.Size(86, 20);
-            this.nudMsgFailedRetentionMins.TabIndex = 27;
-            this.nudMsgFailedRetentionMins.Value = new decimal(new int[] {
-            4320,
-            0,
-            0,
-            0});
-            this.nudMsgFailedRetentionMins.ValueChanged += new System.EventHandler(this.nudMsgFailedRetentionMins_ValueChanged);
+            this.cmbPrgLogging.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbPrgLogging.FormattingEnabled = true;
+            this.cmbPrgLogging.Items.AddRange(new object[] {
+            "Disabled",
+            "Enabled"});
+            this.cmbPrgLogging.Location = new System.Drawing.Point(156, 113);
+            this.cmbPrgLogging.Name = "cmbPrgLogging";
+            this.cmbPrgLogging.Size = new System.Drawing.Size(86, 21);
+            this.cmbPrgLogging.TabIndex = 45;
             // 
             // cmdSavePrgLogging
             // 
@@ -950,46 +939,57 @@ namespace SMTPRelay.Configuration.Controls
             0,
             0});
             // 
-            // cmdSavePrgLogPath
+            // chkReceiverPage
             // 
-            this.cmdSavePrgLogPath.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.cmdSavePrgLogPath.Location = new System.Drawing.Point(414, 148);
-            this.cmdSavePrgLogPath.Name = "cmdSavePrgLogPath";
-            this.cmdSavePrgLogPath.Size = new System.Drawing.Size(75, 23);
-            this.cmdSavePrgLogPath.TabIndex = 48;
-            this.cmdSavePrgLogPath.Text = "Save";
-            this.cmdSavePrgLogPath.UseVisualStyleBackColor = true;
-            this.cmdSavePrgLogPath.Visible = false;
+            this.chkReceiverPage.Appearance = System.Windows.Forms.Appearance.Button;
+            this.chkReceiverPage.Location = new System.Drawing.Point(3, 8);
+            this.chkReceiverPage.Name = "chkReceiverPage";
+            this.chkReceiverPage.Size = new System.Drawing.Size(128, 46);
+            this.chkReceiverPage.TabIndex = 9;
+            this.chkReceiverPage.Tag = "R";
+            this.chkReceiverPage.Text = "SMTP Receiver";
+            this.chkReceiverPage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.chkReceiverPage.UseVisualStyleBackColor = true;
+            this.chkReceiverPage.CheckedChanged += new System.EventHandler(this.PageChange);
             // 
-            // label20
+            // chkSenderPage
             // 
-            this.label20.AutoSize = true;
-            this.label20.Location = new System.Drawing.Point(100, 153);
-            this.label20.Name = "label20";
-            this.label20.Size = new System.Drawing.Size(50, 13);
-            this.label20.TabIndex = 47;
-            this.label20.Text = "Log Path";
+            this.chkSenderPage.Appearance = System.Windows.Forms.Appearance.Button;
+            this.chkSenderPage.Location = new System.Drawing.Point(3, 60);
+            this.chkSenderPage.Name = "chkSenderPage";
+            this.chkSenderPage.Size = new System.Drawing.Size(128, 46);
+            this.chkSenderPage.TabIndex = 10;
+            this.chkSenderPage.Tag = "S";
+            this.chkSenderPage.Text = "SMTP Sender";
+            this.chkSenderPage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.chkSenderPage.UseVisualStyleBackColor = true;
+            this.chkSenderPage.CheckedChanged += new System.EventHandler(this.PageChange);
             // 
-            // txtPrgLogPath
+            // chkMessagePage
             // 
-            this.txtPrgLogPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtPrgLogPath.Location = new System.Drawing.Point(156, 150);
-            this.txtPrgLogPath.Name = "txtPrgLogPath";
-            this.txtPrgLogPath.Size = new System.Drawing.Size(252, 20);
-            this.txtPrgLogPath.TabIndex = 46;
+            this.chkMessagePage.Appearance = System.Windows.Forms.Appearance.Button;
+            this.chkMessagePage.Location = new System.Drawing.Point(3, 112);
+            this.chkMessagePage.Name = "chkMessagePage";
+            this.chkMessagePage.Size = new System.Drawing.Size(128, 46);
+            this.chkMessagePage.TabIndex = 11;
+            this.chkMessagePage.Tag = "M";
+            this.chkMessagePage.Text = "Message";
+            this.chkMessagePage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.chkMessagePage.UseVisualStyleBackColor = true;
+            this.chkMessagePage.CheckedChanged += new System.EventHandler(this.PageChange);
             // 
-            // cmbPrgLogging
+            // chkPurgePage
             // 
-            this.cmbPrgLogging.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbPrgLogging.FormattingEnabled = true;
-            this.cmbPrgLogging.Items.AddRange(new object[] {
-            "Disabled",
-            "Enabled"});
-            this.cmbPrgLogging.Location = new System.Drawing.Point(156, 113);
-            this.cmbPrgLogging.Name = "cmbPrgLogging";
-            this.cmbPrgLogging.Size = new System.Drawing.Size(86, 21);
-            this.cmbPrgLogging.TabIndex = 45;
+            this.chkPurgePage.Appearance = System.Windows.Forms.Appearance.Button;
+            this.chkPurgePage.Location = new System.Drawing.Point(3, 164);
+            this.chkPurgePage.Name = "chkPurgePage";
+            this.chkPurgePage.Size = new System.Drawing.Size(128, 46);
+            this.chkPurgePage.TabIndex = 12;
+            this.chkPurgePage.Tag = "P";
+            this.chkPurgePage.Text = "Purge";
+            this.chkPurgePage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.chkPurgePage.UseVisualStyleBackColor = true;
+            this.chkPurgePage.CheckedChanged += new System.EventHandler(this.PageChange);
             // 
             // ucSettings
             // 
@@ -999,10 +999,10 @@ namespace SMTPRelay.Configuration.Controls
             this.Controls.Add(this.chkMessagePage);
             this.Controls.Add(this.chkSenderPage);
             this.Controls.Add(this.chkReceiverPage);
-            this.Controls.Add(this.grpMessage);
-            this.Controls.Add(this.grpSender);
             this.Controls.Add(this.grpReceiver);
             this.Controls.Add(this.grpPurge);
+            this.Controls.Add(this.grpMessage);
+            this.Controls.Add(this.grpSender);
             this.Name = "ucSettings";
             this.Size = new System.Drawing.Size(649, 494);
             this.grpReceiver.ResumeLayout(false);
@@ -1012,16 +1012,16 @@ namespace SMTPRelay.Configuration.Controls
             ((System.ComponentModel.ISupportInitialize)(this.nudRecConnTimeoutMS)).EndInit();
             this.grpSender.ResumeLayout(false);
             this.grpSender.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudSndIntervalMS)).EndInit();
             this.grpMessage.ResumeLayout(false);
             this.grpMessage.PerformLayout();
-            this.grpPurge.ResumeLayout(false);
-            this.grpPurge.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudSndIntervalMS)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudMsgFailedRetentionMins)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudMsgRetentionMins)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgChunkSize)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgRecipCount)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgMaxSize)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudMsgRetentionMins)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudMsgFailedRetentionMins)).EndInit();
+            this.grpPurge.ResumeLayout(false);
+            this.grpPurge.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nugPrgBatchSize)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudPrgFrequencyMins)).EndInit();
             this.ResumeLayout(false);
