@@ -174,6 +174,20 @@ namespace SMTPRelay.Configuration.Controls
             grpPurge.Visible = true;
             grpPurge.BringToFront();
             chkPurgePage.Checked = true;
+            SetNudValSafe(nudPrgFrequencyMins, SettingsHelper.GetIntValue("Purge", "FrequencyMins"));
+            SetNudValSafe(nudPrgBatchSize, SettingsHelper.GetIntValue("Purge", "BatchSize"));
+
+            int dbg = SettingsHelper.GetIntValue("Purge", "DebugLog");
+            if (dbg == 0)
+            {
+                cmbPrgLogging.SelectedIndex = 0;
+            }
+            else
+            {
+                cmbPrgLogging.SelectedIndex = 1;
+            }
+            txtPrgLogPath.Text = SettingsHelper.GetStrValue("Purge", "DebugLogPath");
+
         }
 
         #endregion
@@ -681,6 +695,129 @@ namespace SMTPRelay.Configuration.Controls
             }
             cmdSaveMsgFailedRetentionMins.Visible = false;
         }
+
+        #endregion
+
+        #region Purge Settings Save
+        private void nudPrgFrequencyMins_ValueChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSavePrgFrequencyMins.Visible)
+            {
+                return;
+            }
+            cmdSavePrgFrequencyMins.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSavePrgFrequencyMins_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("Purge", "FrequencyMins", ((int)nudPrgFrequencyMins.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSavePrgFrequencyMins.Visible = false;
+        }
+
+        private void nudPrgBatchSize_ValueChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSavePrgBatchSize.Visible)
+            {
+                return;
+            }
+            cmdSavePrgBatchSize.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+
+        private void cmdSavePrgBatchSize_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("Purge", "BatchSize", ((int)nudPrgBatchSize.Value).ToString());
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                EditingCount = 0;
+                Editing = false;
+            }
+            cmdSavePrgBatchSize.Visible = false;
+        }
+
+        private void cmbPrgLogging_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSavePrgLogging.Visible)
+            {
+                return;
+            }
+            cmdSavePrgLogging.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSavePrgLogging_Click(object sender, EventArgs e)
+        {
+            switch (cmbPrgLogging.SelectedIndex)
+            {
+                case 0:
+                    SQLiteDB.System_AddUpdateValue("Purge", "DebugLog", "0");
+                    break;
+                case 1:
+                    SQLiteDB.System_AddUpdateValue("Purge", "DebugLog", "1");
+                    break;
+            }
+
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                Editing = false;
+                EditingCount = 0;
+            }
+            cmdSavePrgLogging.Visible = false;
+        }
+
+        private void txtPrgLogPath_TextChanged(object sender, EventArgs e)
+        {
+            if (Refreshing)
+            {
+                return;
+            }
+            if (cmdSavePrgLogPath.Visible)
+            {
+                return;
+            }
+            cmdSavePrgLogPath.Visible = true;
+            Editing = true;
+            EditingCount++;
+        }
+
+        private void cmdSavePrgLogPath_Click(object sender, EventArgs e)
+        {
+            SQLiteDB.System_AddUpdateValue("Purge", "DebugLogPath", txtPrgLogPath.Text.Trim());
+
+            EditingCount--;
+            if (EditingCount <= 0)
+            {
+                Editing = false;
+                EditingCount = 0;
+            }
+            cmdSavePrgLogPath.Visible = false;
+        }
+
         #endregion
     }
 }

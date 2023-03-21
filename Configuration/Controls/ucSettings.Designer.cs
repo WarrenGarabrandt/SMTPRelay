@@ -85,7 +85,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmdSavePrgFrequencyMins = new System.Windows.Forms.Button();
             this.label18 = new System.Windows.Forms.Label();
             this.label19 = new System.Windows.Forms.Label();
-            this.nugPrgBatchSize = new System.Windows.Forms.NumericUpDown();
+            this.nudPrgBatchSize = new System.Windows.Forms.NumericUpDown();
             this.nudPrgFrequencyMins = new System.Windows.Forms.NumericUpDown();
             this.chkReceiverPage = new System.Windows.Forms.CheckBox();
             this.chkSenderPage = new System.Windows.Forms.CheckBox();
@@ -104,7 +104,7 @@ namespace SMTPRelay.Configuration.Controls
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgRecipCount)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgMaxSize)).BeginInit();
             this.grpPurge.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nugPrgBatchSize)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudPrgBatchSize)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudPrgFrequencyMins)).BeginInit();
             this.SuspendLayout();
             // 
@@ -777,7 +777,7 @@ namespace SMTPRelay.Configuration.Controls
             this.grpPurge.Controls.Add(this.cmdSavePrgFrequencyMins);
             this.grpPurge.Controls.Add(this.label18);
             this.grpPurge.Controls.Add(this.label19);
-            this.grpPurge.Controls.Add(this.nugPrgBatchSize);
+            this.grpPurge.Controls.Add(this.nudPrgBatchSize);
             this.grpPurge.Controls.Add(this.nudPrgFrequencyMins);
             this.grpPurge.Location = new System.Drawing.Point(137, 3);
             this.grpPurge.Name = "grpPurge";
@@ -797,6 +797,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmdSavePrgLogPath.Text = "Save";
             this.cmdSavePrgLogPath.UseVisualStyleBackColor = true;
             this.cmdSavePrgLogPath.Visible = false;
+            this.cmdSavePrgLogPath.Click += new System.EventHandler(this.cmdSavePrgLogPath_Click);
             // 
             // label20
             // 
@@ -815,6 +816,7 @@ namespace SMTPRelay.Configuration.Controls
             this.txtPrgLogPath.Name = "txtPrgLogPath";
             this.txtPrgLogPath.Size = new System.Drawing.Size(252, 20);
             this.txtPrgLogPath.TabIndex = 46;
+            this.txtPrgLogPath.TextChanged += new System.EventHandler(this.txtPrgLogPath_TextChanged);
             // 
             // cmbPrgLogging
             // 
@@ -827,6 +829,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmbPrgLogging.Name = "cmbPrgLogging";
             this.cmbPrgLogging.Size = new System.Drawing.Size(86, 21);
             this.cmbPrgLogging.TabIndex = 45;
+            this.cmbPrgLogging.SelectedIndexChanged += new System.EventHandler(this.cmbPrgLogging_SelectedIndexChanged);
             // 
             // cmdSavePrgLogging
             // 
@@ -837,6 +840,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmdSavePrgLogging.Text = "Save";
             this.cmdSavePrgLogging.UseVisualStyleBackColor = true;
             this.cmdSavePrgLogging.Visible = false;
+            this.cmdSavePrgLogging.Click += new System.EventHandler(this.cmdSavePrgLogging_Click);
             // 
             // label17
             // 
@@ -856,6 +860,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmdSavePrgBatchSize.Text = "Save";
             this.cmdSavePrgBatchSize.UseVisualStyleBackColor = true;
             this.cmdSavePrgBatchSize.Visible = false;
+            this.cmdSavePrgBatchSize.Click += new System.EventHandler(this.cmdSavePrgBatchSize_Click);
             // 
             // cmdSavePrgFrequencyMins
             // 
@@ -866,6 +871,7 @@ namespace SMTPRelay.Configuration.Controls
             this.cmdSavePrgFrequencyMins.Text = "Save";
             this.cmdSavePrgFrequencyMins.UseVisualStyleBackColor = true;
             this.cmdSavePrgFrequencyMins.Visible = false;
+            this.cmdSavePrgFrequencyMins.Click += new System.EventHandler(this.cmdSavePrgFrequencyMins_Click);
             // 
             // label18
             // 
@@ -885,32 +891,33 @@ namespace SMTPRelay.Configuration.Controls
             this.label19.TabIndex = 32;
             this.label19.Text = "Run Frequency Minutes";
             // 
-            // nugPrgBatchSize
+            // nudPrgBatchSize
             // 
-            this.nugPrgBatchSize.Increment = new decimal(new int[] {
+            this.nudPrgBatchSize.Increment = new decimal(new int[] {
             100,
             0,
             0,
             0});
-            this.nugPrgBatchSize.Location = new System.Drawing.Point(156, 75);
-            this.nugPrgBatchSize.Maximum = new decimal(new int[] {
+            this.nudPrgBatchSize.Location = new System.Drawing.Point(156, 75);
+            this.nudPrgBatchSize.Maximum = new decimal(new int[] {
             999999,
             0,
             0,
             0});
-            this.nugPrgBatchSize.Minimum = new decimal(new int[] {
+            this.nudPrgBatchSize.Minimum = new decimal(new int[] {
             10,
             0,
             0,
             0});
-            this.nugPrgBatchSize.Name = "nugPrgBatchSize";
-            this.nugPrgBatchSize.Size = new System.Drawing.Size(86, 20);
-            this.nugPrgBatchSize.TabIndex = 31;
-            this.nugPrgBatchSize.Value = new decimal(new int[] {
+            this.nudPrgBatchSize.Name = "nudPrgBatchSize";
+            this.nudPrgBatchSize.Size = new System.Drawing.Size(86, 20);
+            this.nudPrgBatchSize.TabIndex = 31;
+            this.nudPrgBatchSize.Value = new decimal(new int[] {
             100,
             0,
             0,
             0});
+            this.nudPrgBatchSize.ValueChanged += new System.EventHandler(this.nudPrgBatchSize_ValueChanged);
             // 
             // nudPrgFrequencyMins
             // 
@@ -938,6 +945,7 @@ namespace SMTPRelay.Configuration.Controls
             0,
             0,
             0});
+            this.nudPrgFrequencyMins.ValueChanged += new System.EventHandler(this.nudPrgFrequencyMins_ValueChanged);
             // 
             // chkReceiverPage
             // 
@@ -999,10 +1007,10 @@ namespace SMTPRelay.Configuration.Controls
             this.Controls.Add(this.chkMessagePage);
             this.Controls.Add(this.chkSenderPage);
             this.Controls.Add(this.chkReceiverPage);
-            this.Controls.Add(this.grpReceiver);
             this.Controls.Add(this.grpPurge);
             this.Controls.Add(this.grpMessage);
             this.Controls.Add(this.grpSender);
+            this.Controls.Add(this.grpReceiver);
             this.Name = "ucSettings";
             this.Size = new System.Drawing.Size(649, 494);
             this.grpReceiver.ResumeLayout(false);
@@ -1022,7 +1030,7 @@ namespace SMTPRelay.Configuration.Controls
             ((System.ComponentModel.ISupportInitialize)(this.nudMsgMaxSize)).EndInit();
             this.grpPurge.ResumeLayout(false);
             this.grpPurge.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nugPrgBatchSize)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudPrgBatchSize)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudPrgFrequencyMins)).EndInit();
             this.ResumeLayout(false);
 
@@ -1085,7 +1093,7 @@ namespace SMTPRelay.Configuration.Controls
         private System.Windows.Forms.Button cmdSavePrgFrequencyMins;
         private System.Windows.Forms.Label label18;
         private System.Windows.Forms.Label label19;
-        private System.Windows.Forms.NumericUpDown nugPrgBatchSize;
+        private System.Windows.Forms.NumericUpDown nudPrgBatchSize;
         private System.Windows.Forms.NumericUpDown nudPrgFrequencyMins;
         private System.Windows.Forms.Button cmdSavePrgLogPath;
         private System.Windows.Forms.Label label20;
