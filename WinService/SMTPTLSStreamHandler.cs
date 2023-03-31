@@ -100,7 +100,7 @@ namespace SMTPRelay.WinService
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
             bool GetingChars = true;
-            while (GetingChars || sw.ElapsedMilliseconds < waitms || waitms == -1)
+            while (GetingChars && (sw.ElapsedMilliseconds < waitms || waitms == -1))
             {
                 if (bwCanceller != null && bwCanceller.CancellationPending)
                 {
@@ -119,6 +119,7 @@ namespace SMTPRelay.WinService
                             _crSeen = false;
                             string line = _sb.ToString();
                             _sb.Clear();
+                            sw.Stop();
                             return line;
                         }
                         else
@@ -143,6 +144,7 @@ namespace SMTPRelay.WinService
                     GetingChars = false;
                 }
             }
+            sw.Stop();
             return null;
         }
 
