@@ -14,9 +14,12 @@ namespace SMTPRelay.WinService
     public class SMTPTLSStreamHandler : ISMTPStream
     {
         public string EncryptionNegotiated = "";
+        public string Exception = string.Empty;
 
         private Stream _stream;
         private SslStream _sslStream;
+
+        public bool Broken = false;
 
         /// <summary>
         /// If a connection error occurs due to a policy error, that will be populated here
@@ -49,13 +52,13 @@ namespace SMTPRelay.WinService
                     }
                     catch (AuthenticationException ex)
                     {
-                        System.Diagnostics.Debug.WriteLine(ex.Message);
+                        Exception = ex.Message;
+                        Broken = true;
                         try
                         {
                             _sslStream.Dispose();
                         }
                         catch { }
-                        throw;
                     }
                     break;
                 case Mode.Server:
@@ -67,14 +70,14 @@ namespace SMTPRelay.WinService
                     }
                     catch (AuthenticationException ex)
                     {
-                        System.Diagnostics.Debug.Write(ex.Message);
+                        Exception = ex.Message;
+                        Broken = true;
                         try
                         {
 
                             _sslStream.Dispose();
                         }
                         catch { }
-                        throw;
                     }
                     break;
             }
@@ -97,6 +100,10 @@ namespace SMTPRelay.WinService
 
         public string ReadLine(int waitms = 10, BackgroundWorker bwCanceller = null)
         {
+            if (Broken)
+            {
+                return null;
+            }
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
             bool GetingChars = true;
@@ -150,6 +157,10 @@ namespace SMTPRelay.WinService
 
         public void WriteLine(string line)
         {
+            if (Broken)
+            {
+                return;
+            }
             line = string.Format("{0}\r\n", line);
             byte[] buff = ASCIIEncoding.ASCII.GetBytes(line);
             _sslStream.Write(buff, 0, buff.Length);

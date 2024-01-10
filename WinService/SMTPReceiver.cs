@@ -554,8 +554,24 @@ namespace SMTPRelay.WinService
                         {
                             lineStream.Release();
                             lineStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Server, null, serverCert);
-                            state = SMTPStates.WaitClientHello;
-                            EncryptedChannel = true;
+                            if (((SMTPTLSStreamHandler)lineStream).Broken)
+                            {
+                                // we can't continue at this point. 
+                                line = "Failed SSL Negotiation: " + ((SMTPTLSStreamHandler)lineStream).Exception;
+                                DebugLine(line, ref Verbose, debugWriter, ClientIPAddress);
+                                CloseConnection = true;
+                                Worker.ReportProgress(0, new WorkerReport()
+                                {
+                                    LogWarning = string.Format(line)
+                                });
+                            }
+                            else
+                            {
+                                line = "Encryption mode: " + ((SMTPTLSStreamHandler)lineStream).EncryptionNegotiated;
+                                DebugLine(line, ref Verbose, debugWriter, ClientIPAddress);
+                                state = SMTPStates.WaitClientHello;
+                                EncryptedChannel = true;
+                            }
                         }
                         else if (state == SMTPStates.SendStartTLSNotAvail)
                         {
@@ -1408,6 +1424,26 @@ namespace SMTPRelay.WinService
                 }
             }
             lineStream.WriteLine(line);
+        }
+
+        private void DebugLine(string line, ref bool debug, TextWriter debugWriter, string clientIPAddress)
+        {
+            if (debug)
+            {
+                try
+                {
+                    debugWriter.WriteLine(String.Format("DBG: {0}", line));
+                    debugWriter.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", clientIPAddress, ex.Message)
+                    });
+                    debug = false;
+                }
+            }
         }
 
         private X509Certificate2 FindSystemCert(string friendlyName)

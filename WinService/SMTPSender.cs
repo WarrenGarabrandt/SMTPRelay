@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -507,6 +508,18 @@ namespace SMTPRelay.WinService
                     smtpStream.Release();
                     smtpStream = null;
                     smtpStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Client, serverHostname, null);
+                    if (((SMTPTLSStreamHandler)smtpStream).Broken)
+                    {
+                        line = "Failed SSL Negotiation: " + ((SMTPTLSStreamHandler)smtpStream).Exception;
+                        DebugLine(line, ref Verbose, debugWriter, MsgIdentifier);
+                        PermanentFailure = false;
+                        throw new Exception(((SMTPTLSStreamHandler)smtpStream).Exception);
+                    }
+                    else
+                    {
+                        line = "Encryption mode: " + ((SMTPTLSStreamHandler)smtpStream).EncryptionNegotiated;
+                        DebugLine(line, ref Verbose, debugWriter, MsgIdentifier);
+                    }
                     // send the HELO message. This essentially starts the conversation over.
                     line = string.Format("EHLO {0}", localHostname);
                     WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
@@ -1132,6 +1145,26 @@ namespace SMTPRelay.WinService
                 }
             }
             lineStream.WriteLine(line);
+        }
+
+        private void DebugLine(string line, ref bool debug, TextWriter debugWriter, string messageID)
+        {
+            if (debug)
+            {
+                try
+                {
+                    debugWriter.WriteLine(String.Format("DBG: {0}", line));
+                    debugWriter.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Verbose Logging failed for {0}. Exception: {1}", messageID, ex.Message)
+                    });
+                    debug = false;
+                }
+            }
         }
 
         private string SanitizeName(string name)

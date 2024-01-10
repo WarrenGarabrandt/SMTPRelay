@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Configuration", "Configurat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MailClient", "MailClient\MailClient.csproj", "{9174D063-D184-42E7-B3F9-A164E3FE86F2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkerProcess", "WorkerProcess\WorkerProcess.csproj", "{B7C26E9A-0851-45BE-AD8E-8F77EA185E48}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{9174D063-D184-42E7-B3F9-A164E3FE86F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9174D063-D184-42E7-B3F9-A164E3FE86F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9174D063-D184-42E7-B3F9-A164E3FE86F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7C26E9A-0851-45BE-AD8E-8F77EA185E48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7C26E9A-0851-45BE-AD8E-8F77EA185E48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7C26E9A-0851-45BE-AD8E-8F77EA185E48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7C26E9A-0851-45BE-AD8E-8F77EA185E48}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
