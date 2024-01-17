@@ -50,7 +50,7 @@ namespace SMTPRelay.WinService
                         _sslStream.AuthenticateAsClient(host);
                         UpdateEncryptionMethod();
                     }
-                    catch (AuthenticationException ex)
+                    catch (Exception ex)
                     {
                         Exception = ex.Message;
                         Broken = true;
@@ -68,13 +68,12 @@ namespace SMTPRelay.WinService
                         _sslStream.AuthenticateAsServer(serverCert, false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true);
                         UpdateEncryptionMethod();
                     }
-                    catch (AuthenticationException ex)
+                    catch (Exception ex)
                     {
                         Exception = ex.Message;
                         Broken = true;
                         try
                         {
-
                             _sslStream.Dispose();
                         }
                         catch { }
