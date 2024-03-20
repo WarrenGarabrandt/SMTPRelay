@@ -52,7 +52,14 @@ namespace SMTPRelay.WinService
                     }
                     catch (Exception ex)
                     {
-                        Exception = ex.Message;
+                        if (ex.InnerException != null)
+                        {
+                            Exception = string.Format("{0}\r\nInner Exception:\r\n{1}", ex.Message, ex.InnerException.Message);
+                        }
+                        else
+                        {
+                            Exception = ex.Message;
+                        }
                         Broken = true;
                         try
                         {
@@ -70,7 +77,14 @@ namespace SMTPRelay.WinService
                     }
                     catch (Exception ex)
                     {
-                        Exception = ex.Message;
+                        if (ex.InnerException != null)
+                        {
+                            Exception = string.Format("{0}\r\nInner Exception:\r\n{1}", ex.Message, ex.InnerException.Message);
+                        }
+                        else
+                        {
+                            Exception = ex.Message;
+                        }
                         Broken = true;
                         try
                         {

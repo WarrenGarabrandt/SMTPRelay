@@ -330,7 +330,23 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitClientHello)
                         {
-                            line = lineStream.ReadLine();
+                            try
+                            {
+                                line = lineStream.ReadLine();
+                            }
+                            catch (Exception ex)
+                            {
+                                if (ex.InnerException != null)
+                                {
+                                    line = "Failed to read from the client: " + ex.Message + "\r\nInner Exception: " + ex.InnerException.Message;
+                                }
+                                else
+                                {
+                                    line = "Failed to read from the client: " + ex.Message;
+                                }
+                                DebugLine(line, ref Verbose, debugWriter, ClientIPAddress);
+                                throw;
+                            }
                             if (!string.IsNullOrEmpty(line))
                             {
                                 if (Verbose)
@@ -1388,6 +1404,15 @@ namespace SMTPRelay.WinService
             }
             catch (Exception ex)
             {
+                string errmsg = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    errmsg = string.Format("{0}\r\nInner Exception: {1}", ex.Message, ex.InnerException.Message);
+                }
+                else
+                {
+                    errmsg = ex.Message;
+                }
                 e.Result = new WorkerReport()
                 {
                     LogError = ex.Message
