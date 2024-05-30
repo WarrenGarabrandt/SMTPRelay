@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Security;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -120,6 +121,18 @@ namespace SMTPRelay.WinService
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
             bool GetingChars = true;
+            // Stream.Read blocks if there is no data available, so we want to use the DataAvailable method on the NetworkStream before trying that.
+            if (waitms != -1 && _stream is NetworkStream stream)
+            {
+                while (!stream.DataAvailable && sw.ElapsedMilliseconds < waitms)
+                {
+                    System.Threading.Thread.Sleep(1);
+                }
+                if (!stream.DataAvailable)
+                {
+                    return null;
+                }
+            }
             while (GetingChars && (sw.ElapsedMilliseconds < waitms || waitms == -1))
             {
                 if (bwCanceller != null && bwCanceller.CancellationPending)
