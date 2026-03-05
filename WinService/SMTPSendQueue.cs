@@ -358,7 +358,7 @@ namespace SMTPRelay.WinService
 
                     if (!senders[i].Running)
                     {
-                        if (!senders[i].GatewayIdInUse.HasValue)
+                        if (senders[i].GatewayIdInUse.HasValue)
                         {
                             int gwUseCount;
                             if (gatewayUsageTrack.TryGetValue(senders[i].GatewayIdInUse.Value, out gwUseCount))
@@ -366,10 +366,10 @@ namespace SMTPRelay.WinService
                                 gwUseCount--;
                                 gatewayUsageTrack[senders[i].GatewayIdInUse.Value] = gwUseCount;
                             }
-                            TakeReports(senders[i]);
-                            senders.RemoveAt(i);
-                            continue;
                         }
+                        TakeReports(senders[i]);
+                        senders.RemoveAt(i);
+                        continue;
                     }
                 }
             }
