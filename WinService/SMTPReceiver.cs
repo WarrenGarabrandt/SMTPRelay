@@ -19,6 +19,7 @@ namespace SMTPRelay.WinService
 {
     public class SMTPReceiver
     {
+        public DateTime HEARTBEAT = DateTime.Now;
         private readonly int MAX_RCPTTO_FAIL_COUNT = 10;
         private BackgroundWorker Worker;        
         public bool Running;        
@@ -160,7 +161,9 @@ namespace SMTPRelay.WinService
                 TcpClient client = args.Client;
 
                 NetworkStream stream = client.GetStream();
+                HEARTBEAT = DateTime.Now;
                 ISMTPStream lineStream = new SMTPStreamHandler(stream);
+                HEARTBEAT = DateTime.Now;
                 EndPoint clientEP = client.Client.RemoteEndPoint;
                 EndPoint localEP = client.Client.LocalEndPoint;
                 string ClientIPAddress = ((IPEndPoint)clientEP).Address.ToString();
@@ -332,7 +335,9 @@ namespace SMTPRelay.WinService
                         {
                             try
                             {
+                                HEARTBEAT = DateTime.Now;
                                 line = lineStream.ReadLine();
+                                HEARTBEAT = DateTime.Now;
                             }
                             catch (Exception ex)
                             {
@@ -472,7 +477,9 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientVerb)
                         {
+                            HEARTBEAT = DateTime.Now;
                             line = lineStream.ReadLine(10);
+                            HEARTBEAT = DateTime.Now;
                             if (!string.IsNullOrEmpty(line))
                             {
                                 if (Verbose)
@@ -568,6 +575,7 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.SwitchToTLS)
                         {
+                            HEARTBEAT = DateTime.Now;
                             lineStream.Release();
                             lineStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Server, null, serverCert);
                             if (((SMTPTLSStreamHandler)lineStream).Broken)
@@ -588,6 +596,7 @@ namespace SMTPRelay.WinService
                                 state = SMTPStates.WaitClientHello;
                                 EncryptedChannel = true;
                             }
+                            HEARTBEAT = DateTime.Now;
                         }
                         else if (state == SMTPStates.SendStartTLSNotAvail)
                         {
@@ -708,7 +717,9 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientAUTHPLAINResponse)
                         {
+                            HEARTBEAT = DateTime.Now;
                             line = lineStream.ReadLine();
+                            HEARTBEAT = DateTime.Now;
                             if (!string.IsNullOrEmpty(line))
                             {
                                 if (Verbose)
@@ -770,7 +781,9 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientUsernameResonse)
                         {
+                            HEARTBEAT = DateTime.Now;
                             line = lineStream.ReadLine();
+                            HEARTBEAT = DateTime.Now;
                             if (!string.IsNullOrEmpty(line))
                             {
                                 if (Verbose)
@@ -807,7 +820,9 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.WaitForClientPasswordResponse)
                         {
+                            HEARTBEAT = DateTime.Now;
                             line = lineStream.ReadLine();
+                            HEARTBEAT = DateTime.Now;
                             if (!string.IsNullOrEmpty(line))
                             {
                                 if (Verbose)
@@ -1164,7 +1179,9 @@ namespace SMTPRelay.WinService
                         }
                         else if (state == SMTPStates.ReceiveDATABlock)
                         {
+                            HEARTBEAT = DateTime.Now;
                             line = lineStream.ReadLine();
+                            HEARTBEAT = DateTime.Now;
                             // Can't use string.IsNullOrEmpty() because empty strings are valid in a message. Only null indicates that no data was received.
                             if (line != null)
                             {
@@ -1448,7 +1465,9 @@ namespace SMTPRelay.WinService
                     debug = false;
                 }
             }
+            HEARTBEAT = DateTime.Now;
             lineStream.WriteLine(line);
+            HEARTBEAT = DateTime.Now;
         }
 
         private void DebugLine(string line, ref bool debug, TextWriter debugWriter, string clientIPAddress)

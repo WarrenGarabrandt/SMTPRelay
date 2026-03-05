@@ -17,12 +17,15 @@ namespace SMTPRelay.WinService
 {
     public class SMTPSender
     {
+        public DateTime HEARTBEAT = DateTime.Now;
+        public bool HEARTBEAT_ABORTED = false;
         // hard programmed limit of 20 minutes
         private const int CONNECTIONTIMEOUT = 1200000;
         private BackgroundWorker Worker;
         public bool Running;
         public ConcurrentQueue<WorkerReport> WorkerReports;
         public long? GatewayIdInUse = null;
+        public long? JobProcessQueueID = null;
 
         public SMTPSender(tblProcessQueue sendQueueItem, long? trackGateway)
         {
@@ -98,6 +101,7 @@ namespace SMTPRelay.WinService
 
                 // retrieve necessary message info (sender, recipient, gateway, message size)
                 tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sendQueueItem.EnvelopeID);
+                JobProcessQueueID = sendQueueItem.ProcessQueueID;
                 tblEnvelopeRcpt envelopeRcpt = SQLiteDB.EnvelopeRcpt_GetByID(sendQueueItem.EnvelopeRcptID);
                 tblUser user = null;
                 tblDevice device = null;
@@ -324,6 +328,7 @@ namespace SMTPRelay.WinService
                     throw new Exception("Unable to connect to SMTP server. No End Point could be resolved.");
                 }
 
+                HEARTBEAT = DateTime.Now;
                 client = null;
                 foreach (var ep in serverEPs)
                 {
@@ -359,12 +364,12 @@ namespace SMTPRelay.WinService
                     throw new Exception("Unable to connect to the SMTP Server.");
                 }
 
+                HEARTBEAT = DateTime.Now;
                 stream = client.GetStream();
                 smtpStream = new SMTPStreamHandler(stream);
-
                 // negotiate the connection and switch to TLS if the gateway specifies requirements to do so.
                 string line = smtpStream.ReadLine(30000, Worker);
-
+                HEARTBEAT = DateTime.Now;
                 if (string.IsNullOrEmpty(line))
                 {
                     if (Verbose)
@@ -393,12 +398,12 @@ namespace SMTPRelay.WinService
                 // send the HELO message
                 line = string.Format("EHLO {0}", localHostname);
                 WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
-
                 // Get the server extensions (250-) and the OK message (250)
                 bool LoopDone = false;
                 while (!LoopDone)
                 {
                     line = smtpStream.ReadLine(30000, Worker);
+                    HEARTBEAT = DateTime.Now;
                     if (string.IsNullOrEmpty(line))
                     {
                         if (Verbose)
@@ -463,6 +468,7 @@ namespace SMTPRelay.WinService
                     // 501 Syntax error (no parameters allowed)
                     // 454 TLS not available due to temporary reason
                     line = smtpStream.ReadLine(30000, Worker);
+                    HEARTBEAT = DateTime.Now;
                     if (string.IsNullOrEmpty(line))
                     {
                         if (Verbose)
@@ -505,9 +511,11 @@ namespace SMTPRelay.WinService
                         throw new Exception(string.Format("Unexpected server response to STARTTLS: {0}", line));
                     }
                     // switch to TLS now
+                    HEARTBEAT = DateTime.Now;
                     smtpStream.Release();
                     smtpStream = null;
                     smtpStream = new SMTPTLSStreamHandler(stream, SMTPTLSStreamHandler.Mode.Client, serverHostname, null);
+                    HEARTBEAT = DateTime.Now;
                     if (((SMTPTLSStreamHandler)smtpStream).Broken)
                     {
                         line = "Failed SSL Negotiation: " + ((SMTPTLSStreamHandler)smtpStream).Exception;
@@ -530,6 +538,7 @@ namespace SMTPRelay.WinService
                     while (!LoopDone)
                     {
                         line = smtpStream.ReadLine(30000, Worker);
+                        HEARTBEAT = DateTime.Now;
                         if (string.IsNullOrEmpty(line))
                         {
                             if (Verbose)
@@ -595,6 +604,7 @@ namespace SMTPRelay.WinService
                     line = "AUTH LOGIN";
                     WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
+                    HEARTBEAT = DateTime.Now;
                     if (Verbose)
                     {
                         debugWriter.WriteLine(String.Format("S->C: {0}", line));
@@ -639,6 +649,7 @@ namespace SMTPRelay.WinService
                     line = BASE64Encode(gateway.Username);
                     WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
+                    HEARTBEAT = DateTime.Now;
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
                         if (Verbose)
@@ -683,6 +694,7 @@ namespace SMTPRelay.WinService
                     line = BASE64Encode(gateway.Password);
                     WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                     line = smtpStream.ReadLine(30000, Worker);
+                    HEARTBEAT = DateTime.Now;
                     if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                     {
                         if (Verbose)
@@ -739,6 +751,7 @@ namespace SMTPRelay.WinService
                 line = string.Format("MAIL FROM: {0}", EscapeEmailAddress(MailFromAddress));
                 WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
+                HEARTBEAT = DateTime.Now;
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
                     if (Verbose)
@@ -785,6 +798,7 @@ namespace SMTPRelay.WinService
                 line = string.Format("RCPT TO: {0}", EscapeEmailAddress(RcptToAddress));
                 WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
+                HEARTBEAT = DateTime.Now;
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
                     if (Verbose)
@@ -822,6 +836,7 @@ namespace SMTPRelay.WinService
                 line = "DATA";
                 WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(30000, Worker);
+                HEARTBEAT = DateTime.Now;
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
                     if (Verbose)
@@ -880,8 +895,16 @@ namespace SMTPRelay.WinService
                     string datastring = ASCIIEncoding.ASCII.GetString(datablock);
                     List<string> datalines = datastring.Split(new string[] { "\r\n" }, StringSplitOptions.None).ToList();
                     for (int lineno = 0; lineno < datalines.Count; lineno++)
-                    //foreach (string dl in datalines)
                     {
+                        if (Worker.CancellationPending)
+                        {
+                            if (Verbose)
+                            {
+                                debugWriter.WriteLine("# Operation Canceled.");
+                                debugWriter.Flush();
+                            }
+                            throw new OperationCanceledException();
+                        }
                         string outputLine = datalines[lineno];
                         if (HeaderReplaceSender && !FromDone && outputLine.ToUpper().StartsWith("FROM:"))
                         {
@@ -941,6 +964,7 @@ namespace SMTPRelay.WinService
 
                 // get a final ack
                 line = smtpStream.ReadLine(30000, Worker);
+                HEARTBEAT = DateTime.Now;
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
                     if (Verbose)
@@ -989,6 +1013,7 @@ namespace SMTPRelay.WinService
                 line = "QUIT";
                 WriteLineWithDebugOptions(smtpStream, line, ref Verbose, debugWriter, MsgIdentifier);
                 line = smtpStream.ReadLine(10000, Worker);
+                HEARTBEAT = DateTime.Now;
                 if (HardTimeLimit.ElapsedMilliseconds > CONNECTIONTIMEOUT)
                 {
                     if (Verbose)
@@ -1028,10 +1053,21 @@ namespace SMTPRelay.WinService
             catch (OperationCanceledException opex)
             {
                 // this might be because of a cancel, or a global timeout, or any number of underlying exceptions.
-                Worker.ReportProgress(0, new WorkerReport()
+                if (HEARTBEAT_ABORTED)
                 {
-                    LogError = string.Format("Operation Cancelled: {0}. Will retry after a minimum of 10 minutes.", MsgIdentifier)
-                });
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Operation Cancelled due to HeartBeat Timeout.", MsgIdentifier)
+                    });
+                    return;
+                }
+                else
+                {
+                    Worker.ReportProgress(0, new WorkerReport()
+                    {
+                        LogError = string.Format("Operation Cancelled: {0}. Will retry after a minimum of 10 minutes.", MsgIdentifier)
+                    });
+                }
                 tblSendLog log = new tblSendLog(sendQueueItem.EnvelopeID, sendQueueItem.EnvelopeRcptID, DateTime.Now, "Operation cancelled", sendQueueItem.AttemptCount, false);
                 SQLiteDB.SendLog_Insert(log);
                 // roll back this aborted attempt.
@@ -1128,6 +1164,7 @@ namespace SMTPRelay.WinService
 
         private void WriteLineWithDebugOptions(ISMTPStream lineStream, string line, ref bool debug, TextWriter debugWriter, string messageID)
         {
+            HEARTBEAT = DateTime.Now;
             if (debug)
             {
                 try
@@ -1145,6 +1182,7 @@ namespace SMTPRelay.WinService
                 }
             }
             lineStream.WriteLine(line);
+            HEARTBEAT = DateTime.Now;
         }
 
         private void DebugLine(string line, ref bool debug, TextWriter debugWriter, string messageID)

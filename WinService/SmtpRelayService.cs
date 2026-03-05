@@ -411,6 +411,29 @@ namespace SMTPRelay.WinService
                     {
                         worker.ReportProgress(0, status);
                     }
+                    //check heartbeat of sender queue
+                    if (smtpQueue.HEARTBEAT.Add(smtpQueue.HEARTBEAT_TIMEOUT) < DateTime.Now)
+                    {
+                        worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogError = "SMTPSendQueue Heartbeat timer has expired; recovering..."
+                        });
+                        smtpQueue.HEARTBEAT_ABORTED = true;
+                        smtpQueue.Cancel();
+                        while (smtpQueue.WorkerReports.TryDequeue(out status))
+                        {
+                            worker.ReportProgress(0, status);
+                        }
+                        AttemptOrderlyShutdownOfSMTPSenders(smtpQueue);
+                        while (smtpQueue.WorkerReports.TryDequeue(out status))
+                        {
+                            worker.ReportProgress(0, status);
+                        }
+                        smtpQueue = null;
+                        // this will automatically trigger resetting all "busy" process queue items we just broke, so they get retried
+                        smtpQueue = new SMTPSendQueue();
+                    }
+
                     Thread.Sleep(10);
                 }
 
@@ -453,6 +476,83 @@ namespace SMTPRelay.WinService
             }
         }
 
+        // The SMTPSendQueue kept hanging up and I couldn't figure out why or where.
+        // So, I added a watchdog timer (heartbeat), and forceably cleanup and
+        // reset the process when that elapses to keep it running.
+        // Hopefully, this will allow me to pinpoint the problem and actually fix it
+        // in the future
+        private void AttemptOrderlyShutdownOfSMTPSenders(SMTPSendQueue smtpQueue)
+        {
+            if (smtpQueue.Senders == null || smtpQueue.Senders.Count == 0)
+            {
+                return;
+            }
+            try
+            {
+                // send abort to all senders
+                for (int i = smtpQueue.Senders.Count - 1; i >= 0; i--)
+                {
+                    if (smtpQueue.Senders[i] == null)
+                    {
+                        continue;
+                    }
+                    if (smtpQueue.Senders[i].Running)
+                    {
+                        smtpQueue.Senders[i].HEARTBEAT_ABORTED = true;
+                        smtpQueue.Senders[i].Cancel();
+                    }
+                }
+                bool StillRunning = true;
+                Stopwatch killTimeout = new Stopwatch();
+                killTimeout.Start();
+                // wait up to 15 seconds for them to abort
+                while (StillRunning && killTimeout.ElapsedMilliseconds < 15000)
+                {
+                    StillRunning = false;
+                    for (int i = smtpQueue.Senders.Count - 1; i >= 0; i--)
+                    {
+                        if (smtpQueue.Senders[i] == null)
+                        {
+                            continue;
+                        }
+                        if (smtpQueue.Senders[i].Running)
+                        {
+                            StillRunning = true;
+                        }
+                    }
+                }
+                // verify shutdown and flush logs
+                for (int i = smtpQueue.Senders.Count - 1; i >= 0; i--)
+                {
+                    if (smtpQueue.Senders[i] == null)
+                    {
+                        continue;
+                    }
+                    if (smtpQueue.Senders[i].Running)
+                    {
+                        worker.ReportProgress(0, new WorkerReport()
+                        {
+                            LogError = string.Format("SMTP Sender has failed to shut down, and is probably locked up. Process Queue ID {0}",
+                            smtpQueue.Senders[i].JobProcessQueueID.HasValue ? smtpQueue.Senders[i].JobProcessQueueID.Value.ToString() : "not found.")
+                        });
+                    }
+                    WorkerReport report = null;
+                    while (smtpQueue.Senders[i].WorkerReports.TryDequeue(out report))
+                    {
+                        worker.ReportProgress(0, report);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                worker.ReportProgress(0, new WorkerReport()
+                {
+                    LogError = string.Format("Exception: {0}", ex.Message)
+                });
+            }
+
+        }
+
         private void EmailSendBenchmark()
         {
             System.Diagnostics.Stopwatch sw = new Stopwatch();
@@ -471,6 +571,8 @@ namespace SMTPRelay.WinService
             sw.Stop();
             System.Diagnostics.Debug.WriteLine(string.Format("Benchmark email sending took {0} seconds.", sw.Elapsed.TotalSeconds));
         }
+
+
 
         private void SendTestEmail(string senderEmail, string senderPassword)
         {

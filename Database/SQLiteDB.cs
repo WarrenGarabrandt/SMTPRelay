@@ -155,6 +155,9 @@ namespace SMTPRelay.Database
                                     case qryViewGetInbox q:
                                         _mailItem_QueryView(conn, q);
                                         break;
+                                    case qryGetProcessQueueByID q:
+                                        _sendQueue_GetByID(conn, q);
+                                        break;
                                     case qryGetAllProcessQueue q:
                                         _sendQueue_GetAll(conn, q);
                                         break;
@@ -822,6 +825,18 @@ namespace SMTPRelay.Database
         public static List<tblProcessQueue> ProcessQueue_GetReady()
         {
             qryGetReadyProcessQueue q = new qryGetReadyProcessQueue();
+            QueryQueue.Add(q);
+            return q.GetResult();
+        }
+
+        /// <summary>
+        /// Gets a ProcessQueue from the database by ID
+        /// </summary>
+        /// <param name="processQueueID"></param>
+        /// <returns></returns>
+        public static tblProcessQueue ProcessQueue_GetByID(long processQueueID)
+        {
+            qryGetProcessQueueByID q = new qryGetProcessQueueByID(processQueueID);
             QueryQueue.Add(q);
             return q.GetResult();
         }
@@ -2079,6 +2094,24 @@ namespace SMTPRelay.Database
                 }
             }
             query.SetResult(results);
+        }
+
+        private static void _sendQueue_GetByID(SQLiteConnection conn, qryGetProcessQueueByID query)
+        {
+            tblProcessQueue dbsendqueue = null;
+            using (var command = conn.CreateCommand())
+            {
+                command.CommandText = SQLiteStrings.ProcessQueue_GetByID;
+                command.Parameters.AddWithValue("$ProcessQueueID", query.ProcessQueueID);
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        dbsendqueue = new tblProcessQueue(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5));
+                    }
+                }
+            }
+            query.SetResult(dbsendqueue);
         }
 
         private static void _sendQueue_AddUpdate(SQLiteConnection conn, qrySetProcessQueue query)

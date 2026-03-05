@@ -13,8 +13,12 @@ namespace SMTPRelay.WinService
 {
     public class SMTPSendQueue
     {
+        public DateTime HEARTBEAT = DateTime.Now;
+        public bool HEARTBEAT_ABORTED = false;
         private const int MAX_ACTIVE_SENDERS = 10;
         private const int PURGE_CHECK_INTERVAL = 60000;
+        public readonly TimeSpan HEARTBEAT_TIMEOUT = TimeSpan.FromMinutes(5);
+        public List<SMTPSender> Senders = null;
 
         private BackgroundWorker Worker;
         public bool Running = false;
@@ -39,7 +43,7 @@ namespace SMTPRelay.WinService
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            List<SMTPSender> Senders = new List<SMTPSender>();
+            Senders = new List<SMTPSender>();
             System.Diagnostics.Stopwatch cleanupSW = new System.Diagnostics.Stopwatch();
             cleanupSW.Start();
             System.Diagnostics.Stopwatch dbquerySW = new System.Diagnostics.Stopwatch();
@@ -60,6 +64,11 @@ namespace SMTPRelay.WinService
                 bool GatewayBackedUp = false;
                 while (!Worker.CancellationPending)
                 {
+                    if (HEARTBEAT_ABORTED)
+                    {
+                        return;
+                    }
+                    HEARTBEAT = DateTime.Now;
                     if (dbquerySW.ElapsedMilliseconds >= QueryUpdateInterval)
                     {
                         pendingQueue.Clear();
@@ -156,11 +165,17 @@ namespace SMTPRelay.WinService
                     }
                     GatewayBackedUp = false;
                 }
-
+                if (HEARTBEAT_ABORTED)
+                {
+                    return;
+                }
                 // wind down the senders
                 foreach (var snd in Senders)
                 {
-                    snd.Cancel();
+                    if (snd != null && snd.Running)
+                    {
+                        snd.Cancel();
+                    }
                 }
                 while (!CleanupSenders(Senders, ref GatewayUsageTrack))
                 {
@@ -171,7 +186,7 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = ex.Message
+                    LogError = string.Format("SMTPSendQueue exception: {0}\r\n{1}", ex.Message, ex.StackTrace)
                 });
             }
             finally
@@ -276,41 +291,100 @@ namespace SMTPRelay.WinService
         /// </summary>
         /// <param name="senders"></param>
         /// <returns></returns>
-        private bool CleanupSenders(List<SMTPSender> senders, ref Dictionary<long,int> gatewayUsageTrack)
+        private bool CleanupSenders(List<SMTPSender> senders, ref Dictionary<long, int> gatewayUsageTrack)
         {
-            List<SMTPSender> remove = new List<SMTPSender>();
-            foreach (var snd in senders)
+            if (senders != null)
             {
-                TakeReports(snd);
-                if (!snd.Running)
+                List<int> IndexesToRemove = new List<int>();
+                for (int i = senders.Count - 1; i >= 0; i--)
                 {
-                    remove.Add(snd);
-                    if (snd.GatewayIdInUse.HasValue)
+                    if (senders[i] == null)
                     {
-                        int gwUseCount;
-                        if (gatewayUsageTrack.TryGetValue(snd.GatewayIdInUse.Value, out gwUseCount))
+                        senders.RemoveAt(i);
+                        continue;
+                    }
+                    TakeReports(senders[i]);
+                    // check for HeartBeat timeout (locked up process detection and recovery)
+                    if (senders[i].Running && senders[i].HEARTBEAT.Add(HEARTBEAT_TIMEOUT) < DateTime.Now)
+                    {
+                        // get the ProcessQueue item that this worker was assigned so we can reset to retry it later.
+                        long? ResetJobProcessQueueID = senders[i].JobProcessQueueID;
+                        tblProcessQueue sendQueueItem = SQLiteDB.ProcessQueue_GetByID(ResetJobProcessQueueID.Value);
+                        // get the gateway ID it was using, if any, so we can decriment and free up the slot.
+                        long? ResetGatewayID = senders[i].GatewayIdInUse;
+                        // flag this as a heartbeat abort, and then send the cancel signal just in case it's still alive enough to handle that.
+                        senders[i].HEARTBEAT_ABORTED = true;
+                        senders[i].Cancel();
+                        Worker.ReportProgress(0, new WorkerReport()
                         {
-                            gwUseCount--;
-                            gatewayUsageTrack[snd.GatewayIdInUse.Value] = gwUseCount;
+                            LogError = string.Format("SMTPSendQueue-SMTPSender has stopped responding and will be recycled. Job ProcessQueueID {0}",
+                            ResetJobProcessQueueID.HasValue ? ResetJobProcessQueueID.Value.ToString() : "not found")
+                        });
+                        if (ResetGatewayID.HasValue)
+                        {
+                            int gwUseCount;
+                            if (gatewayUsageTrack.TryGetValue(ResetGatewayID.Value, out gwUseCount))
+                            {
+                                gwUseCount--;
+                                gatewayUsageTrack[ResetGatewayID.Value] = gwUseCount;
+                            }
+                        }
+                        if (ResetJobProcessQueueID.HasValue && sendQueueItem != null)
+                        {
+                            sendQueueItem.State = QueueState.Ready;
+                            if (sendQueueItem.AttemptCount < 4)
+                            {
+                                sendQueueItem.RetryAfter = DateTime.Now.AddMinutes(10);
+                            }
+                            else if (sendQueueItem.AttemptCount < 12)
+                            {
+                                sendQueueItem.RetryAfter = DateTime.Now.AddHours(1);
+                            }
+                            else if (sendQueueItem.AttemptCount < 25)
+                            {
+                                sendQueueItem.RetryAfter = DateTime.Now.AddHours(6);
+                            }
+                            else
+                            {
+                                sendQueueItem.State = QueueState.SendAdminFailure;
+                                sendQueueItem.RetryAfter = DateTime.Now;
+                            }
+                            SQLiteDB.ProcessQueue_AddUpdate(sendQueueItem);
+                        }
+                        TakeReports(senders[i]);
+                        senders.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (!senders[i].Running)
+                    {
+                        if (!senders[i].GatewayIdInUse.HasValue)
+                        {
+                            int gwUseCount;
+                            if (gatewayUsageTrack.TryGetValue(senders[i].GatewayIdInUse.Value, out gwUseCount))
+                            {
+                                gwUseCount--;
+                                gatewayUsageTrack[senders[i].GatewayIdInUse.Value] = gwUseCount;
+                            }
+                            TakeReports(senders[i]);
+                            senders.RemoveAt(i);
+                            continue;
                         }
                     }
                 }
             }
-            foreach (var rcv in remove)
-            {
-                senders.Remove(rcv);
-                TakeReports(rcv);
-            }
-            remove.Clear();
             return senders.Count == 0;
         }
 
         private void TakeReports(SMTPSender sender)
         {
-            WorkerReport rpt;
-            while (sender.WorkerReports.TryDequeue(out rpt))
+            if (sender != null && sender.WorkerReports != null)
             {
-                WorkerReports.Enqueue(rpt);
+                WorkerReport rpt;
+                while (sender.WorkerReports.TryDequeue(out rpt))
+                {
+                    WorkerReports.Enqueue(rpt);
+                }
             }
         }
 
