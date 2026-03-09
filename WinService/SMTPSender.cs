@@ -1083,7 +1083,7 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = string.Format("{0}{1}{2}", PermanentFailure ? "Permanent Failure: " : "", MsgIdentifier, ex.Message)
+                    LogError = string.Format("Erorr sending message {0} for Message ID {1}. Error: {2}", PermanentFailure ? "(permanent failure) " : "", MsgIdentifier, ex.Message)
                 });
                 try
                 {

@@ -55,11 +55,11 @@ namespace SMTPRelay.WinService
                     {
                         if (ex.InnerException != null)
                         {
-                            Exception = string.Format("{0}\r\nInner Exception:\r\n{1}", ex.Message, ex.InnerException.Message);
+                            Exception = string.Format("Error negotiating client TLS connection. {0}. Inner Exception: {1}", ex.Message, ex.InnerException.Message);
                         }
                         else
                         {
-                            Exception = ex.Message;
+                            Exception = string.Format("Error negotiating client TLS connection. {0}.", ex.Message);
                         }
                         Broken = true;
                         try
@@ -80,11 +80,11 @@ namespace SMTPRelay.WinService
                     {
                         if (ex.InnerException != null)
                         {
-                            Exception = string.Format("{0}\r\nInner Exception:\r\n{1}", ex.Message, ex.InnerException.Message);
+                            Exception = string.Format("Error negotiating server TLS connection. {0}. Inner Exception: {1}", ex.Message, ex.InnerException.Message);
                         }
                         else
                         {
-                            Exception = ex.Message;
+                            Exception = string.Format("Error negotiating server TLS connection. {0}.", ex.Message);
                         }
                         Broken = true;
                         try
