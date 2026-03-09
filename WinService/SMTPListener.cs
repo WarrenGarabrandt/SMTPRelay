@@ -130,7 +130,7 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = ex.Message
+                    LogError = string.Format("SMTPListener crashed. Error: {0}, Inner Exception {1}", ex.Message, ex.InnerException != null ? ex.InnerException.Message : "none")
                 });
                 if (listener != null)
                 {

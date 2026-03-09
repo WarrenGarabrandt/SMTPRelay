@@ -73,6 +73,10 @@ namespace SMTPRelay.WinService
                     {
                         pendingQueue.Clear();
                         pendingQueue = SQLiteDB.ProcessQueue_GetReady();
+                        if (pendingQueue == null)
+                        {
+                            throw new Exception("SMTPSendQueue: SQLiteDB.ProcessQueue_GetReady() returned null.");
+                        }
                         dbquerySW.Restart();
                     }
                     if (purgeSW.ElapsedMilliseconds >= PURGE_CHECK_INTERVAL)
@@ -84,41 +88,73 @@ namespace SMTPRelay.WinService
                     if (pendingQueue.Count() > 0 && Senders.Count < MAX_ACTIVE_SENDERS)
                     {
                         tblProcessQueue sq = pendingQueue.First();
+                        if (sq == null)
+                        {
+                            throw new Exception("SMTPSendQueue: pendingQueue.First() returned null object.");
+                        }
+
                         pendingQueue.RemoveAt(0);
                         // check to see if this item is using a MailGateway that is already at the usage limit. If so, we skip this item this tiem.
                         bool skipThisTime = false;
                         tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sq.EnvelopeID);
+                        if (envelope == null)
+                        {
+                            throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.Envelope_GetByID(sq.EnvelopeID) returned null object. sq.EnvelopeID = {0}", sq.EnvelopeID));
+                        }
                         tblUser user = null;
                         tblDevice device = null;
                         if (envelope.UserID.HasValue)
                         {
                             user = SQLiteDB.User_GetByID(envelope.UserID.Value);
+                            if (user == null)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.User_GetByID(envelope.UserID.Value) returned null object. envelope.UserID.Value = {0}", envelope.UserID.Value));
+                            }
                         }
                         if (envelope.DeviceID.HasValue)
                         {
                             device = SQLiteDB.Device_GetByID(envelope.DeviceID.Value);
+                            if (device == null)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.Device_GetByID(envelope.DeviceID.Value) returned null object. envelope.DeviceID.Value = {0}", envelope.DeviceID.Value));
+                            }
                         }
                         tblMailGateway gateway = null;
+                        string gatewaymessage = string.Empty;
                         if (user != null && user.MailGateway.HasValue)
                         {
                             gateway = SQLiteDB.MailGateway_GetByID(user.MailGateway.Value);
+                            if (gateway == null)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.MailGateway_GetByID(user.MailGateway.Value) returned null object. user.MailGateway.Value = {0}", user.MailGateway.Value));
+                            }
+                            gatewaymessage = string.Format("Gateway retrieved by SQLiteDB.MailGateway_GetByID(user.MailGateway.Value). user.MailGateway.Value = {0}", user.MailGateway.Value);
                         }
                         if (gateway == null && device != null && device.MailGateway.HasValue)
                         {
                             gateway = SQLiteDB.MailGateway_GetByID(device.MailGateway.Value);
+                            if (gateway == null)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.MailGateway_GetByID(device.MailGateway.Value) returned null object. device.MailGateway.Value = {0}", device.MailGateway.Value));
+                            }
+                            gatewaymessage = string.Format("Gateway retrieved by SQLiteDB.MailGateway_GetByID(user.MailGateway.Value). user.MailGateway.Value = {0}", device.MailGateway.Value);
                         }
                         long? GatewayToTrack = null;
 
                         if (gateway != null && gateway.ConnectionLimit.HasValue)
                         {
+                            if (!gateway.MailGatewayID.HasValue)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: gateway.MailGatewayID value is null and shouldn't be. {0}", gatewaymessage));
+                            }
                             GatewayToTrack = gateway.MailGatewayID;
                             int currentConnCnt;
-                            if (GatewayUsageTrack.TryGetValue(gateway.MailGatewayID.Value, out currentConnCnt))
+                            if (GatewayUsageTrack.TryGetValue(GatewayToTrack.Value, out currentConnCnt))
                             {
                                 if (currentConnCnt < gateway.ConnectionLimit)
                                 {
                                     currentConnCnt++;
-                                    GatewayUsageTrack[gateway.MailGatewayID.Value] = currentConnCnt;
+                                    GatewayUsageTrack[GatewayToTrack.Value] = currentConnCnt;
                                 }
                                 else
                                 {
@@ -128,14 +164,22 @@ namespace SMTPRelay.WinService
                             }
                             else
                             {
-                                GatewayUsageTrack.Add(gateway.MailGatewayID.Value, 1);
+                                GatewayUsageTrack.Add(GatewayToTrack.Value, 1);
                             }
                         }
 
                         if (!skipThisTime)
                         {
                             sq.State = QueueState.InProgress;
-                            SQLiteDB.ProcessQueue_AddUpdate(sq);
+                            try
+                            {
+                                SQLiteDB.ProcessQueue_AddUpdate(sq);
+                            }
+                            catch (Exception ex2)
+                            {
+                                throw new Exception(string.Format("SMTPSendQueue: SQLiteDB.ProcessQueue_AddUpdate(sq) threw an exception: {0}. Inner Exception: {1}", 
+                                    ex2.Message, ex2.InnerException != null ? ex2.InnerException.Message : "nothing"));
+                            }
                             SMTPSender snd = new SMTPSender(sq, GatewayToTrack);
                             Senders.Add(snd);
                             if (pendingQueue.Count() > 0)
@@ -144,19 +188,46 @@ namespace SMTPRelay.WinService
                             }
                         }
                     }
+                    // I suspect there is a race condition between starting a new SMTPSender and CleanupSenders() checking for if a sender needs cleaned up. 
+                    // If SMTPSender hasn't yet fully set up before the check by CleanupSenders, there may be a null reference exception.
+                    // this debug code is to help prove that's what is going on causing the random null reference exception.
                     else if (GatewayBackedUp || (pendingQueue.Count() > 0 && Senders.Count >= MAX_ACTIVE_SENDERS && cleanupSW.ElapsedMilliseconds > 100))
                     {
-                        CleanupSenders(Senders, ref GatewayUsageTrack);
+                        try
+                        {
+                            CleanupSenders(Senders, ref GatewayUsageTrack);
+                        }
+                        catch (Exception ex2)
+                        {
+                            throw new Exception(string.Format("SMTPSendQueue: CleanupSenders() threw an exception in condition that Gateway was busy. {0}, inner exception {1}", 
+                                ex2.Message, ex2.InnerException != null ? ex2.InnerException.Message : "nothing"));
+                        }
                         cleanupSW.Restart();
                     }
                     if (Senders.Count > 4 && cleanupSW.ElapsedMilliseconds > 500)
                     {
-                        CleanupSenders(Senders, ref GatewayUsageTrack);
+                        try
+                        {
+                            CleanupSenders(Senders, ref GatewayUsageTrack);
+                        }
+                        catch (Exception ex2)
+                        {
+                            throw new Exception(string.Format("SMTPSendQueue: CleanupSenders() threw an exception in condition that sender count is > 4. {0}, inner exception {1}",
+                                ex2.Message, ex2.InnerException != null ? ex2.InnerException.Message : "nothing"));
+                        }
                         cleanupSW.Restart();
                     }
                     else if (cleanupSW.ElapsedMilliseconds >= 1000)
                     {
-                        CleanupSenders(Senders, ref GatewayUsageTrack);
+                        try
+                        {
+                            CleanupSenders(Senders, ref GatewayUsageTrack);
+                        }
+                        catch (Exception ex2)
+                        {
+                            throw new Exception(string.Format("SMTPSendQueue: CleanupSenders() threw an exception on normal cleanup check tick. {0}, inner exception {1}",
+                                ex2.Message, ex2.InnerException != null ? ex2.InnerException.Message : "nothing"));
+                        }
                         cleanupSW.Restart();
                     }
                     if (!busy)
@@ -317,7 +388,7 @@ namespace SMTPRelay.WinService
                         senders[i].Cancel();
                         Worker.ReportProgress(0, new WorkerReport()
                         {
-                            LogError = string.Format("SMTPSendQueue-SMTPSender has stopped responding and will be recycled. Job ProcessQueueID {0}",
+                            LogError = string.Format("SMTPSendQueue: CleanupSenders(): SMTPSender has stopped responding and will be recycled. Job ProcessQueueID {0}",
                             ResetJobProcessQueueID.HasValue ? ResetJobProcessQueueID.Value.ToString() : "not found")
                         });
                         if (ResetGatewayID.HasValue)
@@ -383,7 +454,10 @@ namespace SMTPRelay.WinService
                 WorkerReport rpt;
                 while (sender.WorkerReports.TryDequeue(out rpt))
                 {
-                    WorkerReports.Enqueue(rpt);
+                    if (rpt != null)
+                    {
+                        WorkerReports.Enqueue(rpt);
+                    }
                 }
             }
         }

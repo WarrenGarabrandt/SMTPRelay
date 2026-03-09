@@ -32,6 +32,10 @@ namespace SMTPRelay.WinService
             GatewayIdInUse = trackGateway;
             WorkerReports = new ConcurrentQueue<WorkerReport>();
             Running = true;
+            // I think the random crash in SMTPSendQueue was being caused by JobProcessQueueID being null until set after a lookup in the Worker_DoWork method.
+            // If JobProcessQueueID is null, then in SMTPSendQueue the method CleanupSenders() will try to pass JobProcessQueueID.Value to SQLiteDB.ProcessQueue_GetByID, which
+            // does not accept nulls.
+            JobProcessQueueID = sendQueueItem.ProcessQueueID;
             Worker = new BackgroundWorker();
             Worker.WorkerSupportsCancellation = true;
             Worker.WorkerReportsProgress = true;
@@ -101,7 +105,6 @@ namespace SMTPRelay.WinService
 
                 // retrieve necessary message info (sender, recipient, gateway, message size)
                 tblEnvelope envelope = SQLiteDB.Envelope_GetByID(sendQueueItem.EnvelopeID);
-                JobProcessQueueID = sendQueueItem.ProcessQueueID;
                 tblEnvelopeRcpt envelopeRcpt = SQLiteDB.EnvelopeRcpt_GetByID(sendQueueItem.EnvelopeRcptID);
                 tblUser user = null;
                 tblDevice device = null;

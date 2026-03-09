@@ -1147,7 +1147,7 @@ namespace SMTPRelay.WinService
                                 {
                                     Worker.ReportProgress(0, new WorkerReport()
                                     {
-                                        LogError = ex.Message
+                                        LogError = string.Format("Error receiving email body. {0}", ex.Message)
                                     });
                                     state = SMTPStates.SendDATAServerError;
                                 }
@@ -1250,7 +1250,7 @@ namespace SMTPRelay.WinService
                                     {
                                         Worker.ReportProgress(0, new WorkerReport()
                                         {
-                                            LogError = ex.Message
+                                            LogError = string.Format("Error saving received email body chunk. {0}", ex.Message)
                                         });
                                         state = SMTPStates.SendDATAServerError;
                                     }
@@ -1314,7 +1314,7 @@ namespace SMTPRelay.WinService
                                 {
                                     Worker.ReportProgress(0, new WorkerReport()
                                     {
-                                        LogError = ex.Message
+                                        LogError = string.Format("Error receiving and saving final body message. {0}", ex.Message)
                                     });
                                     state = SMTPStates.SendDATAServerError;
                                 }
@@ -1362,7 +1362,7 @@ namespace SMTPRelay.WinService
                             {
                                 Worker.ReportProgress(0, new WorkerReport()
                                 {
-                                    LogError = ex.Message
+                                    LogError = string.Format("Error finalizing message MailItem and ProcessQueue. {0}", ex.Message)
                                 });
                                 state = SMTPStates.SendDATAServerError;
                             }
@@ -1422,18 +1422,28 @@ namespace SMTPRelay.WinService
             catch (Exception ex)
             {
                 string errmsg = ex.Message;
-                if (ex.InnerException != null)
+                if (errmsg.Contains("Unable to write data to the transport connection"))
                 {
-                    errmsg = string.Format("{0}\r\nInner Exception: {1}", ex.Message, ex.InnerException.Message);
+                    e.Result = new WorkerReport()
+                    {
+                        LogWarning = string.Format("Unable to receive email message due to a TCP transport exception. {0}", ex.Message)
+                    };
                 }
                 else
                 {
-                    errmsg = ex.Message;
+                    if (ex.InnerException != null)
+                    {
+                        errmsg = string.Format("Failure receiving an email. {0}\r\nInner Exception: {1}", ex.Message, ex.InnerException.Message);
+                    }
+                    else
+                    {
+                        errmsg = string.Format("Failure receiving an email. {0}", ex.Message);
+                    }
+                    e.Result = new WorkerReport()
+                    {
+                        LogError = errmsg
+                    };
                 }
-                e.Result = new WorkerReport()
-                {
-                    LogError = ex.Message
-                };
                 if (debugWriter != null)
                 {
                     try
@@ -1534,7 +1544,7 @@ namespace SMTPRelay.WinService
             {
                 Worker.ReportProgress(0, new WorkerReport()
                 {
-                    LogError = ex.Message
+                    LogError = string.Format("Error cleaning up a failed email message. {0}", ex.Message)
                 });
             }
         }
